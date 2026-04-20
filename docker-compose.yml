@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:18.1-trixie
+    container_name: idol_run_container
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: expenso_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5431:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+volumes:
+  postgres_data:

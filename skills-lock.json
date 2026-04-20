@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "prisma-cli": {
+      "source": "prisma/skills",
+      "sourceType": "github",
+      "computedHash": "b9d9314e3716af725997843c5026ba0e258fb2d27a986190bf2ad53be67b72b9"
+    },
+    "prisma-client-api": {
+      "source": "prisma/skills",
+      "sourceType": "github",
+      "computedHash": "0434410e48fb796bbdc3ad0050654bfc9cf72c89b30dbad098ee5c9f655b7f85"
+    },
+    "shadcn": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "computedHash": "873c67922d80775a9fdf596db7964b579f0408c30ec6e3d11989f6055bbec89f"
+    }
+  }
+}
