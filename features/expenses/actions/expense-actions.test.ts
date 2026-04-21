@@ -32,7 +32,7 @@ describe("expense server actions", () => {
 
   it("deleteExpenseAction forbids USER role", async () => {
     vi.mocked(getSession).mockResolvedValueOnce({
-      user: { id: 99, role: "USER" },
+      user: { id: "00000000-0000-4000-8000-000000000099", role: "USER" },
       session: {},
     } as never);
     const res = await deleteExpenseAction({ id: "abcd1234" });

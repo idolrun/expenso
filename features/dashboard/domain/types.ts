@@ -11,7 +11,7 @@ export type DashboardActivityItemDto =
       expenseTitle: string;
       section: ExpenseSection;
       fieldKey: string;
-      changedById: number;
+      changedById: string;
     }
   | {
       kind: "audit_log";
@@ -20,7 +20,7 @@ export type DashboardActivityItemDto =
       action: string;
       entityType: string;
       entityId: string;
-      actorId: number | null;
+      actorId: string | null;
     };
 
 /** Aggregated counts + spend + recents for dashboard (Phase 6). */

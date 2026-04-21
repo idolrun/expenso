@@ -62,7 +62,7 @@ export function serializeExpenseHistoryRow(row: {
   fieldKey: string;
   oldValue: Prisma.JsonValue | null;
   newValue: Prisma.JsonValue | null;
-  changedById: number;
+  changedById: string;
   createdAt: Date;
 }): ExpenseHistoryEntryDto {
   return {
@@ -82,7 +82,7 @@ export function serializeAuditLogRow(row: {
   action: string;
   entityType: string;
   entityId: string;
-  actorId: number | null;
+  actorId: string | null;
   metadata: Prisma.JsonValue | null;
   createdAt: Date;
 }): AuditLogEntryDto {

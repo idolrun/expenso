@@ -38,7 +38,10 @@ import { GET as getSearch } from "@/src/app/api/search/route";
 import { GET as getAuditLog } from "@/src/app/api/audit-log/route";
 import { GET as getDashboard } from "@/src/app/api/dashboard/route";
 
-function sessionUser(role: "USER" | "ADMIN", id = 1) {
+function sessionUser(
+  role: "USER" | "ADMIN",
+  id = "00000000-0000-4000-8000-000000000001",
+) {
   return {
     user: { id, role },
     session: {},

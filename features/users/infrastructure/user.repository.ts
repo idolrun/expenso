@@ -3,7 +3,7 @@ import type { UserRole } from "@/app/generated/prisma/client";
 import type { DbClient } from "@/features/expenses/infrastructure/db.types";
 
 export const userRepository = {
-  async getRoleById(db: DbClient, userId: number): Promise<UserRole | null> {
+  async getRoleById(db: DbClient, userId: string): Promise<UserRole | null> {
     const row = await db.user.findUnique({
       where: { id: userId },
       select: { role: true },
@@ -18,7 +18,7 @@ export const userRepository = {
     });
   },
 
-  async updateRole(db: DbClient, userId: number, role: UserRole) {
+  async updateRole(db: DbClient, userId: string, role: UserRole) {
     return db.user.update({
       where: { id: userId },
       data: { role },

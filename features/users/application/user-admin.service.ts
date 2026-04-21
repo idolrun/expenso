@@ -18,7 +18,7 @@ export async function adminListUsers(): Promise<ServiceResult<UserSummaryDto[]>>
 
 export async function adminSetUserRole(
   actorRole: UserRole,
-  actorUserId: number,
+  actorUserId: string,
   raw: unknown,
 ): Promise<ServiceResult<UserSummaryDto>> {
   if (actorRole !== UserRole.ADMIN) {

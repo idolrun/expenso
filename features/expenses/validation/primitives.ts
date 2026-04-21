@@ -43,6 +43,9 @@ export const expenseRecordIdSchema = z
   .max(36)
   .regex(/^[a-z0-9_-]+$/i, "Invalid id format");
 
+/** Prisma `User.id` (PostgreSQL UUID, Better Auth session `user.id`). */
+export const userRecordIdSchema = z.string().uuid();
+
 export const dateYmdSchema = z
   .string()
   .trim()

@@ -7,6 +7,7 @@ import {
   expenseSectionValues,
   expenseStatusValues,
   moneyStringSchema,
+  userRecordIdSchema,
 } from "@/features/expenses/validation/primitives";
 
 const recordId = expenseRecordIdSchema;
@@ -90,8 +91,8 @@ export const listExpensesQuerySchema = z
     amountMax: z.string().trim().optional(),
     incurredOnFrom: dateYmdSchema.optional(),
     incurredOnTo: dateYmdSchema.optional(),
-    createdById: z.coerce.number().int().positive().optional(),
-    updatedById: z.coerce.number().int().positive().optional(),
+    createdById: userRecordIdSchema.optional(),
+    updatedById: userRecordIdSchema.optional(),
     search: z.string().trim().max(200).optional(),
     sortField: z.enum(sortFieldValues).default("createdAt"),
     sortDir: z.enum(["asc", "desc"]).default("desc"),

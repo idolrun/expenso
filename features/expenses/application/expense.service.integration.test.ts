@@ -10,7 +10,7 @@ describe.skipIf(!RUN)("expense.service (integration)", () => {
   it("blocks soft delete for USER even when expense is missing", async () => {
     const res = await softDeleteExpenseService(
       { id: "nonexistentid00000000000001" },
-      1,
+      "00000000-0000-4000-8000-000000000001",
       UserRole.USER,
     );
     expect(res.ok).toBe(false);

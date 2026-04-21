@@ -79,7 +79,7 @@ export const expenseRepository = {
     db: DbClient,
     expenseId: string,
     tagIds: string[],
-    assignedById: number,
+    assignedById: string,
   ) {
     await db.expenseTag.deleteMany({
       where: {

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +11,11 @@ import {
 } from "@/components/ui/native-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { expenseSectionValues, expenseStatusValues } from "@/features/expenses/validation/primitives";
+import {
+  expenseSectionValues,
+  expenseStatusValues,
+  userRecordIdSchema,
+} from "@/features/expenses/validation/primitives";
 import type { ListExpensesQuery } from "@/features/expenses/validation/expense";
 import { CaretDownIcon, FunnelSimpleIcon } from "@phosphor-icons/react";
 
@@ -32,6 +38,17 @@ export function ExpenseFilters({
   tags: TagOption[];
   hideSectionFilter?: boolean;
 }) {
+  const [createdByDraft, setCreatedByDraft] = useState("");
+  const [updatedByDraft, setUpdatedByDraft] = useState("");
+
+  /* Sync drafts when the list query is hydrated from the URL (back/forward). */
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setCreatedByDraft(query.createdById ?? "");
+    setUpdatedByDraft(query.updatedById ?? "");
+  }, [query.createdById, query.updatedById]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   const selected = new Set(query.tagIds);
 
   const toggleTag = (id: string) => {
@@ -149,31 +166,49 @@ export function ExpenseFilters({
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-2">
-            <Label htmlFor="cb">Created by (user id)</Label>
+            <Label htmlFor="cb">Created by (user UUID)</Label>
             <Input
               id="cb"
-              inputMode="numeric"
-              placeholder="e.g. 1"
-              value={query.createdById ?? ""}
-              onChange={(e) =>
-                setQuery({
-                  createdById: e.target.value ? Number(e.target.value) : undefined,
-                })
-              }
+              inputMode="text"
+              autoComplete="off"
+              placeholder="Paste user id…"
+              value={createdByDraft}
+              onChange={(e) => setCreatedByDraft(e.target.value)}
+              onBlur={() => {
+                const v = createdByDraft.trim();
+                if (v === "") {
+                  setQuery({ createdById: undefined });
+                  return;
+                }
+                if (userRecordIdSchema.safeParse(v).success) {
+                  setQuery({ createdById: v });
+                } else {
+                  setCreatedByDraft(query.createdById ?? "");
+                }
+              }}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="ub">Updated by (user id)</Label>
+            <Label htmlFor="ub">Updated by (user UUID)</Label>
             <Input
               id="ub"
-              inputMode="numeric"
-              placeholder="e.g. 1"
-              value={query.updatedById ?? ""}
-              onChange={(e) =>
-                setQuery({
-                  updatedById: e.target.value ? Number(e.target.value) : undefined,
-                })
-              }
+              inputMode="text"
+              autoComplete="off"
+              placeholder="Paste user id…"
+              value={updatedByDraft}
+              onChange={(e) => setUpdatedByDraft(e.target.value)}
+              onBlur={() => {
+                const v = updatedByDraft.trim();
+                if (v === "") {
+                  setQuery({ updatedById: undefined });
+                  return;
+                }
+                if (userRecordIdSchema.safeParse(v).success) {
+                  setQuery({ updatedById: v });
+                } else {
+                  setUpdatedByDraft(query.updatedById ?? "");
+                }
+              }}
             />
           </div>
         </div>

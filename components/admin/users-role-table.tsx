@@ -26,12 +26,12 @@ export function UsersRoleTable({
   currentUserId,
 }: {
   users: UserSummaryDto[];
-  currentUserId: number;
+  currentUserId: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
 
-  const onRoleChange = (userId: number, next: RoleValue, previous: RoleValue) => {
+  const onRoleChange = (userId: string, next: RoleValue, previous: RoleValue) => {
     if (next === previous) return;
     start(async () => {
       const res = await updateUserRoleAction({ userId, role: next });

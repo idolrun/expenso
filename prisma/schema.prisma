@@ -65,7 +65,7 @@ enum AuditAction {
 // ---------------------------------------------------------------------------
 
 model User {
-  id            Int       @id @default(autoincrement())
+  id            String    @id @default(uuid()) @db.Uuid
   email         String    @unique
   name          String?
   emailVerified Boolean   @default(false)
@@ -104,7 +104,7 @@ model Session {
   updatedAt DateTime @updatedAt
   ipAddress String?
   userAgent String?
-  userId    Int
+  userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([token])
@@ -116,7 +116,7 @@ model Account {
   id                    String    @id
   accountId             String
   providerId            String
-  userId                Int
+  userId                String    @db.Uuid
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?
   refreshToken          String?
@@ -148,7 +148,7 @@ model Passkey {
   id           String    @id
   name         String?
   publicKey    String
-  userId       Int
+  userId       String    @db.Uuid
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   credentialID String
   counter      Int
@@ -175,10 +175,10 @@ model Category {
   description String?
   sortOrder   Int            @default(0)
   isActive    Boolean        @default(true)
-  createdById Int?
-  createdBy   User?          @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById Int?
-  updatedBy   User?          @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdById String?      @db.Uuid
+  createdBy   User?        @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?      @db.Uuid
+  updatedBy   User?        @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -209,7 +209,7 @@ model ExpenseTag {
   expenseId    String
   tagId        String
   assignedAt   DateTime @default(now())
-  assignedById Int?
+  assignedById String?  @db.Uuid
   assignedBy   User?    @relation("ExpenseTagAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
 
   expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
@@ -237,10 +237,10 @@ model Expense {
   categoryId  String?
   category    Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
-  createdById Int
-  createdBy   User           @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedById Int?
-  updatedBy   User?          @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdById String       @db.Uuid
+  createdBy   User         @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedById String?      @db.Uuid
+  updatedBy   User?        @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   deletedAt DateTime?
 
@@ -277,7 +277,7 @@ model ExpenseHistory {
   fieldKey    String
   oldValue    Json?
   newValue    Json?
-  changedById Int
+  changedById String   @db.Uuid
   changedBy   User     @relation("ExpenseHistoryChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
   createdAt   DateTime @default(now())
 
@@ -296,7 +296,7 @@ model Attachment {
   fileName      String
   contentType   String?
   sizeBytes     Int?
-  uploadedById  Int?
+  uploadedById  String?  @db.Uuid
   uploadedBy    User?    @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
   createdAt     DateTime @default(now())
 
@@ -320,9 +320,9 @@ model InventoryItem {
   expenseId   String?
   expense     Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
 
-  createdById Int?
+  createdById String?  @db.Uuid
   createdBy   User?    @relation("InventoryItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById Int?
+  updatedById String?  @db.Uuid
   updatedBy   User?    @relation("InventoryItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
@@ -346,9 +346,9 @@ model MerchandiseItem {
   expenseId     String?
   expense       Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
 
-  createdById Int?
+  createdById String?  @db.Uuid
   createdBy   User?    @relation("MerchandiseItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById Int?
+  updatedById String?  @db.Uuid
   updatedBy   User?    @relation("MerchandiseItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
@@ -373,9 +373,9 @@ model SalaryRecord {
   currency       String   @default("USD") @db.VarChar(3)
   metadata       Json?
 
-  createdById Int?
+  createdById String?  @db.Uuid
   createdBy   User?    @relation("SalaryRecordCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById Int?
+  updatedById String?  @db.Uuid
   updatedBy   User?    @relation("SalaryRecordUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
@@ -397,9 +397,9 @@ model AuditLog {
   action     AuditAction
   /// Stable logical type of the affected row, e.g. "User", "Expense".
   entityType String
-  /// Primary key as string to unify Int/String IDs across models.
+  /// Primary key as string (UUID/cuid) for polymorphic entity references.
   entityId   String
-  actorId    Int?
+  actorId    String?     @db.Uuid
   actor      User?       @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
   metadata   Json?
   createdAt  DateTime    @default(now())

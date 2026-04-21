@@ -40,7 +40,9 @@ export function ExpenseHistoryTimeline({
                     {new Date(e.createdAt).toLocaleString()}
                   </time>
                 </div>
-                <p className="text-muted-foreground text-xs">User #{e.changedById}</p>
+                <p className="text-muted-foreground text-xs">
+                  User {e.changedById.slice(0, 8)}…
+                </p>
                 <div className="grid gap-2 text-xs sm:grid-cols-2">
                   <div>
                     <p className="text-muted-foreground mb-0.5">Before</p>

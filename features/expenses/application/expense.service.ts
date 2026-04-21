@@ -30,7 +30,7 @@ function snapshotsEqual(a: ExpenseScalarSnapshot, b: ExpenseScalarSnapshot) {
 
 export async function createExpenseService(
   input: CreateExpenseInput,
-  actorUserId: number,
+  actorUserId: string,
 ): Promise<ServiceResult<ExpenseDto>> {
   try {
     await expenseRepository.assertCategoryExists(prisma, input.categoryId ?? null);
@@ -85,7 +85,7 @@ export async function createExpenseService(
 
 export async function updateExpenseService(
   input: UpdateExpenseInput,
-  actorUserId: number,
+  actorUserId: string,
 ): Promise<ServiceResult<ExpenseDto>> {
   try {
     const existing = await expenseRepository.findActiveById(prisma, input.id);
@@ -196,7 +196,7 @@ export async function updateExpenseService(
 
 export async function softDeleteExpenseService(
   input: DeleteExpenseInput,
-  actorUserId: number,
+  actorUserId: string,
   actorRole: UserRole,
 ): Promise<ServiceResult<{ id: string }>> {
   if (actorRole !== UserRole.ADMIN) {

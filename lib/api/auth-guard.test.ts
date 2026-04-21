@@ -23,7 +23,7 @@ describe("requireExpenseReader", () => {
 
   it("allows USER with read permission", async () => {
     vi.mocked(getSession).mockResolvedValueOnce({
-      user: { id: 1, role: "USER" },
+      user: { id: "00000000-0000-4000-8000-000000000001", role: "USER" },
       session: {},
     } as never);
     const res = await requireExpenseReader();
@@ -34,7 +34,7 @@ describe("requireExpenseReader", () => {
 describe("requireAuditReader", () => {
   it("returns 403 for non-admin", async () => {
     vi.mocked(getSession).mockResolvedValueOnce({
-      user: { id: 1, role: "USER" },
+      user: { id: "00000000-0000-4000-8000-000000000001", role: "USER" },
       session: {},
     } as never);
     const res = await requireAuditReader();
@@ -46,7 +46,7 @@ describe("requireAuditReader", () => {
 
   it("allows ADMIN", async () => {
     vi.mocked(getSession).mockResolvedValueOnce({
-      user: { id: 1, role: "ADMIN" },
+      user: { id: "00000000-0000-4000-8000-000000000001", role: "ADMIN" },
       session: {},
     } as never);
     const res = await requireAuditReader();

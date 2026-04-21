@@ -5,16 +5,20 @@ import { updateUserRoleSchema } from "@/features/users/validation/role";
 
 describe("updateUserRoleSchema", () => {
   it("parses admin promotion", () => {
-    const r = updateUserRoleSchema.safeParse({ userId: "5", role: UserRole.ADMIN });
+    const id = "550e8400-e29b-41d4-a716-446655440000";
+    const r = updateUserRoleSchema.safeParse({ userId: id, role: UserRole.ADMIN });
     expect(r.success).toBe(true);
     if (r.success) {
-      expect(r.data.userId).toBe(5);
+      expect(r.data.userId).toBe(id);
       expect(r.data.role).toBe(UserRole.ADMIN);
     }
   });
 
   it("rejects invalid role string", () => {
-    const r = updateUserRoleSchema.safeParse({ userId: 1, role: "SUPERUSER" });
+    const r = updateUserRoleSchema.safeParse({
+      userId: "00000000-0000-4000-8000-000000000001",
+      role: "SUPERUSER",
+    });
     expect(r.success).toBe(false);
   });
 });

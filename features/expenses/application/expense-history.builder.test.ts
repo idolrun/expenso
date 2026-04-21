@@ -48,7 +48,7 @@ describe("buildExpenseHistoryRows", () => {
     const rows = buildExpenseHistoryRows({
       expenseId: "exp1",
       batchId: "batch1",
-      changedById: 1,
+      changedById: "00000000-0000-4000-8000-000000000001",
       before,
       after,
     });
@@ -70,7 +70,7 @@ describe("buildExpenseHistoryRows", () => {
     const rows = buildExpenseHistoryRows({
       expenseId: "exp1",
       batchId: "batch1",
-      changedById: 2,
+      changedById: "00000000-0000-4000-8000-000000000002",
       before,
       after,
     });

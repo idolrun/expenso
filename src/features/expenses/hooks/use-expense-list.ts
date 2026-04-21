@@ -57,7 +57,10 @@ export function useExpenseList(options?: UseExpenseListOptions) {
   }, [searchParams, syncUrl, options?.initialQuery]);
 
   const setQuery = useCallback((patch: Partial<ListExpensesQuery>) => {
-    setQueryState((prev) => listExpensesQuerySchema.parse({ ...prev, ...patch }));
+    setQueryState((prev) => {
+      const parsed = listExpensesQuerySchema.safeParse({ ...prev, ...patch });
+      return parsed.success ? parsed.data : prev;
+    });
   }, []);
 
   const debouncedSearch = useDebouncedValue(query.search ?? "", debounceMs);

@@ -1,7 +1,7 @@
 import type { UserRole } from "@/app/generated/prisma/client";
 
 export type UserSummaryDto = {
-  id: number;
+  id: string;
   email: string;
   name: string | null;
   role: UserRole;

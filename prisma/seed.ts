@@ -126,7 +126,7 @@ async function main() {
     title: string;
     amount: string;
     status: ExpenseStatus;
-    createdById: number;
+    createdById: string;
     tagSlugs: string[];
     extraNotes?: string;
   }[] = [

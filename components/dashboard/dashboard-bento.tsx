@@ -282,7 +282,7 @@ export function DashboardBento({
                             {item.expenseTitle}
                           </Link>
                           <p className="text-muted-foreground text-xs">
-                            {item.fieldKey} · user #{item.changedById}
+                            {item.fieldKey} · user {item.changedById.slice(0, 8)}…
                           </p>
                         </div>
                       ) : (
@@ -305,7 +305,9 @@ export function DashboardBento({
                             <span className="text-muted-foreground font-normal">#{item.entityId}</span>
                           </p>
                           {item.actorId != null ? (
-                            <p className="text-muted-foreground text-xs">Actor user #{item.actorId}</p>
+                            <p className="text-muted-foreground text-xs">
+                              Actor {item.actorId.slice(0, 8)}…
+                            </p>
                           ) : null}
                         </div>
                       )}

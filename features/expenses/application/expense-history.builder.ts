@@ -48,7 +48,7 @@ export function expenseRowToSnapshot(row: {
 export function buildExpenseHistoryRows(args: {
   expenseId: string;
   batchId: string;
-  changedById: number;
+  changedById: string;
   before: ExpenseScalarSnapshot;
   after: ExpenseScalarSnapshot;
 }): Prisma.ExpenseHistoryCreateManyInput[] {

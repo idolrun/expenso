@@ -29,8 +29,8 @@ export type ExpenseDto = {
   categoryId: string | null;
   category: ExpenseCategoryDto;
   tags: ExpenseTagDto[];
-  createdById: number;
-  updatedById: number | null;
+  createdById: string;
+  updatedById: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -43,7 +43,7 @@ export type ExpenseHistoryEntryDto = {
   fieldKey: string;
   oldValue: unknown;
   newValue: unknown;
-  changedById: number;
+  changedById: string;
   createdAt: string;
 };
 
@@ -58,7 +58,7 @@ export type AuditLogEntryDto = {
   action: string;
   entityType: string;
   entityId: string;
-  actorId: number | null;
+  actorId: string | null;
   metadata: unknown;
   createdAt: string;
 };

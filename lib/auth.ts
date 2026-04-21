@@ -40,16 +40,6 @@ export const auth = betterAuth({
       },
     },
   },
-  advanced: {
-    database: {
-      generateId: (options) => {
-        if (options.model === "user" || options.model === "users") {
-          return false;
-        }
-        return crypto.randomUUID();
-      },
-    },
-  },
   plugins: [
     nextCookies(),
     passkey({
