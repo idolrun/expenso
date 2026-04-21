@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { ExpenseFilters } from "@/components/expenses/expense-filters";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -50,6 +51,8 @@ export function ExpenseListClient({
   title: string;
   description?: string;
 }) {
+  const router = useRouter();
+
   const mergedInitialQuery = useMemo<Partial<ListExpensesQuery>>(
     () => ({
       ...initialQuery,
@@ -174,25 +177,42 @@ export function ExpenseListClient({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.items.map((e) => (
-                    <TableRow key={e.id} className="hover:bg-muted/40">
-                      <TableCell className="max-w-[220px] truncate font-medium">
-                        {e.title}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {sectionLabel(e.section)}
-                      </TableCell>
-                      <TableCell className="text-sm">{e.status}</TableCell>
-                      <TableCell className="font-numeric text-right text-sm">
-                        {formatMoneyAmount(e.amount, e.currency)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button asChild variant="ghost" size="sm">
-                          <Link href={`/dashboard/expenses/${e.id}`}>View</Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {data.items.map((e) => {
+                    const href = `/dashboard/expenses/${e.id}`;
+                    return (
+                      <TableRow
+                        key={e.id}
+                        tabIndex={0}
+                        aria-label={`Open expense: ${e.title}`}
+                        className="cursor-pointer hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        onClick={(ev) => {
+                          if ((ev.target as HTMLElement).closest("a, button")) return;
+                          router.push(href);
+                        }}
+                        onKeyDown={(ev) => {
+                          if (ev.key !== "Enter" && ev.key !== " ") return;
+                          ev.preventDefault();
+                          router.push(href);
+                        }}
+                      >
+                        <TableCell className="max-w-[220px] truncate font-medium">
+                          {e.title}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {sectionLabel(e.section)}
+                        </TableCell>
+                        <TableCell className="text-sm">{e.status}</TableCell>
+                        <TableCell className="font-numeric text-right text-sm">
+                          {formatMoneyAmount(e.amount, e.currency)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button asChild variant="ghost" size="sm">
+                            <Link href={href}>View</Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

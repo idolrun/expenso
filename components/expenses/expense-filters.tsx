@@ -14,6 +14,7 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   expenseSectionValues,
   expenseStatusValues,
@@ -137,17 +138,24 @@ export function ExpenseFilters({
                 </NativeSelectOption>
               ))}
             </NativeSelect>
-            <NativeSelect
-              aria-label="Sort direction"
-              className="w-[5.5rem] shrink-0"
+            <ToggleGroup
+              type="single"
               value={query.sortDir}
-              onChange={(e) =>
-                setQuery({ sortDir: e.target.value as ListExpensesQuery["sortDir"] })
-              }
+              onValueChange={(v) => {
+                if (v) setQuery({ sortDir: v as ListExpensesQuery["sortDir"] });
+              }}
+              variant="outline"
+              spacing={0}
+              className="shrink-0"
+              aria-label="Sort direction"
             >
-              <NativeSelectOption value="desc">Desc</NativeSelectOption>
-              <NativeSelectOption value="asc">Asc</NativeSelectOption>
-            </NativeSelect>
+              <ToggleGroupItem value="desc" aria-label="Descending">
+                Desc
+              </ToggleGroupItem>
+              <ToggleGroupItem value="asc" aria-label="Ascending">
+                Asc
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
           <CollapsibleTrigger asChild>
             <Button

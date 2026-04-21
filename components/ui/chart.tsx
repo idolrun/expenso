@@ -301,30 +301,58 @@ function ChartLegendContent({
         .map((item, index) => {
           const key = `${nameKey ?? item.dataKey ?? "value"}`
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
+          const swatchColor = legendSwatchColor(item, itemConfig)
 
           return (
             <div
               key={index}
               className={cn(
-                "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground"
+                "flex items-center gap-2 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground"
               )}
             >
               {itemConfig?.icon && !hideIcon ? (
                 <itemConfig.icon />
               ) : (
-                <div
-                  className="h-2 w-2 shrink-0 rounded-[2px]"
-                  style={{
-                    backgroundColor: item.color,
-                  }}
+                <span
+                  className="size-2.5 shrink-0 rounded-full border border-border/40 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+                  style={
+                    swatchColor
+                      ? { backgroundColor: swatchColor }
+                      : { backgroundColor: "hsl(var(--muted))" }
+                  }
+                  aria-hidden
                 />
               )}
-              {itemConfig?.label}
+              <span className="text-foreground leading-none">
+                {itemConfig?.label ?? item.value}
+              </span>
             </div>
           )
         })}
     </div>
   )
+}
+
+function legendSwatchColor(
+  item: { color?: string; payload?: unknown },
+  itemConfig: ReturnType<typeof getPayloadConfigFromPayload>,
+): string | undefined {
+  if (item.color) {
+    return item.color
+  }
+  if (
+    item.payload &&
+    typeof item.payload === "object" &&
+    item.payload !== null &&
+    "fill" in item.payload &&
+    typeof (item.payload as { fill?: unknown }).fill === "string"
+  ) {
+    return (item.payload as { fill: string }).fill
+  }
+  if (itemConfig && "color" in itemConfig && typeof itemConfig.color === "string") {
+    return itemConfig.color
+  }
+  return undefined
 }
 
 function getPayloadConfigFromPayload(

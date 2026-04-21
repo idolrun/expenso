@@ -14,7 +14,6 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { useGlobalSearch } from "@/src/features/search/hooks/use-global-search";
-import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 
 export function GlobalSearchCommand() {
   const router = useRouter();
@@ -41,11 +40,10 @@ export function GlobalSearchCommand() {
         type="button"
         variant="outline"
         size="sm"
-        className="h-9 gap-2 px-2 sm:px-3"
+        className="h-9 justify-between gap-2 px-2 max-sm:justify-center sm:w-62 sm:px-3"
         onClick={() => setOpen(true)}
       >
-        <MagnifyingGlassIcon className="size-4 opacity-80" />
-        <span className="hidden text-muted-foreground text-xs sm:inline">Search</span>
+        <span className="text-muted-foreground text-xs">Search</span>
         <kbd className="bg-muted text-muted-foreground pointer-events-none hidden rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium sm:inline">
           ⌘K
         </kbd>

@@ -22,8 +22,6 @@ import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/clien
 
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -75,7 +73,7 @@ export function SectionBreakdownBarChart({
   return (
     <figure className="w-full" aria-labelledby={captionId}>
       <p id={captionId} className="sr-only">
-        Horizontal bar chart of USD spend by section. Data is repeated in the table below for screen readers.
+        Column chart of USD spend by section. Data is repeated in the table below for screen readers.
       </p>
       <table className="sr-only">
         <caption>USD spend by section</caption>
@@ -95,17 +93,22 @@ export function SectionBreakdownBarChart({
         </tbody>
       </table>
       <ChartContainer config={chartConfig} className="aspect-auto h-[min(22rem,calc(100vw-3rem))] w-full md:h-72">
-        <BarChart
-          data={rows}
-          layout="vertical"
-          margin={{ left: 4, right: 12, top: 8, bottom: 8 }}
-        >
-          <CartesianGrid horizontal={false} strokeDasharray="3 3" className="stroke-border/60" />
+        <BarChart data={rows} margin={{ left: 4, right: 8, top: 8, bottom: 4 }}>
+          <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/60" />
           <XAxis
+            type="category"
+            dataKey="name"
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 12 }}
+            interval={0}
+          />
+          <YAxis
             type="number"
             dataKey="amount"
             tickLine={false}
             axisLine={false}
+            width={56}
             tickFormatter={(v) =>
               typeof v === "number"
                 ? new Intl.NumberFormat(undefined, {
@@ -117,14 +120,6 @@ export function SectionBreakdownBarChart({
                 : String(v)
             }
           />
-          <YAxis
-            type="category"
-            dataKey="name"
-            width={100}
-            tickLine={false}
-            axisLine={false}
-            tick={{ fontSize: 12 }}
-          />
           <ChartTooltip
             cursor={{ fill: "hsl(var(--muted) / 0.35)" }}
             content={
@@ -134,7 +129,7 @@ export function SectionBreakdownBarChart({
               />
             }
           />
-          <Bar dataKey="amount" radius={[0, 6, 6, 0]} maxBarSize={28}>
+          <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={48}>
             {rows.map((row) => (
               <Cell key={row.sectionKey} fill={sectionChartColor(row.sectionKey as ExpenseSection)} />
             ))}
@@ -233,10 +228,28 @@ export function StatusMixDonutChart({
           <span className="font-numeric text-2xl font-semibold tabular-nums">{totalActiveCount}</span>
         </div>
       </div>
-      <ChartLegend
-        content={<ChartLegendContent className="flex-wrap gap-x-3 gap-y-1" nameKey="status" />}
-        className="w-full justify-center"
-      />
+      <ul
+        className="flex w-full flex-wrap items-center justify-center gap-2"
+        aria-hidden
+      >
+        {data.map((row) => (
+          <li key={row.status}>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/30 px-2.5 py-1 text-xs font-medium text-foreground",
+                "dark:bg-muted/20",
+              )}
+            >
+              <span
+                className="size-2.5 shrink-0 rounded-full border border-border/40 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+                style={{ backgroundColor: row.fill }}
+              />
+              <span>{row.name}</span>
+              <span className="text-muted-foreground font-normal tabular-nums">{row.value}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </figure>
   );
 }
