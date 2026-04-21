@@ -188,6 +188,8 @@ describe("GET /api/dashboard", () => {
         totalCount: 0,
         totalSpendUsd: "0",
         monthSpendUsd: "0",
+        monthlySpendUsdLast6: [],
+        previousMonthSpendUsd: "0",
         byStatus: {},
         bySection: {},
         spendBySectionUsd: {},

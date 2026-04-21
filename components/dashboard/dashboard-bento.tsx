@@ -11,13 +11,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatMoneyAmount } from "@/src/lib/format-money";
-import { sectionLabel, type ExpenseSectionId } from "@/src/lib/expense-sections";
+import { sectionLabel } from "@/src/lib/expense-sections";
 import { cn } from "@/lib/utils";
 
-function pct(part: number, whole: number): number {
-  if (!whole) return 0;
-  return Math.round((part / whole) * 100);
-}
+import {
+  MonthOverMonthIndicator,
+  SectionBreakdownBarChart,
+  StatusMixDonutChart,
+  TotalSpendSparkline,
+} from "@/components/dashboard/dashboard-charts";
 
 export function DashboardBento({
   data,
@@ -26,14 +28,6 @@ export function DashboardBento({
   data: DashboardSummaryDto;
   isAdmin: boolean;
 }) {
-  const sectionEntries = Object.entries(data.spendBySectionUsd).filter(
-    ([, v]) => Number(v) > 0,
-  );
-  const maxSection = Math.max(
-    1,
-    ...sectionEntries.map(([, v]) => Number(v)),
-  );
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -72,6 +66,7 @@ export function DashboardBento({
             <p className="text-muted-foreground mt-1 text-xs">
               {data.totalCount} active expense{data.totalCount === 1 ? "" : "s"}
             </p>
+            <TotalSpendSparkline months={data.monthlySpendUsdLast6} />
           </CardContent>
         </Card>
 
@@ -84,6 +79,10 @@ export function DashboardBento({
             <p className="font-numeric text-3xl font-semibold tracking-tight">
               {formatMoneyAmount(data.monthSpendUsd, "USD")}
             </p>
+            <MonthOverMonthIndicator
+              monthSpendUsd={data.monthSpendUsd}
+              previousMonthSpendUsd={data.previousMonthSpendUsd}
+            />
           </CardContent>
         </Card>
 
@@ -127,33 +126,8 @@ export function DashboardBento({
             <CardTitle className="text-base">Section breakdown</CardTitle>
             <CardDescription>Share of USD spend by area.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {sectionEntries.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No USD spend yet.</p>
-            ) : (
-              sectionEntries.map(([section, amount]) => {
-                const n = Number(amount);
-                const w = pct(n, maxSection);
-                return (
-                  <div key={section} className="space-y-1">
-                    <div className="flex items-center justify-between gap-2 text-xs">
-                      <span className="truncate font-medium">
-                        {sectionLabel(section as ExpenseSectionId)}
-                      </span>
-                      <span className="font-numeric text-muted-foreground shrink-0">
-                        {formatMoneyAmount(amount, "USD")}
-                      </span>
-                    </div>
-                    <div className="bg-muted h-1.5 overflow-hidden rounded-full">
-                      <div
-                        className="bg-primary/80 h-full rounded-full transition-[width] duration-300 ease-out"
-                        style={{ width: `${w}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })
-            )}
+          <CardContent>
+            <SectionBreakdownBarChart spendBySectionUsd={data.spendBySectionUsd} />
           </CardContent>
         </Card>
 
@@ -162,19 +136,8 @@ export function DashboardBento({
             <CardTitle className="text-base">Status mix</CardTitle>
             <CardDescription>Active expenses by workflow state.</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {Object.keys(data.byStatus).length === 0 ? (
-              <p className="text-muted-foreground text-sm">No data.</p>
-            ) : (
-              Object.entries(data.byStatus).map(([status, count]) => (
-                <span
-                  key={status}
-                  className={cn(badgeVariants({ variant: "secondary" }), "font-mono text-xs")}
-                >
-                  {status}: {count}
-                </span>
-              ))
-            )}
+          <CardContent>
+            <StatusMixDonutChart byStatus={data.byStatus} totalActiveCount={data.totalCount} />
           </CardContent>
         </Card>
 

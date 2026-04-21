@@ -1,4 +1,4 @@
-import { endOfMonth, startOfMonth } from "date-fns";
+import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 
 import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
 
@@ -18,6 +18,19 @@ export async function getDashboardSummary(): Promise<
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
 
+    const monthRangeSpecs = Array.from({ length: 6 }, (_, j) => {
+      const i = 5 - j;
+      const d = subMonths(now, i);
+      const start = startOfMonth(d);
+      const end = endOfMonth(d);
+      return {
+        monthKey: format(start, "yyyy-MM"),
+        label: format(start, "MMM yyyy"),
+        start,
+        end,
+      };
+    });
+
     const [
       totalCount,
       totalSpendAgg,
@@ -29,6 +42,7 @@ export async function getDashboardSummary(): Promise<
       historyRows,
       historyFeed,
       auditFeed,
+      ...monthAggs
     ] = await Promise.all([
       prisma.expense.count({ where: { deletedAt: null } }),
       prisma.expense.aggregate({
@@ -81,7 +95,23 @@ export async function getDashboardSummary(): Promise<
         orderBy: { createdAt: "desc" },
         take: 12,
       }),
+      ...monthRangeSpecs.map(({ start, end }) =>
+        prisma.expense.aggregate({
+          where: {
+            ...activeUsdWhere,
+            incurredOn: { gte: start, lte: end },
+          },
+          _sum: { amount: true },
+        }),
+      ),
     ]);
+
+    const monthlySpendUsdLast6 = monthRangeSpecs.map((spec, idx) => ({
+      monthKey: spec.monthKey,
+      label: spec.label,
+      amount: monthAggs[idx]._sum.amount?.toString() ?? "0",
+    }));
+    const previousMonthSpendUsd = monthlySpendUsdLast6[4]?.amount ?? "0";
 
     const byStatus: Partial<Record<ExpenseStatus, number>> = {};
     for (const row of statusGroups) {
@@ -146,6 +176,8 @@ export async function getDashboardSummary(): Promise<
         totalCount,
         totalSpendUsd: totalSpendAgg._sum.amount?.toString() ?? "0",
         monthSpendUsd: monthSpendAgg._sum.amount?.toString() ?? "0",
+        monthlySpendUsdLast6,
+        previousMonthSpendUsd,
         byStatus,
         bySection,
         spendBySectionUsd,

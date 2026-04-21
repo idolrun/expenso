@@ -23,6 +23,13 @@ export type DashboardActivityItemDto =
       actorId: string | null;
     };
 
+/** One calendar month of USD spend (active expenses, `incurredOn` in range). */
+export type DashboardMonthSpendUsd = {
+  monthKey: string;
+  label: string;
+  amount: string;
+};
+
 /** Aggregated counts + spend + recents for dashboard (Phase 6). */
 export type DashboardSummaryDto = {
   totalCount: number;
@@ -30,6 +37,10 @@ export type DashboardSummaryDto = {
   totalSpendUsd: string;
   /** Sum of `amount` for USD rows with `incurredOn` in the current calendar month. */
   monthSpendUsd: string;
+  /** Oldest → newest: six UTC calendar months ending with the current month. */
+  monthlySpendUsdLast6: DashboardMonthSpendUsd[];
+  /** Prior UTC calendar month USD spend (for month-over-month on “This month”). */
+  previousMonthSpendUsd: string;
   byStatus: Partial<Record<ExpenseStatus, number>>;
   bySection: Partial<Record<ExpenseSection, number>>;
   /** Decimal string totals per section (USD only). */
