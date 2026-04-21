@@ -1,12 +1,68 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../app/generated/prisma"
+  output   = "../src/app/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
 }
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum ExpenseSection {
+  OVERVIEW
+  TECH
+  MARKETING
+  SOCIAL_MEDIA
+  PETTY_CASH
+  SALARY
+  TRAVEL
+  INVENTORY
+  MERCHANDISE
+}
+
+enum ExpenseStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+  CANCELLED
+}
+
+enum AuditAction {
+  USER_ROLE_CHANGED
+  EXPENSE_CREATED
+  EXPENSE_UPDATED
+  EXPENSE_SOFT_DELETED
+  EXPENSE_RESTORED
+  ATTACHMENT_ADDED
+  ATTACHMENT_REMOVED
+  TAG_ASSIGNED
+  TAG_REMOVED
+  CATEGORY_CREATED
+  CATEGORY_UPDATED
+  CATEGORY_DELETED
+  INVENTORY_ITEM_CREATED
+  INVENTORY_ITEM_UPDATED
+  MERCHANDISE_ITEM_CREATED
+  MERCHANDISE_ITEM_UPDATED
+  SALARY_RECORD_CREATED
+  SALARY_RECORD_UPDATED
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// Better Auth (existing) — extended with application role + domain relations
+// ---------------------------------------------------------------------------
 
 model User {
   id            Int       @id @default(autoincrement())
@@ -14,12 +70,29 @@ model User {
   name          String?
   emailVerified Boolean   @default(false)
   image         String?
+  role          UserRole  @default(USER)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
   passkeys      Passkey[]
 
+  expensesCreated          Expense[]          @relation("ExpenseCreatedBy")
+  expensesUpdated          Expense[]          @relation("ExpenseUpdatedBy")
+  expenseHistoryChanges    ExpenseHistory[]   @relation("ExpenseHistoryChangedBy")
+  expenseTagsAssigned      ExpenseTag[]       @relation("ExpenseTagAssignedBy")
+  attachmentsUploaded      Attachment[]       @relation("AttachmentUploadedBy")
+  auditLogs                AuditLog[]         @relation("AuditLogActor")
+  inventoryItemsCreated    InventoryItem[]    @relation("InventoryItemCreatedBy")
+  inventoryItemsUpdated    InventoryItem[]    @relation("InventoryItemUpdatedBy")
+  merchandiseItemsCreated MerchandiseItem[] @relation("MerchandiseItemCreatedBy")
+  merchandiseItemsUpdated MerchandiseItem[] @relation("MerchandiseItemUpdatedBy")
+  salaryRecordsCreated     SalaryRecord[]     @relation("SalaryRecordCreatedBy")
+  salaryRecordsUpdated     SalaryRecord[]     @relation("SalaryRecordUpdatedBy")
+  categoriesCreated        Category[]         @relation("CategoryCreatedBy")
+  categoriesUpdated        Category[]         @relation("CategoryUpdatedBy")
+
+  @@index([role])
   @@map("user")
 }
 
@@ -88,4 +161,252 @@ model Passkey {
   @@index([userId])
   @@index([credentialID])
   @@map("passkey")
+}
+
+// ---------------------------------------------------------------------------
+// Domain: taxonomy
+// ---------------------------------------------------------------------------
+
+model Category {
+  id          String         @id @default(cuid())
+  section     ExpenseSection
+  name        String
+  slug        String
+  description String?
+  sortOrder   Int            @default(0)
+  isActive    Boolean        @default(true)
+  createdById Int?
+  createdBy   User?          @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById Int?
+  updatedBy   User?          @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  expenses Expense[]
+
+  @@unique([section, slug])
+  @@index([section, isActive])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("category")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expenseTags ExpenseTag[]
+
+  @@index([name])
+  @@map("tag")
+}
+
+model ExpenseTag {
+  expenseId    String
+  tagId        String
+  assignedAt   DateTime @default(now())
+  assignedById Int?
+  assignedBy   User?    @relation("ExpenseTagAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([expenseId, tagId])
+  @@index([tagId])
+  @@index([assignedById])
+  @@map("expense_tag")
+}
+
+// ---------------------------------------------------------------------------
+// Domain: expense core
+// ---------------------------------------------------------------------------
+
+model Expense {
+  id          String         @id @default(cuid())
+  section     ExpenseSection
+  status      ExpenseStatus  @default(DRAFT)
+  title       String
+  notes       String?
+  amount      Decimal        @db.Decimal(19, 4)
+  currency    String         @default("USD") @db.VarChar(3)
+  incurredOn  DateTime       @db.Date
+  categoryId  String?
+  category    Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  createdById Int
+  createdBy   User           @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedById Int?
+  updatedBy   User?          @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  history     ExpenseHistory[]
+  expenseTags ExpenseTag[]
+  attachments Attachment[]
+
+  inventoryItems    InventoryItem[]
+  merchandiseItems  MerchandiseItem[]
+  salaryRecord      SalaryRecord?
+
+  @@index([section, deletedAt])
+  @@index([status, deletedAt])
+  @@index([categoryId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([createdAt])
+  @@index([incurredOn])
+  @@index([amount])
+  @@index([title])
+  @@index([deletedAt])
+  @@map("expense")
+}
+
+/// Field-level change log for expenses (before / after per field).
+model ExpenseHistory {
+  id          String   @id @default(cuid())
+  expenseId   String
+  expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  batchId     String?
+  fieldKey    String
+  oldValue    Json?
+  newValue    Json?
+  changedById Int
+  changedBy   User     @relation("ExpenseHistoryChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+
+  @@index([expenseId, createdAt])
+  @@index([changedById])
+  @@index([batchId])
+  @@index([fieldKey])
+  @@map("expense_history")
+}
+
+model Attachment {
+  id            String   @id @default(cuid())
+  expenseId     String
+  expense       Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  storageKey    String
+  fileName      String
+  contentType   String?
+  sizeBytes     Int?
+  uploadedById  Int?
+  uploadedBy    User?    @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+
+  @@index([expenseId])
+  @@index([uploadedById])
+  @@map("attachment")
+}
+
+// ---------------------------------------------------------------------------
+// Domain: satellite ledgers (normalized; optional link to originating expense)
+// ---------------------------------------------------------------------------
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  name        String
+  description String?
+  quantity    Int      @default(0)
+  unit        String?
+  unitCost    Decimal? @db.Decimal(19, 4)
+  expenseId   String?
+  expense     Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  createdById Int?
+  createdBy   User?    @relation("InventoryItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById Int?
+  updatedBy   User?    @relation("InventoryItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expenseId])
+  @@index([name])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("inventory_item")
+}
+
+model MerchandiseItem {
+  id            String   @id @default(cuid())
+  sku           String   @unique
+  name          String
+  description   String?
+  costPrice     Decimal? @db.Decimal(19, 4)
+  retailPrice   Decimal? @db.Decimal(19, 4)
+  stockQuantity Int      @default(0)
+  expenseId     String?
+  expense       Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  createdById Int?
+  createdBy   User?    @relation("MerchandiseItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById Int?
+  updatedBy   User?    @relation("MerchandiseItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expenseId])
+  @@index([name])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("merchandise_item")
+}
+
+model SalaryRecord {
+  id             String   @id @default(cuid())
+  expenseId      String?  @unique
+  expense        Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  employeeName   String
+  payPeriodStart DateTime @db.Date
+  payPeriodEnd   DateTime @db.Date
+  grossAmount    Decimal  @db.Decimal(19, 4)
+  netAmount      Decimal  @db.Decimal(19, 4)
+  currency       String   @default("USD") @db.VarChar(3)
+  metadata       Json?
+
+  createdById Int?
+  createdBy   User?    @relation("SalaryRecordCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById Int?
+  updatedBy   User?    @relation("SalaryRecordUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([payPeriodStart, payPeriodEnd])
+  @@index([employeeName])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("salary_record")
+}
+
+// ---------------------------------------------------------------------------
+// Cross-cutting audit (roles, deletes, and other non-field-level events)
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  action     AuditAction
+  /// Stable logical type of the affected row, e.g. "User", "Expense".
+  entityType String
+  /// Primary key as string to unify Int/String IDs across models.
+  entityId   String
+  actorId    Int?
+  actor      User?       @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+  metadata   Json?
+  createdAt  DateTime    @default(now())
+
+  @@index([action, createdAt])
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_log")
 }

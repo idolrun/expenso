@@ -1,0 +1,55 @@
+import { z } from "zod";
+
+import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
+
+export const expenseSectionValues = [
+  "OVERVIEW",
+  "TECH",
+  "MARKETING",
+  "SOCIAL_MEDIA",
+  "PETTY_CASH",
+  "SALARY",
+  "TRAVEL",
+  "INVENTORY",
+  "MERCHANDISE",
+] as const satisfies readonly ExpenseSection[];
+
+export const expenseStatusValues = [
+  "DRAFT",
+  "SUBMITTED",
+  "APPROVED",
+  "REJECTED",
+  "PAID",
+  "CANCELLED",
+] as const satisfies readonly ExpenseStatus[];
+
+export const expenseSectionSchema = z.enum(expenseSectionValues);
+export const expenseStatusSchema = z.enum(expenseStatusValues);
+
+export const moneyStringSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^\d+(\.\d{1,4})?$/,
+    "Amount must be a positive decimal with up to 4 fractional digits",
+  )
+  .refine((v) => Number(v) > 0, "Amount must be greater than zero");
+
+/** Prisma expense / category ids (cuid). */
+export const expenseRecordIdSchema = z
+  .string()
+  .trim()
+  .min(8)
+  .max(36)
+  .regex(/^[a-z0-9_-]+$/i, "Invalid id format");
+
+export const dateYmdSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD for dates");
+
+export const currencyCodeSchema = z
+  .string()
+  .trim()
+  .length(3)
+  .transform((c) => c.toUpperCase());

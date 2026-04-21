@@ -1,15 +1,45 @@
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@/app/generated/prisma/client";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { magicLink } from "better-auth/plugins";
+import { nextCookies } from "better-auth/next-js";
+import { passkey } from "@better-auth/passkey";
 
-import { passkey } from "@better-auth/passkey"
-import { magicLink } from "better-auth/plugins";  
+import { prisma } from "@/lib/prisma";
+import { getPublicAppUrl } from "@/lib/env/public-url";
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-});
+const secret = process.env.BETTER_AUTH_SECRET;
+if (!secret || secret.length < 32) {
+  throw new Error(
+    "BETTER_AUTH_SECRET must be set and at least 32 characters (generate a random string for production).",
+  );
+}
+
+const baseURL =
+  process.env.BETTER_AUTH_URL?.replace(/\/$/, "") ?? getPublicAppUrl();
+
+const trustedOrigins = (
+  process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",")
+    .map((o) => o.trim())
+    .filter(Boolean) ?? [getPublicAppUrl()]
+);
+
 export const auth = betterAuth({
+  secret,
+  baseURL,
+  trustedOrigins,
+  database: prismaAdapter(prisma, {
+    provider: "postgresql",
+  }),
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        required: false,
+        defaultValue: "USER",
+        input: false,
+      },
+    },
+  },
   advanced: {
     database: {
       generateId: (options) => {
@@ -20,31 +50,43 @@ export const auth = betterAuth({
       },
     },
   },
-  database: prismaAdapter(prisma, {
-    provider: "postgresql",
-  }),
   plugins: [
+    nextCookies(),
     passkey({
+      rpID: process.env.WEBAUTHN_RP_ID?.trim() || "localhost",
+      rpName: process.env.WEBAUTHN_APP_NAME?.trim() || "Expenso",
+      origin: process.env.WEBAUTHN_ORIGIN?.trim()
+        ? process.env.WEBAUTHN_ORIGIN.trim().replace(/\/$/, "")
+        : getPublicAppUrl(),
       registration: {
-        // Default: true. Set false for passkey-first onboarding.
-        requireSession: false,
-        // Required if requireSession is false and no session exists.
-        resolveUser: async ({ ctx, context }) => {
-          // Validate context (e.g., a signed token), then create or load a user.
-          return { id: "user-id", name: "user@example.com" }
-        },
-        // Optional server-defined extensions
+        requireSession: true,
         extensions: { credProps: true },
       },
       authentication: {
-        // Optional server-defined extensions
         extensions: { credProps: true },
       },
-    }), 
-    magicLink({ 
-      sendMagicLink: async ({ email, token, url, metadata }, ctx) => { 
-          // send email to user
-        } 
-    }), 
-  ]
+    }),
+    magicLink({
+      sendMagicLink: async ({ email, url }) => {
+        if (process.env.NODE_ENV !== "production") {
+          // Local development: log the full URL so you can complete sign-in without SMTP.
+          // Do not enable verbose magic-link logging in production.
+          console.info(`[expenso] Magic link for ${email}`);
+          console.info(url);
+          return;
+        }
+
+        if (process.env.MAGIC_LINK_LOG_ONLY === "true") {
+          console.warn(
+            "[expenso] MAGIC_LINK_LOG_ONLY is enabled; magic link email is not being sent.",
+          );
+          return;
+        }
+
+        throw new Error(
+          "Magic link email is not configured for production. Wire sendMagicLink to your mail provider (e.g. Resend, SES) or set MAGIC_LINK_LOG_ONLY=true for non-production-style environments.",
+        );
+      },
+    }),
+  ],
 });

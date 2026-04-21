@@ -1,0 +1,10 @@
+import type { Prisma } from "@/app/generated/prisma/client";
+
+export const expenseListInclude = {
+  category: true,
+  expenseTags: { include: { tag: true } },
+} satisfies Prisma.ExpenseInclude;
+
+export type ExpenseWithListRelations = Prisma.ExpenseGetPayload<{
+  include: typeof expenseListInclude;
+}>;

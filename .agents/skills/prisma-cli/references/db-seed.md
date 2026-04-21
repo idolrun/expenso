@@ -16,10 +16,12 @@ prisma db seed [options]
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
+
+| Option     | Description                            |
+| ---------- | -------------------------------------- |
 | `--config` | Custom path to your Prisma config file |
-| `--` | Pass custom arguments to seed script |
+| `--`       | Pass custom arguments to seed script   |
+
 
 ## Configuration
 
@@ -186,3 +188,4 @@ if (env === 'development') {
 3. Use realistic but fake data
 4. Document required seed data
 5. Version control your seed scripts
+

@@ -54,12 +54,14 @@ const prisma = new PrismaClient({
 
 #### Log levels
 
-| Level | Description |
-|-------|-------------|
-| `query` | All SQL queries |
-| `info` | Informational messages |
-| `warn` | Warnings |
-| `error` | Errors |
+
+| Level   | Description            |
+| ------- | ---------------------- |
+| `query` | All SQL queries        |
+| `info`  | Informational messages |
+| `warn`  | Warnings               |
+| `error` | Errors                 |
+
 
 #### Log to events
 
@@ -206,3 +208,4 @@ prisma.$on('info', (e) => console.log(e.message))
 prisma.$on('warn', (e) => console.warn(e.message))
 prisma.$on('error', (e) => console.error(e.message))
 ```
+

@@ -14,9 +14,9 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3001](http://localhost:3001) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The App Router lives under `src/app`. Copy `.env.example` to `.env` and set at least `DATABASE_URL`, `BETTER_AUTH_SECRET` (32+ characters), and `NEXT_PUBLIC_APP_URL` before running auth flows.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
