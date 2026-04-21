@@ -1,6 +1,6 @@
 /**
- * Idempotent development seed.
- * Re-run safely: removes prior seed rows (marker + fixed slugs/SKUs) then recreates.
+ * Development seed aligned with prisma/schema.prisma — **3 rows per table**.
+ * Idempotent: removes prior seed rows (markers / predictable prefixes), then recreates.
  */
 import {
   AuditAction,
@@ -18,11 +18,17 @@ function sectionSlug(section: ExpenseSection): string {
 }
 
 async function cleanup() {
-  await prisma.expense.deleteMany({
-    where: { notes: { contains: SEED_MARKER } },
+  await prisma.expenseTag.deleteMany({
+    where: { expense: { notes: { contains: SEED_MARKER } } },
+  });
+  await prisma.attachment.deleteMany({
+    where: { expense: { notes: { contains: SEED_MARKER } } },
+  });
+  await prisma.expenseHistory.deleteMany({
+    where: { expense: { notes: { contains: SEED_MARKER } } },
   });
   await prisma.salaryRecord.deleteMany({
-    where: { employeeName: { contains: "SEED:" } },
+    where: { employeeName: { startsWith: "SEED:" } },
   });
   await prisma.inventoryItem.deleteMany({
     where: { sku: { startsWith: "SEED-" } },
@@ -30,284 +36,400 @@ async function cleanup() {
   await prisma.merchandiseItem.deleteMany({
     where: { sku: { startsWith: "SEED-" } },
   });
+  await prisma.expense.deleteMany({
+    where: { notes: { contains: SEED_MARKER } },
+  });
+  await prisma.auditLog.deleteMany({
+    where: { metadata: { path: ["seedMarker"], equals: SEED_MARKER } },
+  });
+  await prisma.verification.deleteMany({
+    where: { identifier: { endsWith: "@seed.expenso.local" } },
+  });
   await prisma.category.deleteMany({
     where: { slug: { startsWith: "seed-" } },
   });
   await prisma.tag.deleteMany({
     where: { slug: { startsWith: "seed-" } },
   });
+  await prisma.session.deleteMany({
+    where: { token: { startsWith: "seed_session_" } },
+  });
+  await prisma.account.deleteMany({
+    where: { accountId: { startsWith: "seed-account-" } },
+  });
+  await prisma.passkey.deleteMany({
+    where: { credentialID: { startsWith: "seed-cred-" } },
+  });
+  await prisma.user.deleteMany({
+    where: { email: { endsWith: "@seed.expenso.local" } },
+  });
 }
 
 async function main() {
   await cleanup();
 
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@seed.expenso.local" },
-    update: {
-      role: UserRole.ADMIN,
-      name: "Seed Admin",
-      emailVerified: true,
-    },
-    create: {
-      email: "admin@seed.expenso.local",
-      name: "Seed Admin",
-      role: UserRole.ADMIN,
-      emailVerified: true,
-    },
-  });
-
-  const user1 = await prisma.user.upsert({
-    where: { email: "user1@seed.expenso.local" },
-    update: { role: UserRole.USER, name: "Seed User One", emailVerified: true },
-    create: {
-      email: "user1@seed.expenso.local",
-      name: "Seed User One",
-      role: UserRole.USER,
-      emailVerified: true,
-    },
-  });
-
-  const user2 = await prisma.user.upsert({
-    where: { email: "user2@seed.expenso.local" },
-    update: { role: UserRole.USER, name: "Seed User Two", emailVerified: true },
-    create: {
-      email: "user2@seed.expenso.local",
-      name: "Seed User Two",
-      role: UserRole.USER,
-      emailVerified: true,
-    },
-  });
-
-  const tagDefs = [
-    { slug: "seed-aws", name: "AWS", color: "#FF9900" },
-    { slug: "seed-cloud", name: "Cloud", color: "#4285F4" },
-    { slug: "seed-travel", name: "Travel", color: "#0F766E" },
-    { slug: "seed-marketing", name: "Campaign", color: "#DB2777" },
-    { slug: "seed-inventory", name: "Stock", color: "#CA8A04" },
+  const emails = [
+    "admin@seed.expenso.local",
+    "user1@seed.expenso.local",
+    "user2@seed.expenso.local",
   ] as const;
 
-  const tags: Record<string, { id: string }> = {};
-  for (const t of tagDefs) {
-    const row = await prisma.tag.upsert({
-      where: { slug: t.slug },
-      update: { name: t.name, color: t.color },
-      create: { slug: t.slug, name: t.name, color: t.color },
-    });
-    tags[t.slug] = { id: row.id };
-  }
+  const roles: UserRole[] = [UserRole.ADMIN, UserRole.USER, UserRole.USER];
+  const names = ["Seed Admin", "Seed User One", "Seed User Two"];
 
-  const categoryBySection = new Map<ExpenseSection, string>();
-  for (const section of Object.values(ExpenseSection)) {
-    const slug = sectionSlug(section);
-    const cat = await prisma.category.upsert({
-      where: {
-        section_slug: { section, slug },
-      },
-      update: {
-        name: `${section} general`,
-        isActive: true,
-        updatedById: admin.id,
-      },
-      create: {
-        section,
-        slug,
-        name: `${section} general`,
-        description: `Default category for ${section} (seed)`,
-        sortOrder: 0,
-        isActive: true,
-        createdById: admin.id,
-      },
-    });
-    categoryBySection.set(section, cat.id);
-  }
+  const users = await Promise.all(
+    emails.map((email, i) =>
+      prisma.user.upsert({
+        where: { email },
+        update: {
+          role: roles[i]!,
+          name: names[i],
+          emailVerified: true,
+        },
+        create: {
+          email,
+          name: names[i],
+          role: roles[i]!,
+          emailVerified: true,
+        },
+      }),
+    ),
+  );
 
-  const expensePlans: {
-    section: ExpenseSection;
-    title: string;
-    amount: string;
-    status: ExpenseStatus;
-    createdById: string;
-    tagSlugs: string[];
-    extraNotes?: string;
-  }[] = [
+  const [admin, user1, user2] = users;
+
+  const expiresAt = new Date(Date.now() + 86_400_000 * 30);
+
+  await prisma.session.createMany({
+    data: [admin, user1, user2].map((u, i) => ({
+      expiresAt,
+      token: `seed_session_${i}_${expiresAt.getTime()}`,
+      userId: u.id,
+    })),
+  });
+
+  await prisma.account.createMany({
+    data: [admin, user1, user2].map((u, i) => ({
+      accountId: `seed-account-${i}-${u.email}`,
+      providerId: "credential",
+      userId: u.id,
+    })),
+  });
+
+  await prisma.verification.createMany({
+    data: emails.map((identifier, i) => ({
+      identifier,
+      value: `seed-verify-value-${i}`,
+      expiresAt,
+    })),
+  });
+
+  await prisma.passkey.createMany({
+    data: [admin, user1, user2].map((u, i) => ({
+      name: `Seed security key ${i + 1}`,
+      publicKey: `seed-public-key-material-${i}`,
+      userId: u.id,
+      credentialID: `seed-cred-${i}-${u.id.slice(0, 8)}`,
+      counter: i,
+      deviceType: "singleDevice",
+      backedUp: false,
+    })),
+  });
+
+  const categorySections = [
+    ExpenseSection.TECH,
+    ExpenseSection.SALARY,
+    ExpenseSection.TRAVEL,
+  ] as const;
+
+  const categories = await Promise.all(
+    categorySections.map((section, i) =>
+      prisma.category.create({
+        data: {
+          section,
+          slug: `${sectionSlug(section)}-${i + 1}`,
+          name: `${section} seed category`,
+          description: `Seed category ${i + 1} (${section})`,
+          sortOrder: i,
+          isActive: true,
+          createdById: admin.id,
+          updatedById: admin.id,
+        },
+      }),
+    ),
+  );
+
+  const tagDefs = [
+    { slug: "seed-infra", name: "Infrastructure", color: "#FF9900" },
+    { slug: "seed-payroll", name: "Payroll", color: "#059669" },
+    { slug: "seed-field", name: "Field ops", color: "#0EA5E9" },
+  ] as const;
+
+  const tags = await Promise.all(
+    tagDefs.map((t) =>
+      prisma.tag.create({
+        data: { slug: t.slug, name: t.name, color: t.color },
+      }),
+    ),
+  );
+
+  const expensePlans = [
     {
       section: ExpenseSection.TECH,
-      title: "AWS capacity reservation",
+      title: "Capacity reservation",
       amount: "4200.0000",
       status: ExpenseStatus.APPROVED,
       createdById: admin.id,
-      tagSlugs: ["seed-aws", "seed-cloud"],
-      extraNotes: "Searchable: Amazon Web Services monthly commit.",
-    },
-    {
-      section: ExpenseSection.MARKETING,
-      title: "Paid social campaign",
-      amount: "850.25",
-      status: ExpenseStatus.SUBMITTED,
-      createdById: user1.id,
-      tagSlugs: ["seed-marketing"],
-    },
-    {
-      section: ExpenseSection.TRAVEL,
-      title: "Team offsite flights",
-      amount: "3100.50",
-      status: ExpenseStatus.PAID,
-      createdById: user1.id,
-      tagSlugs: ["seed-travel"],
-    },
-    {
-      section: ExpenseSection.PETTY_CASH,
-      title: "Office supplies petty",
-      amount: "120.00",
-      status: ExpenseStatus.DRAFT,
-      createdById: user2.id,
-      tagSlugs: [],
+      notesExtra: "Cloud commit for Q1.",
     },
     {
       section: ExpenseSection.SALARY,
-      title: "April payroll run",
-      amount: "54000.00",
+      title: "Biweekly payroll run",
+      amount: "54000.0000",
       status: ExpenseStatus.APPROVED,
       createdById: admin.id,
-      tagSlugs: [],
+      notesExtra: "March payroll batch.",
     },
     {
-      section: ExpenseSection.INVENTORY,
-      title: "Restock — networking gear",
-      amount: "9800.00",
-      status: ExpenseStatus.SUBMITTED,
-      createdById: admin.id,
-      tagSlugs: ["seed-inventory"],
-    },
-    {
-      section: ExpenseSection.MERCHANDISE,
-      title: "Event booth merchandise",
-      amount: "2400.00",
-      status: ExpenseStatus.REJECTED,
-      createdById: user2.id,
-      tagSlugs: ["seed-marketing"],
-    },
-    {
-      section: ExpenseSection.SOCIAL_MEDIA,
-      title: "Influencer retainer",
-      amount: "1500.00",
-      status: ExpenseStatus.CANCELLED,
+      section: ExpenseSection.TRAVEL,
+      title: "Regional travel block",
+      amount: "3100.5000",
+      status: ExpenseStatus.PAID,
       createdById: user1.id,
-      tagSlugs: ["seed-marketing"],
+      notesExtra: "Flights and lodging.",
     },
-    {
-      section: ExpenseSection.OVERVIEW,
-      title: "Executive dashboard tooling",
-      amount: "450.75",
-      status: ExpenseStatus.DRAFT,
-      createdById: admin.id,
-      tagSlugs: ["seed-cloud"],
-    },
-  ];
+  ] as const;
 
-  const createdExpenseIds: string[] = [];
-  const expenseIdBySection = new Map<ExpenseSection, string>();
-
-  for (const plan of expensePlans) {
-    const notes = [plan.extraNotes, SEED_MARKER].filter(Boolean).join("\n");
-    const expense = await prisma.expense.create({
-      data: {
-        section: plan.section,
-        status: plan.status,
-        title: plan.title,
-        notes,
-        amount: new Prisma.Decimal(plan.amount),
-        currency: "USD",
-        incurredOn: new Date("2025-03-15T00:00:00.000Z"),
-        categoryId: categoryBySection.get(plan.section) ?? null,
-        createdById: plan.createdById,
-        updatedById: admin.id,
-        expenseTags: {
-          create: plan.tagSlugs.map((slug) => ({
-            tagId: tags[slug]!.id,
-            assignedById: admin.id,
-          })),
+  const expenses = await Promise.all(
+    expensePlans.map((plan, i) =>
+      prisma.expense.create({
+        data: {
+          section: plan.section,
+          status: plan.status,
+          title: plan.title,
+          notes: [plan.notesExtra, SEED_MARKER].join("\n"),
+          amount: new Prisma.Decimal(plan.amount),
+          currency: "USD",
+          incurredOn: new Date(`2025-03-${String(10 + i).padStart(2, "0")}T00:00:00.000Z`),
+          categoryId: categories[i]!.id,
+          createdById: plan.createdById,
+          updatedById: admin.id,
         },
-      },
-    });
-    createdExpenseIds.push(expense.id);
-    expenseIdBySection.set(plan.section, expense.id);
-  }
+      }),
+    ),
+  );
 
-  const primary = createdExpenseIds[0]!;
+  await prisma.expenseTag.createMany({
+    data: [
+      { expenseId: expenses[0]!.id, tagId: tags[0]!.id, assignedById: admin.id },
+      { expenseId: expenses[1]!.id, tagId: tags[1]!.id, assignedById: admin.id },
+      { expenseId: expenses[2]!.id, tagId: tags[2]!.id, assignedById: user1.id },
+    ],
+  });
+
   await prisma.expenseHistory.createMany({
     data: [
       {
-        expenseId: primary,
-        batchId: "seed-history-batch-1",
+        expenseId: expenses[0]!.id,
+        batchId: "seed-batch-1",
         fieldKey: "title",
-        oldValue: "Previous title",
-        newValue: "AWS capacity reservation",
+        oldValue: "Draft title",
+        newValue: expensePlans[0]!.title,
         changedById: admin.id,
       },
       {
-        expenseId: primary,
-        batchId: "seed-history-batch-1",
+        expenseId: expenses[0]!.id,
+        batchId: "seed-batch-1",
         fieldKey: "amount",
         oldValue: "4000",
-        newValue: "4200.0000",
+        newValue: expensePlans[0]!.amount,
+        changedById: admin.id,
+      },
+      {
+        expenseId: expenses[1]!.id,
+        batchId: "seed-batch-2",
+        fieldKey: "status",
+        oldValue: "DRAFT",
+        newValue: "APPROVED",
         changedById: admin.id,
       },
     ],
   });
 
-  await prisma.auditLog.create({
-    data: {
-      action: AuditAction.EXPENSE_CREATED,
-      entityType: "Expense",
-      entityId: primary,
-      actorId: admin.id,
-      metadata: { source: "seed" },
-    },
+  await prisma.attachment.createMany({
+    data: [
+      {
+        expenseId: expenses[0]!.id,
+        storageKey: `seed/storage/invoice-tech.pdf`,
+        fileName: "invoice-tech.pdf",
+        contentType: "application/pdf",
+        sizeBytes: 128_000,
+        uploadedById: admin.id,
+      },
+      {
+        expenseId: expenses[1]!.id,
+        storageKey: `seed/storage/payroll-summary.csv`,
+        fileName: "payroll-summary.csv",
+        contentType: "text/csv",
+        sizeBytes: 4096,
+        uploadedById: admin.id,
+      },
+      {
+        expenseId: expenses[2]!.id,
+        storageKey: `seed/storage/travel-receipts.zip`,
+        fileName: "travel-receipts.zip",
+        contentType: "application/zip",
+        sizeBytes: 2_048_000,
+        uploadedById: user1.id,
+      },
+    ],
   });
 
-  await prisma.inventoryItem.create({
-    data: {
-      sku: "SEED-INV-NET-01",
-      name: "Seed network shelf stock",
-      description: "Sample inventory row for dashboards",
-      quantity: 42,
-      unit: "unit",
-      unitCost: new Prisma.Decimal("129.9900"),
-      expenseId: expenseIdBySection.get(ExpenseSection.INVENTORY) ?? null,
-      createdById: admin.id,
-    },
+  await prisma.inventoryItem.createMany({
+    data: [
+      {
+        sku: "SEED-INV-001",
+        name: "Seed rack component",
+        description: "Demo inventory row 1",
+        quantity: 12,
+        unit: "ea",
+        unitCost: new Prisma.Decimal("89.9900"),
+        expenseId: expenses[0]!.id,
+        createdById: admin.id,
+        updatedById: admin.id,
+      },
+      {
+        sku: "SEED-INV-002",
+        name: "Seed spare cables",
+        description: "Demo inventory row 2",
+        quantity: 40,
+        unit: "ea",
+        unitCost: new Prisma.Decimal("4.5000"),
+        expenseId: null,
+        createdById: user1.id,
+        updatedById: admin.id,
+      },
+      {
+        sku: "SEED-INV-003",
+        name: "Seed tool kit",
+        description: "Demo inventory row 3",
+        quantity: 6,
+        unit: "kit",
+        unitCost: new Prisma.Decimal("120.0000"),
+        expenseId: null,
+        createdById: user2.id,
+        updatedById: user2.id,
+      },
+    ],
   });
 
-  await prisma.merchandiseItem.create({
-    data: {
-      sku: "SEED-MERCH-HOOD-01",
-      name: "Seed hoodie SKU",
-      description: "Sample merchandise row",
-      costPrice: new Prisma.Decimal("22.5000"),
-      retailPrice: new Prisma.Decimal("45.0000"),
-      stockQuantity: 120,
-      expenseId: expenseIdBySection.get(ExpenseSection.MERCHANDISE) ?? null,
-      createdById: admin.id,
-    },
+  await prisma.merchandiseItem.createMany({
+    data: [
+      {
+        sku: "SEED-MERCH-001",
+        name: "Seed branded mug",
+        description: "Demo merchandise 1",
+        costPrice: new Prisma.Decimal("4.2500"),
+        retailPrice: new Prisma.Decimal("14.9900"),
+        stockQuantity: 200,
+        expenseId: null,
+        createdById: admin.id,
+        updatedById: admin.id,
+      },
+      {
+        sku: "SEED-MERCH-002",
+        name: "Seed event tee",
+        description: "Demo merchandise 2",
+        costPrice: new Prisma.Decimal("8.0000"),
+        retailPrice: new Prisma.Decimal("28.0000"),
+        stockQuantity: 95,
+        expenseId: null,
+        createdById: user1.id,
+        updatedById: admin.id,
+      },
+      {
+        sku: "SEED-MERCH-003",
+        name: "Seed tote bag",
+        description: "Demo merchandise 3",
+        costPrice: new Prisma.Decimal("3.7500"),
+        retailPrice: new Prisma.Decimal("18.5000"),
+        stockQuantity: 140,
+        expenseId: null,
+        createdById: user2.id,
+        updatedById: user2.id,
+      },
+    ],
   });
 
-  await prisma.salaryRecord.create({
-    data: {
-      expenseId: expenseIdBySection.get(ExpenseSection.SALARY) ?? undefined,
-      employeeName: "SEED: Sample Employee",
-      payPeriodStart: new Date("2025-03-01T00:00:00.000Z"),
-      payPeriodEnd: new Date("2025-03-31T00:00:00.000Z"),
-      grossAmount: new Prisma.Decimal("9500.0000"),
-      netAmount: new Prisma.Decimal("7200.0000"),
-      currency: "USD",
-      metadata: { seed: true },
-      createdById: admin.id,
-    },
+  await prisma.salaryRecord.createMany({
+    data: [
+      {
+        expenseId: expenses[1]!.id,
+        employeeName: "SEED: Primary employee",
+        payPeriodStart: new Date("2025-03-01T00:00:00.000Z"),
+        payPeriodEnd: new Date("2025-03-15T00:00:00.000Z"),
+        grossAmount: new Prisma.Decimal("6500.0000"),
+        netAmount: new Prisma.Decimal("4800.0000"),
+        currency: "USD",
+        metadata: { seedMarker: SEED_MARKER, note: "Linked to salary expense" },
+        createdById: admin.id,
+        updatedById: admin.id,
+      },
+      {
+        expenseId: null,
+        employeeName: "SEED: Contractor payout",
+        payPeriodStart: new Date("2025-02-01T00:00:00.000Z"),
+        payPeriodEnd: new Date("2025-02-28T00:00:00.000Z"),
+        grossAmount: new Prisma.Decimal("4200.0000"),
+        netAmount: new Prisma.Decimal("3500.0000"),
+        currency: "USD",
+        metadata: { seedMarker: SEED_MARKER },
+        createdById: admin.id,
+        updatedById: admin.id,
+      },
+      {
+        expenseId: null,
+        employeeName: "SEED: Bonus accrual",
+        payPeriodStart: new Date("2025-01-01T00:00:00.000Z"),
+        payPeriodEnd: new Date("2025-01-31T00:00:00.000Z"),
+        grossAmount: new Prisma.Decimal("2000.0000"),
+        netAmount: new Prisma.Decimal("2000.0000"),
+        currency: "USD",
+        metadata: { seedMarker: SEED_MARKER },
+        createdById: user1.id,
+        updatedById: admin.id,
+      },
+    ],
+  });
+
+  await prisma.auditLog.createMany({
+    data: [
+      {
+        action: AuditAction.EXPENSE_CREATED,
+        entityType: "Expense",
+        entityId: expenses[0]!.id,
+        actorId: admin.id,
+        metadata: { seedMarker: SEED_MARKER, route: "seed" },
+      },
+      {
+        action: AuditAction.EXPENSE_UPDATED,
+        entityType: "Expense",
+        entityId: expenses[1]!.id,
+        actorId: admin.id,
+        metadata: { seedMarker: SEED_MARKER },
+      },
+      {
+        action: AuditAction.TAG_ASSIGNED,
+        entityType: "ExpenseTag",
+        entityId: `${expenses[2]!.id}:${tags[2]!.id}`,
+        actorId: user1.id,
+        metadata: { seedMarker: SEED_MARKER },
+      },
+    ],
   });
 
   console.info(
-    `[seed] Done. Users: admin@seed.expenso.local, user1@seed.expenso.local, user2@seed.expenso.local — expenses: ${createdExpenseIds.length}`,
+    `[seed] Done — 3 rows per model. Log in: ${emails.join(", ")} | expenses: ${expenses.length}`,
   );
 }
 

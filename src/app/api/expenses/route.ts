@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireExpenseReader } from "@/lib/api/auth-guard";
-import { listExpensesQuerySchema } from "@/features/expenses/validation/expense";
 import { listExpenses } from "@/features/expenses/application/expense-query.service";
+import { parseListExpensesQueryFromUrlSearchParams } from "@/src/features/expenses/api/list-expense-query-url";
 
 export async function GET(req: NextRequest) {
   const auth = await requireExpenseReader();
@@ -10,22 +10,21 @@ export async function GET(req: NextRequest) {
     return auth.response;
   }
 
-  const params = Object.fromEntries(req.nextUrl.searchParams.entries());
-  const parsed = listExpensesQuerySchema.safeParse(params);
-  if (!parsed.success) {
+  const parsed = parseListExpensesQueryFromUrlSearchParams(req.nextUrl.searchParams);
+  if (!parsed.ok) {
     return NextResponse.json(
       {
         ok: false,
         error: {
           code: "VALIDATION_ERROR",
-          message: parsed.error.issues.map((i) => i.message).join("; "),
+          message: parsed.message,
         },
       },
       { status: 400 },
     );
   }
 
-  const result = await listExpenses(parsed.data);
+  const result = await listExpenses(parsed.query);
   if (!result.ok) {
     return NextResponse.json(
       { ok: false, error: result.error },

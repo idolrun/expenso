@@ -2,6 +2,7 @@ import {
   listExpensesQuerySchema,
   type ListExpensesQuery,
 } from "@/features/expenses/validation/expense";
+import { urlSearchParamsToNormalizedRecord } from "@/src/lib/search-params-normalize";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
@@ -13,7 +14,7 @@ export function parseListExpensesQueryFromUrlSearchParams(
 ):
   | { ok: true; query: ListExpensesQuery }
   | { ok: false; message: string } {
-  const raw = Object.fromEntries(params.entries());
+  const raw = urlSearchParamsToNormalizedRecord(params);
   const parsed = listExpensesQuerySchema.safeParse(raw);
   if (!parsed.success) {
     return {

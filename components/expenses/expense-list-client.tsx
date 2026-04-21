@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ListExpensesQuery } from "@/features/expenses/validation/expense";
+import { useMemo } from "react";
 import { useExpenseList } from "@/src/features/expenses/hooks/use-expense-list";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { sectionLabel, type ExpenseSectionId } from "@/src/lib/expense-sections";
@@ -49,6 +50,14 @@ export function ExpenseListClient({
   title: string;
   description?: string;
 }) {
+  const mergedInitialQuery = useMemo<Partial<ListExpensesQuery>>(
+    () => ({
+      ...initialQuery,
+      ...(section ? { section } : {}),
+    }),
+    [initialQuery, section],
+  );
+
   const {
     data,
     error,
@@ -62,10 +71,7 @@ export function ExpenseListClient({
     setSearch,
   } = useExpenseList({
     syncUrl: true,
-    initialQuery: {
-      ...initialQuery,
-      ...(section ? { section } : {}),
-    },
+    initialQuery: mergedInitialQuery,
   });
 
   return (

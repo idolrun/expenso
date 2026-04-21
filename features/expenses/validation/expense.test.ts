@@ -54,6 +54,44 @@ describe("listExpensesQuerySchema", () => {
     }
   });
 
+  it("parses tagIds from repeated-style string arrays", () => {
+    const r = listExpensesQuerySchema.safeParse({
+      tagIds: ["seedtag1", "seedtag2"],
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.tagIds).toEqual(["seedtag1", "seedtag2"]);
+    }
+  });
+
+  it("merges comma-separated entries inside arrays", () => {
+    const r = listExpensesQuerySchema.safeParse({
+      tagIds: ["seedtag1,seedtag3", "seedtag2"],
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.tagIds).toEqual(["seedtag1", "seedtag3", "seedtag2"]);
+    }
+  });
+
+  it("parses merged object state using output-shaped tagIds (no Zod throw)", () => {
+    const first = listExpensesQuerySchema.safeParse({
+      tagIds: "seedtag1,seedtag2",
+    });
+    expect(first.success).toBe(true);
+    if (!first.success) return;
+
+    const merged = listExpensesQuerySchema.safeParse({
+      ...first.data,
+      page: 5,
+    });
+    expect(merged.success).toBe(true);
+    if (merged.success) {
+      expect(merged.data.tagIds).toEqual(["seedtag1", "seedtag2"]);
+      expect(merged.data.page).toBe(5);
+    }
+  });
+
   it("rejects inverted amount range", () => {
     const r = listExpensesQuerySchema.safeParse({
       amountMin: "100",

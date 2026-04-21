@@ -41,6 +41,11 @@ export function useExpenseList(options?: UseExpenseListOptions) {
   const syncUrl = options?.syncUrl ?? false;
   const debounceMs = options?.debounceSearchMs ?? 350;
 
+  /** Parents often pass inline objects; stabilize effect deps by value (not reference). */
+  const initialOverlayJson = JSON.stringify(options?.initialQuery ?? {});
+  const initialOverlayRef = useRef(options?.initialQuery);
+  initialOverlayRef.current = options?.initialQuery;
+
   const lastHandledQs = useRef<string | null>(null);
 
   const [query, setQueryState] = useState<ListExpensesQuery>(() =>
@@ -53,8 +58,13 @@ export function useExpenseList(options?: UseExpenseListOptions) {
     const cur = searchParams.toString();
     if (lastHandledQs.current === cur) return;
     lastHandledQs.current = cur;
-    setQueryState(readQueryFromSearchParams(new URLSearchParams(searchParams.toString()), options?.initialQuery));
-  }, [searchParams, syncUrl, options?.initialQuery]);
+    setQueryState(
+      readQueryFromSearchParams(
+        new URLSearchParams(searchParams.toString()),
+        initialOverlayRef.current,
+      ),
+    );
+  }, [searchParams, syncUrl, initialOverlayJson]);
 
   const setQuery = useCallback((patch: Partial<ListExpensesQuery>) => {
     setQueryState((prev) => {

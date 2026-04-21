@@ -69,24 +69,34 @@ const sortFieldValues = [
   "title",
 ] as const;
 
+/** Normalize `tagIds` from URL / searchParams (string, repeated params, comma lists, merged state). */
+export function normalizeTagIdsQueryInput(val: unknown): string[] {
+  if (val === undefined || val === null) return [];
+  if (Array.isArray(val)) {
+    return val
+      .flatMap((item) => String(item).split(","))
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  if (typeof val === "string") {
+    return val
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
 export const listExpensesQuerySchema = z
   .object({
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
     section: z.enum(expenseSectionValues).optional(),
     status: z.enum(expenseStatusValues).optional(),
-    tagIds: z
-      .string()
-      .optional()
-      .transform((s) =>
-        s
-          ? s
-              .split(",")
-              .map((x) => x.trim())
-              .filter(Boolean)
-          : [],
-      )
-      .pipe(z.array(recordId).max(50)),
+    tagIds: z.preprocess(
+      normalizeTagIdsQueryInput,
+      z.array(recordId).max(50),
+    ),
     amountMin: z.string().trim().optional(),
     amountMax: z.string().trim().optional(),
     incurredOnFrom: dateYmdSchema.optional(),
