@@ -21,6 +21,9 @@ export const auditLogRepository = {
       orderBy: args.orderBy,
       skip: args.skip,
       take: args.take,
+      include: {
+        actor: { select: { name: true, email: true } },
+      },
     });
   },
 

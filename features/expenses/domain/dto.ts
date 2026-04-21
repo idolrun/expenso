@@ -1,5 +1,7 @@
 import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
 
+import type { ExpenseCurrencyCode } from "@/features/expenses/domain/currency";
+
 /** Serializable tag on an expense. */
 export type ExpenseTagDto = {
   id: string;
@@ -24,7 +26,7 @@ export type ExpenseDto = {
   title: string;
   notes: string | null;
   amount: string;
-  currency: string;
+  currency: ExpenseCurrencyCode;
   incurredOn: string;
   categoryId: string | null;
   category: ExpenseCategoryDto;
@@ -44,6 +46,7 @@ export type ExpenseHistoryEntryDto = {
   oldValue: unknown;
   newValue: unknown;
   changedById: string;
+  changedByLabel?: string;
   createdAt: string;
 };
 
@@ -59,6 +62,7 @@ export type AuditLogEntryDto = {
   entityType: string;
   entityId: string;
   actorId: string | null;
+  actorLabel?: string | null;
   metadata: unknown;
   createdAt: string;
 };
@@ -76,7 +80,7 @@ export type GlobalSearchHitDto = {
   title: string;
   section: ExpenseSection;
   amount: string;
-  currency: string;
+  currency: ExpenseCurrencyCode;
   /** Where the query matched (best-effort). */
   matchedOn: "title" | "notes" | "category" | "tag";
 };

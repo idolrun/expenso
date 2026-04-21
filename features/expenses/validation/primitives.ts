@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
+import { expenseCurrencyValues } from "@/features/expenses/domain/currency";
 
 export const expenseSectionValues = [
   "OVERVIEW",
@@ -25,6 +26,7 @@ export const expenseStatusValues = [
 
 export const expenseSectionSchema = z.enum(expenseSectionValues);
 export const expenseStatusSchema = z.enum(expenseStatusValues);
+export const expenseCurrencySchema = z.enum(expenseCurrencyValues);
 
 export const moneyStringSchema = z
   .string()
@@ -54,5 +56,5 @@ export const dateYmdSchema = z
 export const currencyCodeSchema = z
   .string()
   .trim()
-  .length(3)
-  .transform((c) => c.toUpperCase());
+  .transform((c) => c.toUpperCase())
+  .pipe(expenseCurrencySchema);

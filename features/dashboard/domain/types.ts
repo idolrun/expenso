@@ -12,6 +12,7 @@ export type DashboardActivityItemDto =
       section: ExpenseSection;
       fieldKey: string;
       changedById: string;
+      changedByLabel?: string;
     }
   | {
       kind: "audit_log";
@@ -21,6 +22,7 @@ export type DashboardActivityItemDto =
       entityType: string;
       entityId: string;
       actorId: string | null;
+      actorLabel?: string | null;
     };
 
 /** One calendar month of USD spend (active expenses, `incurredOn` in range). */
@@ -29,6 +31,8 @@ export type DashboardMonthSpendUsd = {
   label: string;
   amount: string;
 };
+
+export type DashboardSectionBreakdownPeriod = "1m" | "2m" | "3m";
 
 /** Aggregated counts + spend + recents for dashboard (Phase 6). */
 export type DashboardSummaryDto = {
@@ -45,6 +49,10 @@ export type DashboardSummaryDto = {
   bySection: Partial<Record<ExpenseSection, number>>;
   /** Decimal string totals per section (USD only). */
   spendBySectionUsd: Partial<Record<ExpenseSection, string>>;
+  spendBySectionUsdByPeriod: Record<
+    DashboardSectionBreakdownPeriod,
+    Partial<Record<ExpenseSection, string>>
+  >;
   recentExpenses: ExpenseDto[];
   recentHistory: ExpenseHistoryWithExpenseDto[];
   recentActivity: DashboardActivityItemDto[];

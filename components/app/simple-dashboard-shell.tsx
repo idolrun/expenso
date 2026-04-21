@@ -48,7 +48,7 @@ function NavItems({
           </Link>
         );
       })}
-      <p className="text-muted-foreground px-3 pt-3 pb-1 text-xs font-semibold tracking-wide uppercase">
+      <p className="nav-group-label px-3 pt-3 pb-1 text-xs uppercase">
         Sections
       </p>
       {EXPENSE_SECTION_NAV.map((s) => {
@@ -99,7 +99,7 @@ export function SimpleDashboardShell({
           <NavItems />
           {isAdmin ? (
             <>
-              <p className="text-muted-foreground px-3 pt-4 pb-1 text-xs font-semibold tracking-wide uppercase">
+              <p className="nav-group-label px-3 pt-4 pb-1 text-xs uppercase">
                 Admin
               </p>
               <Link
@@ -144,7 +144,7 @@ export function SimpleDashboardShell({
                 <NavItems onNavigate={() => setOpen(false)} />
                 {isAdmin ? (
                   <>
-                    <p className="text-muted-foreground px-3 pt-4 pb-1 text-xs font-semibold tracking-wide uppercase">
+                    <p className="nav-group-label px-3 pt-4 pb-1 text-xs uppercase">
                       Admin
                     </p>
                     <Link
@@ -167,9 +167,6 @@ export function SimpleDashboardShell({
             </SheetContent>
           </Sheet>
           <div className="flex flex-1 items-center justify-end gap-2">
-            <span className="text-muted-foreground hidden max-w-[40vw] truncate text-sm xl:inline">
-              {userEmail}
-            </span>
             <GlobalSearchCommand />
             <ThemeToggle />
             <SignOutButton />

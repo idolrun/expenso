@@ -69,14 +69,14 @@ export function ExpenseFilters({
 
   return (
     <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-      <div
+        <div
         className={cn(
-          "rounded-lg border border-border p-5",
+          "rounded-lg border border-border px-5 py-5",
           "bg-muted/40 text-foreground",
           "dark:border-zinc-800 dark:bg-zinc-950/80 dark:text-zinc-50",
         )}
       >
-        <div className="filter-row mb-3 flex flex-wrap items-center gap-3">
+        <div className="filter-row flex flex-wrap items-center gap-3">
           <Input
             id="expense-search"
             placeholder="Search…"

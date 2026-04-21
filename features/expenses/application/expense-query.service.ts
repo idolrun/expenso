@@ -16,6 +16,13 @@ function parseYmdToUtcDate(ymd: string): Date {
   return new Date(`${ymd}T00:00:00.000Z`);
 }
 
+function userLabel(
+  user: { name: string | null; email: string } | null | undefined,
+  fallbackId: string,
+): string {
+  return user?.name?.trim() || user?.email || `user ${fallbackId.slice(0, 8)}…`;
+}
+
 export function buildExpenseListWhere(
   query: ListExpensesQuery,
 ): Prisma.ExpenseWhereInput {
@@ -127,6 +134,7 @@ export async function listExpenseHistoryForExpense(
         changedById: r.changedById,
         createdAt: r.createdAt,
       }),
+      changedByLabel: userLabel(r.changedBy, r.changedById),
       expenseTitle: r.expense.title,
       expenseSection: r.expense.section,
     }));

@@ -5,8 +5,10 @@ import { formatJson } from "@/components/expenses/format-json-value";
 
 export function ExpenseHistoryTimeline({
   entries,
+  tagNameById,
 }: {
   entries: ExpenseHistoryWithExpenseDto[];
+  tagNameById?: Record<string, string>;
 }) {
   if (!entries.length) {
     return (
@@ -41,19 +43,19 @@ export function ExpenseHistoryTimeline({
                   </time>
                 </div>
                 <p className="text-muted-foreground text-xs">
-                  User {e.changedById.slice(0, 8)}…
+                  {e.changedByLabel ?? `User ${e.changedById.slice(0, 8)}…`}
                 </p>
                 <div className="grid gap-2 text-xs sm:grid-cols-2">
                   <div>
                     <p className="text-muted-foreground mb-0.5">Before</p>
                     <pre className="bg-muted/60 max-h-28 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
-                      {formatJson(e.oldValue)}
+                      {formatJson(e.oldValue, { fieldKey: e.fieldKey, tagNameById })}
                     </pre>
                   </div>
                   <div>
                     <p className="text-muted-foreground mb-0.5">After</p>
                     <pre className="bg-muted/60 max-h-28 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
-                      {formatJson(e.newValue)}
+                      {formatJson(e.newValue, { fieldKey: e.fieldKey, tagNameById })}
                     </pre>
                   </div>
                 </div>

@@ -17,7 +17,10 @@ export const expenseHistoryRepository = {
     take = 200,
   ): Promise<
     Prisma.ExpenseHistoryGetPayload<{
-      include: { expense: { select: { title: true; section: true } } };
+      include: {
+        expense: { select: { title: true; section: true } };
+        changedBy: { select: { name: true; email: true } };
+      };
     }>[]
   > {
     return db.expenseHistory.findMany({
@@ -26,6 +29,7 @@ export const expenseHistoryRepository = {
       take,
       include: {
         expense: { select: { title: true, section: true } },
+        changedBy: { select: { name: true, email: true } },
       },
     });
   },

@@ -23,7 +23,8 @@ export default async function NewExpensePage({
       <div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight">New expense</h1>
         <p className="text-muted-foreground text-sm">
-          Create a record. Amounts use up to four decimal places.
+          Create a record. Amounts use up to four decimal places, with live USD/NPR
+          conversion cached on the server.
         </p>
       </div>
       <ExpenseForm mode="create" tags={tags} defaultSection={defaultSection ?? undefined} />

@@ -12,6 +12,8 @@ import {
 import { prisma } from "../lib/prisma";
 
 const SEED_MARKER = "__SEED__:expenso-dev__";
+const ADMIN_EMAIL = "admin@expenso.com";
+const adminOnly = process.env.SEED_SCOPE === "admin";
 
 function sectionSlug(section: ExpenseSection): string {
   return `seed-${section.toLowerCase().replace(/_/g, "-")}`;
@@ -43,7 +45,7 @@ async function cleanup() {
     where: { metadata: { path: ["seedMarker"], equals: SEED_MARKER } },
   });
   await prisma.verification.deleteMany({
-    where: { identifier: { endsWith: "@seed.expenso.local" } },
+    where: { value: { startsWith: "seed-verify-value-" } },
   });
   await prisma.category.deleteMany({
     where: { slug: { startsWith: "seed-" } },
@@ -66,10 +68,30 @@ async function cleanup() {
 }
 
 async function main() {
+  if (adminOnly) {
+    const admin = await prisma.user.upsert({
+      where: { email: ADMIN_EMAIL },
+      update: {
+        name: "Seed Admin",
+        role: UserRole.ADMIN,
+        emailVerified: true,
+      },
+      create: {
+        email: ADMIN_EMAIL,
+        name: "Seed Admin",
+        role: UserRole.ADMIN,
+        emailVerified: true,
+      },
+    });
+
+    console.info(`[seed] Admin only complete: ${admin.email} (${admin.role})`);
+    return;
+  }
+
   await cleanup();
 
   const emails = [
-    "admin@seed.expenso.local",
+    ADMIN_EMAIL,
     "user1@seed.expenso.local",
     "user2@seed.expenso.local",
   ] as const;

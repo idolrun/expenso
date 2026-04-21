@@ -91,7 +91,7 @@ export function DashboardAppShell({
           </SidebarGroup>
           <SidebarSeparator />
           <SidebarGroup>
-            <SidebarGroupLabel>Sections</SidebarGroupLabel>
+            <SidebarGroupLabel className="nav-group-label">Sections</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {EXPENSE_SECTION_NAV.map((s) => (
@@ -109,7 +109,7 @@ export function DashboardAppShell({
             <>
               <SidebarSeparator />
               <SidebarGroup>
-                <SidebarGroupLabel>Admin</SidebarGroupLabel>
+                <SidebarGroupLabel className="nav-group-label">Admin</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     <NavLink href="/dashboard/admin/audit" label="Audit log" icon={ShieldStarIcon} />
@@ -130,10 +130,7 @@ export function DashboardAppShell({
       <SidebarInset>
         <header className="bg-background/80 sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b px-2 backdrop-blur-md md:px-4">
           <SidebarTrigger className="-ml-1" />
-          <div className="flex flex-1 items-center justify-end gap-2 sm:justify-between">
-            <span className="text-muted-foreground hidden max-w-[40vw] truncate text-sm lg:inline">
-              {userEmail}
-            </span>
+          <div className="flex flex-1 items-center justify-end gap-2 sm:justify-end">
             <div className="flex items-center gap-1 sm:gap-2">
               <GlobalSearchCommand />
               <ThemeToggle />

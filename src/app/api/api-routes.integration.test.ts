@@ -193,6 +193,11 @@ describe("GET /api/dashboard", () => {
         byStatus: {},
         bySection: {},
         spendBySectionUsd: {},
+        spendBySectionUsdByPeriod: {
+          "1m": {},
+          "2m": {},
+          "3m": {},
+        },
         recentExpenses: [],
         recentHistory: [],
         recentActivity: [],

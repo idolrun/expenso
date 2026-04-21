@@ -42,9 +42,13 @@ export function useExpenseList(options?: UseExpenseListOptions) {
   const debounceMs = options?.debounceSearchMs ?? 350;
 
   /** Parents often pass inline objects; stabilize effect deps by value (not reference). */
+  const hasInitialOverlay = options?.initialQuery !== undefined;
   const initialOverlayJson = JSON.stringify(options?.initialQuery ?? {});
-  const initialOverlayRef = useRef(options?.initialQuery);
-  initialOverlayRef.current = options?.initialQuery;
+  const initialOverlay = useMemo<Partial<ListExpensesQuery> | undefined>(() => {
+    return hasInitialOverlay
+      ? (JSON.parse(initialOverlayJson) as Partial<ListExpensesQuery>)
+      : undefined;
+  }, [hasInitialOverlay, initialOverlayJson]);
 
   const lastHandledQs = useRef<string | null>(null);
 
@@ -61,10 +65,10 @@ export function useExpenseList(options?: UseExpenseListOptions) {
     setQueryState(
       readQueryFromSearchParams(
         new URLSearchParams(searchParams.toString()),
-        initialOverlayRef.current,
+        initialOverlay,
       ),
     );
-  }, [searchParams, syncUrl, initialOverlayJson]);
+  }, [searchParams, syncUrl, initialOverlay, initialOverlayJson]);
 
   const setQuery = useCallback((patch: Partial<ListExpensesQuery>) => {
     setQueryState((prev) => {

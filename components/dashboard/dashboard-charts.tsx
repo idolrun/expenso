@@ -14,7 +14,10 @@ import {
   YAxis,
 } from "recharts";
 
-import type { DashboardMonthSpendUsd } from "@/features/dashboard/domain/types";
+import type {
+  DashboardMonthSpendUsd,
+  DashboardSectionBreakdownPeriod,
+} from "@/features/dashboard/domain/types";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { sectionLabel, type ExpenseSectionId } from "@/src/lib/expense-sections";
 import { cn } from "@/lib/utils";
@@ -41,8 +44,10 @@ const sparklineConfig = {
 
 export function SectionBreakdownBarChart({
   spendBySectionUsd,
+  periodLabel,
 }: {
   spendBySectionUsd: Partial<Record<ExpenseSectionId, string>>;
+  periodLabel?: string;
 }) {
   const captionId = React.useId();
 
@@ -92,6 +97,7 @@ export function SectionBreakdownBarChart({
           ))}
         </tbody>
       </table>
+      {periodLabel ? <p className="sr-only">{periodLabel}</p> : null}
       <ChartContainer config={chartConfig} className="aspect-auto h-[min(22rem,calc(100vw-3rem))] w-full md:h-72">
         <BarChart data={rows} margin={{ left: 4, right: 8, top: 8, bottom: 4 }}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/60" />
@@ -139,6 +145,12 @@ export function SectionBreakdownBarChart({
     </figure>
   );
 }
+
+export const SECTION_BREAKDOWN_PERIOD_LABELS: Record<DashboardSectionBreakdownPeriod, string> = {
+  "1m": "This month section breakdown",
+  "2m": "Last two months section breakdown",
+  "3m": "Last three months section breakdown",
+};
 
 function statusLabel(status: ExpenseStatus): string {
   return status

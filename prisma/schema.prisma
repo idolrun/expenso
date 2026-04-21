@@ -60,6 +60,11 @@ enum AuditAction {
   OTHER
 }
 
+enum CurrencyCode {
+  USD
+  NPR
+}
+
 // ---------------------------------------------------------------------------
 // Better Auth (existing) — extended with application role + domain relations
 // ---------------------------------------------------------------------------
@@ -232,7 +237,7 @@ model Expense {
   title       String
   notes       String?
   amount      Decimal        @db.Decimal(19, 4)
-  currency    String         @default("USD") @db.VarChar(3)
+  currency    CurrencyCode   @default(USD)
   incurredOn  DateTime       @db.Date
   categoryId  String?
   category    Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -370,7 +375,7 @@ model SalaryRecord {
   payPeriodEnd   DateTime @db.Date
   grossAmount    Decimal  @db.Decimal(19, 4)
   netAmount      Decimal  @db.Decimal(19, 4)
-  currency       String   @default("USD") @db.VarChar(3)
+  currency       CurrencyCode @default(USD)
   metadata       Json?
 
   createdById String?  @db.Uuid

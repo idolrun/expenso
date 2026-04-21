@@ -2,17 +2,15 @@
 
 import { MoonIcon, SunIcon } from "@phosphor-icons/react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
 
 const STABLE_TOGGLE_LABEL = "Toggle color scheme";
+const subscribe = () => () => {};
 
 export function ThemeToggle() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(subscribe, () => true, () => false);
 
   const { resolvedTheme, setTheme } = useTheme();
 

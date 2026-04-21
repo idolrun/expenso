@@ -133,7 +133,7 @@ export function AuditLogPanel() {
                       <span className="text-muted-foreground">#{row.entityId}</span>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">
-                      {row.actorId ?? "—"}
+                      {row.actorLabel ?? row.actorId ?? "—"}
                     </TableCell>
                   </TableRow>
                 ))}

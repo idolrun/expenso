@@ -10,6 +10,15 @@ import { prisma } from "@/lib/prisma";
 
 const activeUsdWhere = { deletedAt: null, currency: "USD" } as const;
 
+function userLabel(
+  user: { name: string | null; email: string } | null | undefined,
+  fallbackId: string | null,
+): string | null {
+  if (!fallbackId && !user) return null;
+  if (!user) return fallbackId ? `user ${fallbackId.slice(0, 8)}…` : null;
+  return user.name?.trim() || user.email || (fallbackId ? `user ${fallbackId.slice(0, 8)}…` : null);
+}
+
 export async function getDashboardSummary(): Promise<
   ServiceResult<DashboardSummaryDto>
 > {
@@ -30,6 +39,11 @@ export async function getDashboardSummary(): Promise<
         end,
       };
     });
+    const sectionBreakdownSpecs = [
+      { key: "1m" as const, start: monthStart, end: monthEnd },
+      { key: "2m" as const, start: startOfMonth(subMonths(now, 1)), end: monthEnd },
+      { key: "3m" as const, start: startOfMonth(subMonths(now, 2)), end: monthEnd },
+    ];
 
     const [
       totalCount,
@@ -42,6 +56,9 @@ export async function getDashboardSummary(): Promise<
       historyRows,
       historyFeed,
       auditFeed,
+      sectionBreakdown1m,
+      sectionBreakdown2m,
+      sectionBreakdown3m,
       ...monthAggs
     ] = await Promise.all([
       prisma.expense.count({ where: { deletedAt: null } }),
@@ -82,6 +99,7 @@ export async function getDashboardSummary(): Promise<
         take: 5,
         include: {
           expense: { select: { title: true, section: true } },
+          changedBy: { select: { name: true, email: true } },
         },
       }),
       prisma.expenseHistory.findMany({
@@ -89,12 +107,26 @@ export async function getDashboardSummary(): Promise<
         take: 12,
         include: {
           expense: { select: { id: true, title: true, section: true } },
+          changedBy: { select: { name: true, email: true } },
         },
       }),
       prisma.auditLog.findMany({
         orderBy: { createdAt: "desc" },
         take: 12,
+        include: {
+          actor: { select: { name: true, email: true } },
+        },
       }),
+      ...sectionBreakdownSpecs.map(({ start, end }) =>
+        prisma.expense.groupBy({
+          by: ["section"],
+          where: {
+            ...activeUsdWhere,
+            incurredOn: { gte: start, lte: end },
+          },
+          _sum: { amount: true },
+        }),
+      ),
       ...monthRangeSpecs.map(({ start, end }) =>
         prisma.expense.aggregate({
           where: {
@@ -109,7 +141,9 @@ export async function getDashboardSummary(): Promise<
     const monthlySpendUsdLast6 = monthRangeSpecs.map((spec, idx) => ({
       monthKey: spec.monthKey,
       label: spec.label,
-      amount: monthAggs[idx]._sum.amount?.toString() ?? "0",
+      amount:
+        (monthAggs[idx] as { _sum: { amount: { toString(): string } | null } } | undefined)?._sum.amount?.toString() ??
+        "0",
     }));
     const previousMonthSpendUsd = monthlySpendUsdLast6[4]?.amount ?? "0";
 
@@ -127,6 +161,26 @@ export async function getDashboardSummary(): Promise<
     for (const row of sectionSpendGroups) {
       spendBySectionUsd[row.section] = row._sum.amount?.toString() ?? "0";
     }
+    const mapSectionSpend = (
+      rows: { section: ExpenseSection; _sum: { amount: { toString(): string } | null } }[],
+    ): Partial<Record<ExpenseSection, string>> => {
+      const mapped: Partial<Record<ExpenseSection, string>> = {};
+      for (const row of rows) {
+        mapped[row.section] = row._sum.amount?.toString() ?? "0";
+      }
+      return mapped;
+    };
+    const spendBySectionUsdByPeriod = {
+      "1m": mapSectionSpend(
+        sectionBreakdown1m as { section: ExpenseSection; _sum: { amount: { toString(): string } | null } }[],
+      ),
+      "2m": mapSectionSpend(
+        sectionBreakdown2m as { section: ExpenseSection; _sum: { amount: { toString(): string } | null } }[],
+      ),
+      "3m": mapSectionSpend(
+        sectionBreakdown3m as { section: ExpenseSection; _sum: { amount: { toString(): string } | null } }[],
+      ),
+    };
 
     const recentHistory = historyRows.map((r) => ({
       ...serializeExpenseHistoryRow({
@@ -139,6 +193,7 @@ export async function getDashboardSummary(): Promise<
         changedById: r.changedById,
         createdAt: r.createdAt,
       }),
+      changedByLabel: userLabel(r.changedBy, r.changedById) ?? undefined,
       expenseTitle: r.expense.title,
       expenseSection: r.expense.section,
     }));
@@ -153,6 +208,7 @@ export async function getDashboardSummary(): Promise<
         section: r.expense.section,
         fieldKey: r.fieldKey,
         changedById: r.changedById,
+        changedByLabel: userLabel(r.changedBy, r.changedById) ?? undefined,
       })),
       ...auditFeed.map((r) => ({
         kind: "audit_log" as const,
@@ -162,6 +218,7 @@ export async function getDashboardSummary(): Promise<
         entityType: r.entityType,
         entityId: r.entityId,
         actorId: r.actorId,
+        actorLabel: userLabel(r.actor, r.actorId),
       })),
     ];
 
@@ -181,6 +238,7 @@ export async function getDashboardSummary(): Promise<
         byStatus,
         bySection,
         spendBySectionUsd,
+        spendBySectionUsdByPeriod,
         recentExpenses: recentRows.map(serializeExpense),
         recentHistory,
         recentActivity,

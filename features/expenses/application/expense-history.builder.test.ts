@@ -14,7 +14,7 @@ describe("expenseRowToSnapshot", () => {
       title: "AWS bill",
       notes: null,
       amount: { toString: () => "120.5000" },
-      currency: "usd",
+      currency: "USD",
       incurredOn: new Date("2025-06-15T00:00:00.000Z"),
       categoryId: "cat1",
       expenseTags: [{ tagId: "b" }, { tagId: "a" }],

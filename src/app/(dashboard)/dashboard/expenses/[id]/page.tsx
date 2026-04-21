@@ -20,8 +20,28 @@ import {
 } from "@/features/expenses/application/expense-query.service";
 import { requireAuth } from "@/lib/auth/guards";
 import { parseUserRole } from "@/lib/auth/session";
+import { prisma } from "@/lib/prisma";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { sectionLabel } from "@/src/lib/expense-sections";
+
+function collectTagIds(value: unknown): string[] {
+  if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
+        return parsed;
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
 
 export default async function ExpenseDetailPage({
   params,
@@ -43,6 +63,18 @@ export default async function ExpenseDetailPage({
 
   const expense = expRes.data;
   const history = histRes.ok ? histRes.data : [];
+  const historyTagIds = [...new Set(
+    history
+      .filter((entry) => entry.fieldKey === "tagIds")
+      .flatMap((entry) => [...collectTagIds(entry.oldValue), ...collectTagIds(entry.newValue)]),
+  )];
+  const historyTags = historyTagIds.length
+    ? await prisma.tag.findMany({
+        where: { id: { in: historyTagIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const tagNameById = Object.fromEntries(historyTags.map((tag) => [tag.id, tag.name]));
 
   return (
     <div className="space-y-8">
@@ -114,7 +146,7 @@ export default async function ExpenseDetailPage({
         </CardContent>
       </Card>
 
-      <ExpenseHistoryTimeline entries={history} />
+      <ExpenseHistoryTimeline entries={history} tagNameById={tagNameById} />
     </div>
   );
 }

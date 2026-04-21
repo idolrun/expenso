@@ -1,5 +1,10 @@
 import type { Prisma } from "@/app/generated/prisma/client";
 import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
+import {
+  defaultExpenseCurrency,
+  expenseCurrencyValues,
+  type ExpenseCurrencyCode,
+} from "@/features/expenses/domain/currency";
 
 export type ExpenseScalarSnapshot = {
   section: ExpenseSection;
@@ -7,7 +12,7 @@ export type ExpenseScalarSnapshot = {
   title: string;
   notes: string | null;
   amount: string;
-  currency: string;
+  currency: ExpenseCurrencyCode;
   incurredOn: string;
   categoryId: string | null;
   tagIds: string[];
@@ -19,6 +24,12 @@ function json(v: unknown): Prisma.InputJsonValue {
 
 function toYmd(d: Date): string {
   return d.toISOString().slice(0, 10);
+}
+
+function toExpenseCurrencyCode(currency: string): ExpenseCurrencyCode {
+  return expenseCurrencyValues.includes(currency as ExpenseCurrencyCode)
+    ? (currency as ExpenseCurrencyCode)
+    : defaultExpenseCurrency;
 }
 
 export function expenseRowToSnapshot(row: {
@@ -38,7 +49,7 @@ export function expenseRowToSnapshot(row: {
     title: row.title,
     notes: row.notes,
     amount: row.amount.toString(),
-    currency: row.currency,
+    currency: toExpenseCurrencyCode(row.currency),
     incurredOn: toYmd(row.incurredOn),
     categoryId: row.categoryId,
     tagIds: row.expenseTags.map((t) => t.tagId).sort(),

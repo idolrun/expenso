@@ -1,7 +1,14 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 
-import type { DashboardSummaryDto } from "@/features/dashboard/domain/types";
+import type {
+  DashboardSectionBreakdownPeriod,
+  DashboardSummaryDto,
+} from "@/features/dashboard/domain/types";
 import { badgeVariants } from "@/components/ui/badge-variants";
+import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
   Card,
@@ -15,11 +22,38 @@ import { sectionLabel } from "@/src/lib/expense-sections";
 import { cn } from "@/lib/utils";
 
 import {
+  SECTION_BREAKDOWN_PERIOD_LABELS,
   MonthOverMonthIndicator,
   SectionBreakdownBarChart,
   StatusMixDonutChart,
   TotalSpendSparkline,
 } from "@/components/dashboard/dashboard-charts";
+
+const ACTIVITY_BADGE_TONES: Record<string, string> = {
+  EXPENSE_CREATED: "badge-tone-green",
+  EXPENSE_UPDATED: "badge-tone-blue",
+  EXPENSE_SOFT_DELETED: "badge-tone-red",
+  EXPENSE_RESTORED: "badge-tone-green",
+  TAG_ASSIGNED: "badge-tone-violet",
+  TAG_REMOVED: "badge-tone-amber",
+  USER_ROLE_CHANGED: "badge-tone-amber",
+  CATEGORY_CREATED: "badge-tone-green",
+  CATEGORY_UPDATED: "badge-tone-blue",
+  CATEGORY_DELETED: "badge-tone-red",
+  INVENTORY_ITEM_CREATED: "badge-tone-green",
+  INVENTORY_ITEM_UPDATED: "badge-tone-blue",
+  MERCHANDISE_ITEM_CREATED: "badge-tone-green",
+  MERCHANDISE_ITEM_UPDATED: "badge-tone-blue",
+  SALARY_RECORD_CREATED: "badge-tone-green",
+  SALARY_RECORD_UPDATED: "badge-tone-blue",
+};
+
+const FIELD_BADGE_TONES: Record<string, string> = {
+  tagIds: "badge-tone-violet",
+  status: "badge-tone-blue",
+  amount: "badge-tone-amber",
+  title: "badge-tone-green",
+};
 
 export function DashboardBento({
   data,
@@ -28,6 +62,10 @@ export function DashboardBento({
   data: DashboardSummaryDto;
   isAdmin: boolean;
 }) {
+  const lastThreeMonths = data.monthlySpendUsdLast6.slice(-3);
+  const [sectionBreakdownPeriod, setSectionBreakdownPeriod] =
+    useState<"all" | DashboardSectionBreakdownPeriod>("all");
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -59,14 +97,16 @@ export function DashboardBento({
             <CardTitle className="text-base">Total spend (USD)</CardTitle>
             <CardDescription>All active expenses, USD only.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex h-full min-h-[13rem] flex-col">
             <p className="font-numeric text-3xl font-semibold tracking-tight">
               {formatMoneyAmount(data.totalSpendUsd, "USD")}
             </p>
             <p className="text-muted-foreground mt-1 text-xs">
               {data.totalCount} active expense{data.totalCount === 1 ? "" : "s"}
             </p>
-            <TotalSpendSparkline months={data.monthlySpendUsdLast6} />
+            <div className="mt-auto pt-6">
+              <TotalSpendSparkline months={data.monthlySpendUsdLast6} />
+            </div>
           </CardContent>
         </Card>
 
@@ -75,7 +115,7 @@ export function DashboardBento({
             <CardTitle className="text-base">This month</CardTitle>
             <CardDescription>Based on incurred date (UTC month).</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex h-full min-h-[13rem] flex-col">
             <p className="font-numeric text-3xl font-semibold tracking-tight">
               {formatMoneyAmount(data.monthSpendUsd, "USD")}
             </p>
@@ -83,6 +123,24 @@ export function DashboardBento({
               monthSpendUsd={data.monthSpendUsd}
               previousMonthSpendUsd={data.previousMonthSpendUsd}
             />
+            <div className="mt-auto space-y-2 border-t border-border/60 pt-5">
+              <p className="text-muted-foreground text-[10px] font-medium tracking-[0.18em] uppercase">
+                Last 3 months
+              </p>
+              <div className="flex flex-col gap-2">
+                {lastThreeMonths.map((month) => (
+                  <div
+                    key={month.monthKey}
+                    className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2"
+                  >
+                    <p className="text-muted-foreground text-[10px] uppercase">{month.label}</p>
+                    <p className="font-numeric text-xs font-medium">
+                      {formatMoneyAmount(month.amount, "USD")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -122,12 +180,39 @@ export function DashboardBento({
         </Card>
 
         <Card className="md:col-span-3">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Section breakdown</CardTitle>
-            <CardDescription>Share of USD spend by area.</CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
+            <div className="space-y-1">
+              <CardTitle className="text-base">Section breakdown</CardTitle>
+              <CardDescription>Share of USD spend by area.</CardDescription>
+            </div>
+            <div className="flex shrink-0 items-center rounded-md border border-border/70 bg-muted/20 p-1">
+              {(["all", "1m", "2m", "3m"] as const).map((period) => (
+                <Button
+                  key={period}
+                  type="button"
+                  size="sm"
+                  variant={sectionBreakdownPeriod === period ? "secondary" : "ghost"}
+                  className="h-7 px-2.5 text-[11px]"
+                  onClick={() => setSectionBreakdownPeriod(period)}
+                >
+                  {period === "all" ? "All" : period.toUpperCase()}
+                </Button>
+              ))}
+            </div>
           </CardHeader>
           <CardContent>
-            <SectionBreakdownBarChart spendBySectionUsd={data.spendBySectionUsd} />
+            <SectionBreakdownBarChart
+              spendBySectionUsd={
+                sectionBreakdownPeriod === "all"
+                  ? data.spendBySectionUsd
+                  : data.spendBySectionUsdByPeriod[sectionBreakdownPeriod]
+              }
+              periodLabel={
+                sectionBreakdownPeriod === "all"
+                  ? "Overall section breakdown"
+                  : SECTION_BREAKDOWN_PERIOD_LABELS[sectionBreakdownPeriod]
+              }
+            />
           </CardContent>
         </Card>
 
@@ -152,21 +237,21 @@ export function DashboardBento({
             ) : (
               <ul className="divide-y">
                 {data.recentExpenses.map((e) => (
-                  <li key={e.id} className="flex items-center justify-between gap-3 py-2.5">
-                    <div className="min-w-0">
-                      <Link
-                        href={`/dashboard/expenses/${e.id}`}
-                        className="truncate font-medium text-sm underline-offset-4 hover:underline"
-                      >
-                        {e.title}
-                      </Link>
-                      <p className="text-muted-foreground truncate text-xs">
-                        {sectionLabel(e.section)} · {e.status}
-                      </p>
-                    </div>
-                    <span className="font-numeric text-sm font-medium tabular-nums">
-                      {formatMoneyAmount(e.amount, e.currency)}
-                    </span>
+                  <li key={e.id}>
+                    <Link
+                      href={`/dashboard/expenses/${e.id}`}
+                      className="flex items-center justify-between gap-3 rounded-md py-2.5 transition-colors hover:bg-muted/20"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-sm">{e.title}</p>
+                        <p className="text-muted-foreground truncate text-xs">
+                          {sectionLabel(e.section)} · {e.status}
+                        </p>
+                      </div>
+                      <span className="font-numeric text-sm font-medium tabular-nums">
+                        {formatMoneyAmount(e.amount, e.currency)}
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -185,21 +270,21 @@ export function DashboardBento({
             ) : (
               <ul className="space-y-2 text-sm">
                 {data.recentHistory.map((h) => (
-                  <li key={h.id} className="flex flex-col gap-0.5 rounded-md border bg-muted/30 px-3 py-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <Link
-                        href={`/dashboard/expenses/${h.expenseId}`}
-                        className="truncate font-medium underline-offset-4 hover:underline"
-                      >
-                        {h.expenseTitle}
-                      </Link>
-                      <span className="text-muted-foreground shrink-0 text-xs">
-                        {h.fieldKey}
+                  <li key={h.id}>
+                    <Link
+                      href={`/dashboard/expenses/${h.expenseId}`}
+                      className="flex flex-col gap-0.5 rounded-md border bg-muted/30 px-3 py-2 transition-colors hover:bg-muted/45"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-medium">{h.expenseTitle}</span>
+                        <span className="text-muted-foreground shrink-0 text-xs">
+                          {h.fieldKey}
+                        </span>
+                      </div>
+                      <span className="text-muted-foreground text-xs">
+                        {sectionLabel(h.expenseSection)}
                       </span>
-                    </div>
-                    <span className="text-muted-foreground text-xs">
-                      {sectionLabel(h.expenseSection)}
-                    </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -229,9 +314,15 @@ export function DashboardBento({
                             <span
                               className={cn(
                                 badgeVariants({ variant: "outline" }),
+                                FIELD_BADGE_TONES[item.fieldKey] ?? "badge-tone-slate",
+                                "activity-badge",
                                 "text-[10px] uppercase",
                               )}
                             >
+                              <span
+                                aria-hidden
+                                className="activity-badge-dot size-1.5 shrink-0 rounded-full opacity-100"
+                              />
                               Field change
                             </span>
                             <time className="text-muted-foreground text-xs">
@@ -245,7 +336,7 @@ export function DashboardBento({
                             {item.expenseTitle}
                           </Link>
                           <p className="text-muted-foreground text-xs">
-                            {item.fieldKey} · user {item.changedById.slice(0, 8)}…
+                            {item.fieldKey} · {item.changedByLabel ?? `user ${item.changedById.slice(0, 8)}…`}
                           </p>
                         </div>
                       ) : (
@@ -254,9 +345,15 @@ export function DashboardBento({
                             <span
                               className={cn(
                                 badgeVariants({ variant: "secondary" }),
+                                ACTIVITY_BADGE_TONES[item.action] ?? "badge-tone-slate",
+                                "activity-badge",
                                 "text-[10px] uppercase",
                               )}
                             >
+                              <span
+                                aria-hidden
+                                className="activity-badge-dot size-1.5 shrink-0 rounded-full opacity-100"
+                              />
                               {item.action}
                             </span>
                             <time className="text-muted-foreground text-xs">
@@ -269,7 +366,7 @@ export function DashboardBento({
                           </p>
                           {item.actorId != null ? (
                             <p className="text-muted-foreground text-xs">
-                              Actor {item.actorId.slice(0, 8)}…
+                              Actor {item.actorLabel ?? item.actorId.slice(0, 8)}
                             </p>
                           ) : null}
                         </div>

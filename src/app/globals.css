@@ -48,6 +48,7 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --color-green: var(--green);
 }
 
 :root {
@@ -84,6 +85,12 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --green: #16a34a;
+  --blue: #3b82f6;
+  --violet: #8b5cf6;
+  --amber: #f59e0b;
+  --red: #ef4444;
+  --slate: #64748b;
 }
 
 .dark {
@@ -117,6 +124,12 @@
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
+  --green: #4ade80;
+  --blue: #60a5fa;
+  --violet: #a78bfa;
+  --amber: #fbbf24;
+  --red: #f87171;
+  --slate: #94a3b8;
   --sidebar-ring: oklch(0.556 0 0);
 }
 
@@ -132,4 +145,61 @@
 @utility font-numeric {
   font-family: var(--font-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
+}
+
+@utility badge-tone-green {
+  border-color: color-mix(in srgb, var(--green) 40%, transparent);
+  background-color: color-mix(in srgb, var(--green) 14%, transparent);
+  color: var(--green);
+  --activity-badge-fill: var(--green);
+}
+
+@utility badge-tone-blue {
+  border-color: color-mix(in srgb, var(--blue) 40%, transparent);
+  background-color: color-mix(in srgb, var(--blue) 14%, transparent);
+  color: var(--blue);
+  --activity-badge-fill: var(--blue);
+}
+
+@utility badge-tone-violet {
+  border-color: color-mix(in srgb, var(--violet) 40%, transparent);
+  background-color: color-mix(in srgb, var(--violet) 14%, transparent);
+  color: var(--violet);
+  --activity-badge-fill: var(--violet);
+}
+
+@utility badge-tone-amber {
+  border-color: color-mix(in srgb, var(--amber) 40%, transparent);
+  background-color: color-mix(in srgb, var(--amber) 14%, transparent);
+  color: var(--amber);
+  --activity-badge-fill: var(--amber);
+}
+
+@utility badge-tone-red {
+  border-color: color-mix(in srgb, var(--red) 40%, transparent);
+  background-color: color-mix(in srgb, var(--red) 14%, transparent);
+  color: var(--red);
+  --activity-badge-fill: var(--red);
+}
+
+@utility badge-tone-slate {
+  border-color: color-mix(in srgb, var(--slate) 40%, transparent);
+  background-color: color-mix(in srgb, var(--slate) 14%, transparent);
+  color: var(--slate);
+  --activity-badge-fill: var(--slate);
+}
+
+@utility nav-group-label {
+  color: color-mix(in srgb, var(--green) 82%, white 18%);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+@utility activity-badge {
+  --activity-badge-fill: currentColor;
+}
+
+@utility activity-badge-dot {
+  background-color: var(--activity-badge-fill);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08);
 }

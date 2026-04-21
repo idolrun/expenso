@@ -22,12 +22,37 @@ describe("createExpenseSchema", () => {
     }
   });
 
+  it("accepts NPR as a supported currency", () => {
+    const r = createExpenseSchema.safeParse({
+      section: "TECH",
+      title: "Local vendor",
+      amount: "1800",
+      currency: "npr",
+      incurredOn: "2025-04-01",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.currency).toBe("NPR");
+    }
+  });
+
   it("rejects invalid money", () => {
     const r = createExpenseSchema.safeParse({
       section: "TECH",
       title: "X",
       amount: "0",
       currency: "USD",
+      incurredOn: "2025-04-01",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects unsupported currencies", () => {
+    const r = createExpenseSchema.safeParse({
+      section: "TECH",
+      title: "Foreign fee",
+      amount: "10",
+      currency: "EUR",
       incurredOn: "2025-04-01",
     });
     expect(r.success).toBe(false);
