@@ -14,19 +14,36 @@ if (!secret || secret.length < 32) {
   );
 }
 
+/** In development, prefer the browser app origin (default :3001) over a stale BETTER_AUTH_URL (:3000). */
 const baseURL =
-  process.env.BETTER_AUTH_URL?.replace(/\/$/, "") ?? getPublicAppUrl();
+  process.env.NODE_ENV === "development"
+    ? getPublicAppUrl()
+    : (process.env.BETTER_AUTH_URL?.replace(/\/$/, "") ?? getPublicAppUrl());
 
-const trustedOrigins = (
-  process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",")
-    .map((o) => o.trim())
-    .filter(Boolean) ?? [getPublicAppUrl()]
-);
+const trustedOrigins =
+  process.env.NODE_ENV === "development"
+    ? Array.from(
+        new Set([
+          getPublicAppUrl(),
+          ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",") ?? [])
+            .map((o) => o.trim())
+            .filter(Boolean),
+        ]),
+      )
+    : (process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",")
+        .map((o) => o.trim())
+        .filter(Boolean) ?? [getPublicAppUrl()]);
 
 export const auth = betterAuth({
   secret,
   baseURL,
   trustedOrigins,
+  /** Align generated string ids (session, account, verification, passkey) with PostgreSQL UUID strings. */
+  advanced: {
+    database: {
+      generateId: "uuid",
+    },
+  },
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),

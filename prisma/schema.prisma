@@ -97,7 +97,7 @@ model User {
 }
 
 model Session {
-  id        String   @id
+  id        String   @id @default(uuid())
   expiresAt DateTime
   token     String
   createdAt DateTime @default(now())
@@ -113,7 +113,7 @@ model Session {
 }
 
 model Account {
-  id                    String    @id
+  id                    String    @id @default(uuid())
   accountId             String
   providerId            String
   userId                String    @db.Uuid
@@ -133,7 +133,7 @@ model Account {
 }
 
 model Verification {
-  id         String   @id
+  id         String   @id @default(uuid())
   identifier String
   value      String
   expiresAt  DateTime
@@ -145,7 +145,7 @@ model Verification {
 }
 
 model Passkey {
-  id           String    @id
+  id           String    @id @default(uuid())
   name         String?
   publicKey    String
   userId       String    @db.Uuid
