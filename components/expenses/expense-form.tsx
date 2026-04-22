@@ -149,9 +149,9 @@ export function ExpenseForm({
   const initial = useMemo(() => {
     const initialCurrency =
       mode === "edit" && expense
-        ? normalizeCurrency(expense.currency)
+        ? normalizeCurrency(expense.originalCurrency)
         : defaultExpenseCurrency;
-    const initialAmount = mode === "edit" && expense ? expense.amount : "";
+    const initialAmount = mode === "edit" && expense ? expense.originalAmount : "";
 
     return {
       section:

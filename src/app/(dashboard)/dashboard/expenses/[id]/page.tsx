@@ -107,7 +107,7 @@ export default async function ExpenseDetailPage({
           </CardHeader>
           <CardContent>
             <p className="font-numeric text-3xl font-semibold">
-              {formatMoneyAmount(expense.amount, expense.currency)}
+              {formatMoneyAmount(expense.originalAmount, expense.originalCurrency)}
             </p>
           </CardContent>
         </Card>

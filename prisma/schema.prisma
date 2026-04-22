@@ -57,12 +57,30 @@ enum AuditAction {
   MERCHANDISE_ITEM_UPDATED
   SALARY_RECORD_CREATED
   SALARY_RECORD_UPDATED
+  SECTION_BUDGET_CREATED
+  SECTION_BUDGET_UPDATED
   OTHER
 }
 
 enum CurrencyCode {
   USD
   NPR
+}
+
+/// Which cloud storage provider holds the raw file bytes for an attachment.
+enum AttachmentProvider {
+  /// Cloudinary — delivery/transform via signed API; never expose permanent public URLs.
+  CLOUDINARY
+  /// Local filesystem or S3-compatible bucket (dev/self-hosted).
+  LOCAL
+}
+
+/// Controls the window length a section budget covers.
+enum BudgetPeriod {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
 }
 
 // ---------------------------------------------------------------------------
@@ -90,12 +108,14 @@ model User {
   auditLogs                AuditLog[]         @relation("AuditLogActor")
   inventoryItemsCreated    InventoryItem[]    @relation("InventoryItemCreatedBy")
   inventoryItemsUpdated    InventoryItem[]    @relation("InventoryItemUpdatedBy")
-  merchandiseItemsCreated MerchandiseItem[] @relation("MerchandiseItemCreatedBy")
-  merchandiseItemsUpdated MerchandiseItem[] @relation("MerchandiseItemUpdatedBy")
+  merchandiseItemsCreated  MerchandiseItem[]  @relation("MerchandiseItemCreatedBy")
+  merchandiseItemsUpdated  MerchandiseItem[]  @relation("MerchandiseItemUpdatedBy")
   salaryRecordsCreated     SalaryRecord[]     @relation("SalaryRecordCreatedBy")
   salaryRecordsUpdated     SalaryRecord[]     @relation("SalaryRecordUpdatedBy")
   categoriesCreated        Category[]         @relation("CategoryCreatedBy")
   categoriesUpdated        Category[]         @relation("CategoryUpdatedBy")
+  sectionBudgetsCreated    SectionBudget[]    @relation("SectionBudgetCreatedBy")
+  sectionBudgetsUpdated    SectionBudget[]    @relation("SectionBudgetUpdatedBy")
 
   @@index([role])
   @@map("user")
@@ -180,10 +200,10 @@ model Category {
   description String?
   sortOrder   Int            @default(0)
   isActive    Boolean        @default(true)
-  createdById String?      @db.Uuid
-  createdBy   User?        @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById String?      @db.Uuid
-  updatedBy   User?        @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdById String?        @db.Uuid
+  createdBy   User?          @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?        @db.Uuid
+  updatedBy   User?          @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -231,21 +251,34 @@ model ExpenseTag {
 // ---------------------------------------------------------------------------
 
 model Expense {
-  id          String         @id @default(cuid())
-  section     ExpenseSection
-  status      ExpenseStatus  @default(DRAFT)
-  title       String
-  notes       String?
-  amount      Decimal        @db.Decimal(19, 4)
-  currency    CurrencyCode   @default(USD)
-  incurredOn  DateTime       @db.Date
-  categoryId  String?
-  category    Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  id         String         @id @default(cuid())
+  section    ExpenseSection
+  status     ExpenseStatus  @default(DRAFT)
+  title      String
+  notes      String?
+  incurredOn DateTime       @db.Date
 
-  createdById String       @db.Uuid
-  createdBy   User         @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedById String?      @db.Uuid
-  updatedBy   User?        @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  /// Amount in the currency the expense was originally entered in.
+  originalAmount   Decimal      @db.Decimal(19, 4)
+  /// The currency the expense was originally entered in (entered by the user).
+  originalCurrency CurrencyCode @default(USD)
+
+  /// USD equivalent at time of recording (null until first FX snapshot is captured).
+  amountUsd Decimal? @db.Decimal(19, 4)
+  /// NPR equivalent at time of recording (null until first FX snapshot is captured).
+  amountNpr Decimal? @db.Decimal(19, 4)
+  /// 1 USD = fxRateUsdNpr NPR at the moment this expense was saved.
+  fxRateUsdNpr     Decimal?  @db.Decimal(14, 6)
+  /// When the FX snapshot above was captured (UTC).
+  fxRateSnapshotAt DateTime?
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  createdById String  @db.Uuid
+  createdBy   User    @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedById String? @db.Uuid
+  updatedBy   User?   @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   deletedAt DateTime?
 
@@ -256,18 +289,20 @@ model Expense {
   expenseTags ExpenseTag[]
   attachments Attachment[]
 
-  inventoryItems    InventoryItem[]
-  merchandiseItems  MerchandiseItem[]
-  salaryRecord      SalaryRecord?
+  inventoryItems   InventoryItem[]
+  merchandiseItems MerchandiseItem[]
+  salaryRecord     SalaryRecord?
 
   @@index([section, deletedAt])
   @@index([status, deletedAt])
+  @@index([originalCurrency, deletedAt])
+  @@index([originalCurrency, incurredOn, deletedAt])
   @@index([categoryId])
   @@index([createdById])
   @@index([updatedById])
   @@index([createdAt])
   @@index([incurredOn])
-  @@index([amount])
+  @@index([originalAmount])
   @@index([title])
   @@index([deletedAt])
   @@map("expense")
@@ -293,21 +328,93 @@ model ExpenseHistory {
   @@map("expense_history")
 }
 
+/// Receipt or document attached to an expense, stored privately in a cloud provider.
+/// Never store permanent public delivery URLs — generate signed URLs at request time.
 model Attachment {
-  id            String   @id @default(cuid())
-  expenseId     String
-  expense       Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
-  storageKey    String
-  fileName      String
-  contentType   String?
-  sizeBytes     Int?
-  uploadedById  String?  @db.Uuid
-  uploadedBy    User?    @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
-  createdAt     DateTime @default(now())
+  id       String @id @default(cuid())
+  expenseId String
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  /// Which storage backend holds the file.
+  provider AttachmentProvider @default(LOCAL)
+
+  /// Provider-agnostic opaque key (e.g. S3 object key, or local path).
+  /// For Cloudinary, keep this as the public_id for backward compatibility.
+  storageKey String
+
+  /// Cloudinary-specific: the stable public_id used for transforms and signed URL generation.
+  cloudinaryPublicId String?
+  /// Cloudinary asset version — required for deterministic signed URL construction.
+  cloudinaryVersion  Int?
+  /// Cloudinary folder the asset lives in (e.g. "expenso/receipts/2026").
+  cloudinaryFolder   String?
+  /// Cloudinary detected format/extension (e.g. "jpg", "pdf", "png").
+  cloudinaryFormat   String?
+
+  fileName    String
+  contentType String?
+  sizeBytes   Int?
+
+  /// Whether access to this file must go through a server-generated signed URL.
+  /// Always true for Cloudinary assets in this app; false only for dev/local assets.
+  isPrivate Boolean @default(true)
+
+  uploadedById String?  @db.Uuid
+  uploadedBy   User?    @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
 
   @@index([expenseId])
   @@index([uploadedById])
+  @@index([provider, cloudinaryPublicId])
   @@map("attachment")
+}
+
+// ---------------------------------------------------------------------------
+// Domain: section budgets
+// ---------------------------------------------------------------------------
+
+/// A planned spending limit for one section over a fixed calendar window.
+/// Each row covers exactly one (section, period, periodStart) combination.
+model SectionBudget {
+  id      String         @id @default(uuid()) @db.Uuid
+  section ExpenseSection
+  period  BudgetPeriod
+
+  /// Budget amount in the currency it was entered.
+  budgetAmount   Decimal      @db.Decimal(19, 4)
+  budgetCurrency CurrencyCode @default(USD)
+
+  /// USD snapshot at time of budget creation (null until FX rate is captured).
+  budgetAmountUsd Decimal? @db.Decimal(19, 4)
+  /// NPR snapshot at time of budget creation (null until FX rate is captured).
+  budgetAmountNpr Decimal? @db.Decimal(19, 4)
+  /// 1 USD = fxRateUsdNpr NPR at the moment the budget was saved.
+  fxRateUsdNpr     Decimal?  @db.Decimal(14, 6)
+  fxRateSnapshotAt DateTime?
+
+  /// Inclusive start of the budget window (UTC date, no time component).
+  periodStart DateTime @db.Date
+  /// Inclusive end of the budget window (UTC date, no time component).
+  periodEnd   DateTime @db.Date
+
+  isActive Boolean @default(true)
+  notes    String?
+
+  createdById String?  @db.Uuid
+  createdBy   User?    @relation("SectionBudgetCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?  @db.Uuid
+  updatedBy   User?    @relation("SectionBudgetUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One active budget per section+period window start — prevents double-booking.
+  @@unique([section, period, periodStart])
+  @@index([section, isActive, periodStart])
+  @@index([periodStart, periodEnd])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("section_budget")
 }
 
 // ---------------------------------------------------------------------------
@@ -367,14 +474,14 @@ model MerchandiseItem {
 }
 
 model SalaryRecord {
-  id             String   @id @default(cuid())
-  expenseId      String?  @unique
-  expense        Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  id             String       @id @default(cuid())
+  expenseId      String?      @unique
+  expense        Expense?     @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   employeeName   String
-  payPeriodStart DateTime @db.Date
-  payPeriodEnd   DateTime @db.Date
-  grossAmount    Decimal  @db.Decimal(19, 4)
-  netAmount      Decimal  @db.Decimal(19, 4)
+  payPeriodStart DateTime     @db.Date
+  payPeriodEnd   DateTime     @db.Date
+  grossAmount    Decimal      @db.Decimal(19, 4)
+  netAmount      Decimal      @db.Decimal(19, 4)
   currency       CurrencyCode @default(USD)
   metadata       Json?
 

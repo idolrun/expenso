@@ -55,7 +55,7 @@ export function buildExpenseListWhere(
     if (query.amountMax) {
       range.lte = new Prisma.Decimal(query.amountMax);
     }
-    andParts.push({ amount: range });
+    andParts.push({ originalAmount: range });
   }
 
   if (query.incurredOnFrom || query.incurredOnTo) {
@@ -105,7 +105,7 @@ function buildOrderBy(
   const dir = query.sortDir;
   switch (query.sortField) {
     case "amount":
-      return [{ amount: dir }];
+      return [{ originalAmount: dir }];
     case "incurredOn":
       return [{ incurredOn: dir }];
     case "title":

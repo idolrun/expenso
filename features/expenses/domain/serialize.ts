@@ -1,6 +1,7 @@
-import type { Prisma } from "@/app/generated/prisma/client";
+import type { Attachment, Prisma } from "@/app/generated/prisma/client";
 
 import type {
+  AttachmentDto,
   AuditLogEntryDto,
   ExpenseDto,
   ExpenseHistoryEntryDto,
@@ -29,8 +30,12 @@ export function serializeExpense(row: ExpenseRow): ExpenseDto {
     status: row.status,
     title: row.title,
     notes: row.notes ?? null,
-    amount: row.amount.toString(),
-    currency: row.currency,
+    originalAmount: row.originalAmount.toString(),
+    originalCurrency: row.originalCurrency,
+    amountUsd: row.amountUsd?.toString() ?? null,
+    amountNpr: row.amountNpr?.toString() ?? null,
+    fxRateUsdNpr: row.fxRateUsdNpr?.toString() ?? null,
+    fxRateSnapshotAt: row.fxRateSnapshotAt ? toIsoDateTime(row.fxRateSnapshotAt) : null,
     incurredOn: toIsoDate(row.incurredOn),
     categoryId: row.categoryId,
     category: row.category
@@ -52,6 +57,24 @@ export function serializeExpense(row: ExpenseRow): ExpenseDto {
     createdAt: toIsoDateTime(row.createdAt),
     updatedAt: toIsoDateTime(row.updatedAt),
     deletedAt: row.deletedAt ? toIsoDateTime(row.deletedAt) : null,
+  };
+}
+
+export function serializeAttachment(row: Attachment): AttachmentDto {
+  return {
+    id: row.id,
+    expenseId: row.expenseId,
+    provider: row.provider,
+    storageKey: row.storageKey,
+    cloudinaryPublicId: row.cloudinaryPublicId ?? null,
+    cloudinaryFolder: row.cloudinaryFolder ?? null,
+    cloudinaryFormat: row.cloudinaryFormat ?? null,
+    fileName: row.fileName,
+    contentType: row.contentType ?? null,
+    sizeBytes: row.sizeBytes ?? null,
+    isPrivate: row.isPrivate,
+    uploadedById: row.uploadedById ?? null,
+    createdAt: toIsoDateTime(row.createdAt),
   };
 }
 
@@ -108,8 +131,8 @@ export function serializeSearchHit(
     id: row.id,
     title: row.title,
     section: row.section,
-    amount: row.amount.toString(),
-    currency: row.currency,
+    originalAmount: row.originalAmount.toString(),
+    originalCurrency: row.originalCurrency,
     matchedOn,
   };
 }

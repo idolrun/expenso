@@ -1,4 +1,4 @@
-import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
+import type { AttachmentProvider, ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
 
 import type { ExpenseCurrencyCode } from "@/features/expenses/domain/currency";
 
@@ -25,8 +25,21 @@ export type ExpenseDto = {
   status: ExpenseStatus;
   title: string;
   notes: string | null;
-  amount: string;
-  currency: ExpenseCurrencyCode;
+
+  /** Amount as entered by the user, in originalCurrency. Decimal string. */
+  originalAmount: string;
+  /** The currency the user entered the expense in. */
+  originalCurrency: ExpenseCurrencyCode;
+
+  /** USD equivalent captured at the time of recording. Null if not yet snapshotted. */
+  amountUsd: string | null;
+  /** NPR equivalent captured at the time of recording. Null if not yet snapshotted. */
+  amountNpr: string | null;
+  /** 1 USD = fxRateUsdNpr NPR at snapshot time. Null if not yet captured. */
+  fxRateUsdNpr: string | null;
+  /** ISO-8601 datetime when the FX snapshot was taken. Null if not yet captured. */
+  fxRateSnapshotAt: string | null;
+
   incurredOn: string;
   categoryId: string | null;
   category: ExpenseCategoryDto;
@@ -36,6 +49,25 @@ export type ExpenseDto = {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+};
+
+/** Serializable receipt / document attachment. Never includes a delivery URL — generate signed URLs server-side. */
+export type AttachmentDto = {
+  id: string;
+  expenseId: string;
+  provider: AttachmentProvider;
+  storageKey: string;
+  /** Cloudinary stable public_id — use this to build signed URLs. Null for LOCAL provider. */
+  cloudinaryPublicId: string | null;
+  cloudinaryFolder: string | null;
+  cloudinaryFormat: string | null;
+  fileName: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+  /** Always true for CLOUDINARY assets; may be false for LOCAL dev assets. */
+  isPrivate: boolean;
+  uploadedById: string | null;
+  createdAt: string;
 };
 
 export type ExpenseHistoryEntryDto = {
@@ -79,8 +111,9 @@ export type GlobalSearchHitDto = {
   id: string;
   title: string;
   section: ExpenseSection;
-  amount: string;
-  currency: ExpenseCurrencyCode;
+  /** Decimal string, in originalCurrency. */
+  originalAmount: string;
+  originalCurrency: ExpenseCurrencyCode;
   /** Where the query matched (best-effort). */
   matchedOn: "title" | "notes" | "category" | "tag";
 };

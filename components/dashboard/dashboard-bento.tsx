@@ -249,7 +249,7 @@ export function DashboardBento({
                         </p>
                       </div>
                       <span className="font-numeric text-sm font-medium tabular-nums">
-                        {formatMoneyAmount(e.amount, e.currency)}
+                        {formatMoneyAmount(e.originalAmount, e.originalCurrency)}
                       </span>
                     </Link>
                   </li>

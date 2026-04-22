@@ -95,7 +95,7 @@ export function GlobalSearchCommand() {
                     <span className="truncate font-medium">{hit.title}</span>
                     <span className="text-muted-foreground truncate text-xs">
                       {hit.section.replaceAll("_", " ")} ·{" "}
-                      <span className="font-numeric">{hit.amount}</span> {hit.currency}
+                      <span className="font-numeric">{hit.originalAmount}</span> {hit.originalCurrency}
                     </span>
                   </div>
                 </CommandItem>

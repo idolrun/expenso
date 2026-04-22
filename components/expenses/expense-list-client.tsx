@@ -203,7 +203,7 @@ export function ExpenseListClient({
                         </TableCell>
                         <TableCell className="text-sm">{e.status}</TableCell>
                         <TableCell className="font-numeric text-right text-sm">
-                          {formatMoneyAmount(e.amount, e.currency)}
+                          {formatMoneyAmount(e.originalAmount, e.originalCurrency)}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button asChild variant="ghost" size="sm">
@@ -229,7 +229,7 @@ export function ExpenseListClient({
                 </CardHeader>
                 <CardContent className="flex items-center justify-between gap-2 pt-0">
                   <span className="font-numeric text-lg font-semibold">
-                    {formatMoneyAmount(e.amount, e.currency)}
+                    {formatMoneyAmount(e.originalAmount, e.originalCurrency)}
                   </span>
                   <Button asChild size="sm" variant="secondary">
                     <Link href={`/dashboard/expenses/${e.id}`}>Open</Link>

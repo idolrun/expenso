@@ -21,7 +21,8 @@ export type ExpenseListFilter = Pick<
   | "createdById"
   | "updatedById"
   | "deletedAt"
-  | "amount"
+  | "originalAmount"
+  | "originalCurrency"
   | "createdAt"
   | "incurredOn"
 > & {

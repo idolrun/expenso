@@ -13,13 +13,13 @@ describe("expenseRowToSnapshot", () => {
       status: ExpenseStatus.DRAFT,
       title: "AWS bill",
       notes: null,
-      amount: { toString: () => "120.5000" },
-      currency: "USD",
+      originalAmount: { toString: () => "120.5000" },
+      originalCurrency: "USD",
       incurredOn: new Date("2025-06-15T00:00:00.000Z"),
       categoryId: "cat1",
       expenseTags: [{ tagId: "b" }, { tagId: "a" }],
     });
-    expect(snap.amount).toBe("120.5000");
+    expect(snap.originalAmount).toBe("120.5000");
     expect(snap.tagIds).toEqual(["a", "b"]);
     expect(snap.incurredOn).toBe("2025-06-15");
   });
@@ -31,8 +31,8 @@ describe("buildExpenseHistoryRows", () => {
     status: ExpenseStatus.DRAFT,
     title: "T",
     notes: null,
-    amount: { toString: () => "10" },
-    currency: "USD",
+    originalAmount: { toString: () => "10" },
+    originalCurrency: "USD",
     incurredOn: new Date("2025-01-01T00:00:00.000Z"),
     categoryId: null,
     expenseTags: [],
@@ -43,7 +43,7 @@ describe("buildExpenseHistoryRows", () => {
     const after = expenseRowToSnapshot({
       ...base(),
       title: "Updated",
-      amount: { toString: () => "12" },
+      originalAmount: { toString: () => "12" },
     });
     const rows = buildExpenseHistoryRows({
       expenseId: "exp1",
@@ -55,7 +55,7 @@ describe("buildExpenseHistoryRows", () => {
     expect(rows).toHaveLength(2);
     const keys = new Set(rows.map((r) => r.fieldKey));
     expect(keys.has("title")).toBe(true);
-    expect(keys.has("amount")).toBe(true);
+    expect(keys.has("originalAmount")).toBe(true);
   });
 
   it("detects tag set changes", () => {

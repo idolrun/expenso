@@ -8,7 +8,13 @@ import { serializeExpense, serializeExpenseHistoryRow } from "@/features/expense
 import { expenseRepository } from "@/features/expenses/infrastructure/expense.repository";
 import { prisma } from "@/lib/prisma";
 
-const activeUsdWhere = { deletedAt: null, currency: "USD" } as const;
+/**
+ * Base filter for "active USD-denominated expenses".
+ * Phase 1: uses originalCurrency filter on originalAmount.
+ * Phase 2 note: replace with amountUsd aggregation (non-null check) to include
+ * NPR expenses that have been snapshotted, enabling true dual-currency rollups.
+ */
+const activeUsdWhere = { deletedAt: null, originalCurrency: "USD" } as const;
 
 function userLabel(
   user: { name: string | null; email: string } | null | undefined,
@@ -64,14 +70,14 @@ export async function getDashboardSummary(): Promise<
       prisma.expense.count({ where: { deletedAt: null } }),
       prisma.expense.aggregate({
         where: activeUsdWhere,
-        _sum: { amount: true },
+        _sum: { originalAmount: true },
       }),
       prisma.expense.aggregate({
         where: {
           ...activeUsdWhere,
           incurredOn: { gte: monthStart, lte: monthEnd },
         },
-        _sum: { amount: true },
+        _sum: { originalAmount: true },
       }),
       prisma.expense.groupBy({
         by: ["status"],
@@ -86,7 +92,7 @@ export async function getDashboardSummary(): Promise<
       prisma.expense.groupBy({
         by: ["section"],
         where: activeUsdWhere,
-        _sum: { amount: true },
+        _sum: { originalAmount: true },
       }),
       expenseRepository.findManyWhere(prisma, {
         where: { deletedAt: null },
@@ -124,7 +130,7 @@ export async function getDashboardSummary(): Promise<
             ...activeUsdWhere,
             incurredOn: { gte: start, lte: end },
           },
-          _sum: { amount: true },
+          _sum: { originalAmount: true },
         }),
       ),
       ...monthRangeSpecs.map(({ start, end }) =>
@@ -133,7 +139,7 @@ export async function getDashboardSummary(): Promise<
             ...activeUsdWhere,
             incurredOn: { gte: start, lte: end },
           },
-          _sum: { amount: true },
+          _sum: { originalAmount: true },
         }),
       ),
     ]);
@@ -142,7 +148,7 @@ export async function getDashboardSummary(): Promise<
       monthKey: spec.monthKey,
       label: spec.label,
       amount:
-        (monthAggs[idx] as { _sum: { amount: { toString(): string } | null } } | undefined)?._sum.amount?.toString() ??
+        (monthAggs[idx] as { _sum: { originalAmount: { toString(): string } | null } } | undefined)?._sum.originalAmount?.toString() ??
         "0",
     }));
     const previousMonthSpendUsd = monthlySpendUsdLast6[4]?.amount ?? "0";
@@ -159,26 +165,26 @@ export async function getDashboardSummary(): Promise<
 
     const spendBySectionUsd: Partial<Record<ExpenseSection, string>> = {};
     for (const row of sectionSpendGroups) {
-      spendBySectionUsd[row.section] = row._sum.amount?.toString() ?? "0";
+      spendBySectionUsd[row.section] = row._sum.originalAmount?.toString() ?? "0";
     }
     const mapSectionSpend = (
-      rows: { section: ExpenseSection; _sum: { amount: { toString(): string } | null } }[],
+      rows: { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[],
     ): Partial<Record<ExpenseSection, string>> => {
       const mapped: Partial<Record<ExpenseSection, string>> = {};
       for (const row of rows) {
-        mapped[row.section] = row._sum.amount?.toString() ?? "0";
+        mapped[row.section] = row._sum.originalAmount?.toString() ?? "0";
       }
       return mapped;
     };
     const spendBySectionUsdByPeriod = {
       "1m": mapSectionSpend(
-        sectionBreakdown1m as { section: ExpenseSection; _sum: { amount: { toString(): string } | null } }[],
+        sectionBreakdown1m as { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[],
       ),
       "2m": mapSectionSpend(
-        sectionBreakdown2m as { section: ExpenseSection; _sum: { amount: { toString(): string } | null } }[],
+        sectionBreakdown2m as { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[],
       ),
       "3m": mapSectionSpend(
-        sectionBreakdown3m as { section: ExpenseSection; _sum: { amount: { toString(): string } | null } }[],
+        sectionBreakdown3m as { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[],
       ),
     };
 
@@ -231,8 +237,8 @@ export async function getDashboardSummary(): Promise<
       ok: true,
       data: {
         totalCount,
-        totalSpendUsd: totalSpendAgg._sum.amount?.toString() ?? "0",
-        monthSpendUsd: monthSpendAgg._sum.amount?.toString() ?? "0",
+        totalSpendUsd: totalSpendAgg._sum.originalAmount?.toString() ?? "0",
+        monthSpendUsd: monthSpendAgg._sum.originalAmount?.toString() ?? "0",
         monthlySpendUsdLast6,
         previousMonthSpendUsd,
         byStatus,

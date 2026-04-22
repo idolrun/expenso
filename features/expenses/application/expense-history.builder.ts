@@ -11,8 +11,8 @@ export type ExpenseScalarSnapshot = {
   status: ExpenseStatus;
   title: string;
   notes: string | null;
-  amount: string;
-  currency: ExpenseCurrencyCode;
+  originalAmount: string;
+  originalCurrency: ExpenseCurrencyCode;
   incurredOn: string;
   categoryId: string | null;
   tagIds: string[];
@@ -37,8 +37,8 @@ export function expenseRowToSnapshot(row: {
   status: ExpenseStatus;
   title: string;
   notes: string | null;
-  amount: { toString(): string };
-  currency: string;
+  originalAmount: { toString(): string };
+  originalCurrency: string;
   incurredOn: Date;
   categoryId: string | null;
   expenseTags: { tagId: string }[];
@@ -48,8 +48,8 @@ export function expenseRowToSnapshot(row: {
     status: row.status,
     title: row.title,
     notes: row.notes,
-    amount: row.amount.toString(),
-    currency: toExpenseCurrencyCode(row.currency),
+    originalAmount: row.originalAmount.toString(),
+    originalCurrency: toExpenseCurrencyCode(row.originalCurrency),
     incurredOn: toYmd(row.incurredOn),
     categoryId: row.categoryId,
     tagIds: row.expenseTags.map((t) => t.tagId).sort(),
@@ -69,8 +69,8 @@ export function buildExpenseHistoryRows(args: {
     "status",
     "title",
     "notes",
-    "amount",
-    "currency",
+    "originalAmount",
+    "originalCurrency",
     "incurredOn",
     "categoryId",
     "tagIds",

@@ -42,8 +42,8 @@ export async function createExpenseService(
         status: input.status,
         title: input.title,
         notes: input.notes ?? undefined,
-        amount: new Prisma.Decimal(input.amount),
-        currency: input.currency,
+        originalAmount: new Prisma.Decimal(input.amount),
+        originalCurrency: input.currency,
         incurredOn: parseYmdToUtcDate(input.incurredOn),
         category: input.categoryId
           ? { connect: { id: input.categoryId } }
@@ -107,8 +107,8 @@ export async function updateExpenseService(
       status: input.status ?? before.status,
       title: input.title ?? before.title,
       notes: input.notes !== undefined ? input.notes : before.notes,
-      amount: input.amount ?? before.amount,
-      currency: input.currency ?? before.currency,
+      originalAmount: input.amount ?? before.originalAmount,
+      originalCurrency: input.currency ?? before.originalCurrency,
       incurredOn: input.incurredOn ?? before.incurredOn,
       categoryId:
         input.categoryId !== undefined ? input.categoryId : before.categoryId,
@@ -144,9 +144,9 @@ export async function updateExpenseService(
       if (input.title !== undefined) data.title = input.title;
       if (input.notes !== undefined) data.notes = input.notes;
       if (input.amount !== undefined) {
-        data.amount = new Prisma.Decimal(input.amount);
+        data.originalAmount = new Prisma.Decimal(input.amount);
       }
-      if (input.currency !== undefined) data.currency = input.currency;
+      if (input.currency !== undefined) data.originalCurrency = input.currency;
       if (input.incurredOn !== undefined) {
         data.incurredOn = parseYmdToUtcDate(input.incurredOn);
       }
