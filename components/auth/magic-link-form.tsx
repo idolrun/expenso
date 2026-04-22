@@ -10,22 +10,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 
+const NOT_AUTHORIZED_MESSAGE = "You are not authorized to access this application.";
+
 export function MagicLinkForm() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setSent(false);
+    setInlineError(null);
     try {
       const { error } = await authClient.signIn.magicLink({
         email: email.trim(),
         callbackURL: `${getPublicAppUrl()}/dashboard`,
       });
       if (error) {
-        toast.error(error.message ?? "Could not send magic link");
+        const message = error.message ?? "Could not send magic link";
+        if (message.includes("not authorized")) {
+          setInlineError(NOT_AUTHORIZED_MESSAGE);
+        } else {
+          toast.error(message);
+        }
         return;
       }
       setSent(true);
@@ -47,9 +56,16 @@ export function MagicLinkForm() {
           required
           placeholder="you@company.com"
           value={email}
-          onChange={(ev) => setEmail(ev.target.value)}
+          onChange={(ev) => {
+            setEmail(ev.target.value);
+            if (inlineError) setInlineError(null);
+          }}
           disabled={loading}
+          aria-invalid={!!inlineError}
         />
+        {inlineError ? (
+          <p className="text-destructive text-xs">{inlineError}</p>
+        ) : null}
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? (

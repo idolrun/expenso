@@ -78,6 +78,17 @@ export const auth = betterAuth({
     }),
     magicLink({
       sendMagicLink: async ({ email, url }) => {
+        const normalizedEmail = email.trim().toLowerCase();
+
+        const allowed = await prisma.allowedEmail.findUnique({
+          where: { email: normalizedEmail },
+        });
+        if (!allowed || !allowed.isActive) {
+          throw new Error(
+            "You are not authorized to access this application.",
+          );
+        }
+
         const limit = rateLimit(email, { maxRequests: 3, windowMs: 60_000 });
         if (!limit.ok) {
           throw new Error(

@@ -6,7 +6,7 @@
 -- Resolve duplicates manually before running (keep the row you want, delete others).
 
 -- DropIndex
-DROP INDEX IF EXISTS "section_budget_section_period_periodStart_key";
+ALTER TABLE "section_budget" DROP CONSTRAINT IF EXISTS "section_budget_section_period_periodStart_key";
 
 -- CreateIndex
 CREATE UNIQUE INDEX "section_budget_section_period_key" ON "section_budget"("section", "period");
