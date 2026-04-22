@@ -1,7 +1,8 @@
 import { ExpenseForm } from "@/components/expenses/expense-form";
 import { requireAuth } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
-import { sectionFromSlug } from "@/src/lib/expense-sections";
+import { expenseSectionValues } from "@/features/expenses/validation/primitives";
+import type { ExpenseSectionId } from "@/src/lib/expense-sections";
 
 export default async function NewExpensePage({
   searchParams,
@@ -10,8 +11,11 @@ export default async function NewExpensePage({
 }) {
   await requireAuth();
   const sp = await searchParams;
-  const from = typeof sp.from === "string" ? sp.from : undefined;
-  const defaultSection = from ? sectionFromSlug(from) : undefined;
+  const sectionParam = typeof sp.section === "string" ? sp.section : undefined;
+  const defaultSection: ExpenseSectionId | undefined =
+    sectionParam && (expenseSectionValues as readonly string[]).includes(sectionParam)
+      ? (sectionParam as ExpenseSectionId)
+      : undefined;
 
   const tags = await prisma.tag.findMany({
     orderBy: { name: "asc" },
@@ -27,7 +31,7 @@ export default async function NewExpensePage({
           conversion cached on the server.
         </p>
       </div>
-      <ExpenseForm mode="create" tags={tags} defaultSection={defaultSection ?? undefined} />
+      <ExpenseForm mode="create" tags={tags} defaultSection={defaultSection} />
     </div>
   );
 }

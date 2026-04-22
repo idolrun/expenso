@@ -35,6 +35,36 @@ function isImageAttachment(contentType: string | null): boolean {
   return contentType === "image/jpeg" || contentType === "image/png";
 }
 
+function ImageLightbox({
+  src,
+  alt,
+  open,
+  onClose,
+}: {
+  src: string;
+  alt: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
 function AttachmentThumbnail({
   attachment,
 }: {
@@ -43,6 +73,7 @@ function AttachmentThumbnail({
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,13 +118,22 @@ function AttachmentThumbnail({
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={signedUrl}
-      alt={attachment.fileName}
-      className="h-32 w-full rounded-lg border object-contain"
-      onError={() => setError(true)}
-    />
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={signedUrl}
+        alt={attachment.fileName}
+        className="h-32 w-full cursor-pointer rounded-lg border object-contain transition-opacity hover:opacity-90"
+        onError={() => setError(true)}
+        onClick={() => setLightboxOpen(true)}
+      />
+      <ImageLightbox
+        src={signedUrl}
+        alt={attachment.fileName}
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+      />
+    </>
   );
 }
 

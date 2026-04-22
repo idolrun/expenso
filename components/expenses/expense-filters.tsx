@@ -174,7 +174,7 @@ export function ExpenseFilters({
             onClick={() => {
               setSearch("");
               setQuery({
-                section: undefined,
+                section: hideSectionFilter ? query.section : undefined,
                 status: undefined,
                 tagIds: [],
                 amountMin: undefined,

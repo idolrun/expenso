@@ -169,32 +169,34 @@ export default async function ExpenseDetailPage({
         </Card>
       </div>
 
-      {/* Category & tags */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Category & tags</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div>
-            <span className="text-muted-foreground">Category: </span>
-            <span>{expense.category?.name ?? "—"}</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {expense.tags.length === 0 ? (
-              <span className="text-muted-foreground">No tags</span>
-            ) : (
-              expense.tags.map((t) => (
-                <Badge key={t.id} variant="outline">
-                  {t.name}
-                </Badge>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Receipts */}
-      <AttachmentSection attachments={attachments} />
+      {/* Attachments + Category & tags */}
+      <div className="grid gap-4 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <AttachmentSection attachments={attachments} />
+        </div>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Category & tags</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div>
+              <span className="text-muted-foreground">Category: </span>
+              <span>{expense.category?.name ?? "—"}</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {expense.tags.length === 0 ? (
+                <span className="text-muted-foreground">No tags</span>
+              ) : (
+                expense.tags.map((t) => (
+                  <Badge key={t.id} variant="outline">
+                    {t.name}
+                  </Badge>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* History */}
       <ExpenseHistoryTimeline entries={history} tagNameById={tagNameById} />

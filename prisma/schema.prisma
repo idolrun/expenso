@@ -408,8 +408,8 @@ model SectionBudget {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /// One active budget per section+period window start — prevents double-booking.
-  @@unique([section, period, periodStart])
+  /// One budget per section+period — each period is an independent budget.
+  @@unique([section, period])
   @@index([section, isActive, periodStart])
   @@index([periodStart, periodEnd])
   @@index([createdById])

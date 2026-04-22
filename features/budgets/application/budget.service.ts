@@ -1,5 +1,5 @@
 import { AuditAction, Prisma } from "@/app/generated/prisma/client";
-import type { CurrencyCode, ExpenseSection, SectionBudget } from "@/app/generated/prisma/client";
+import type { BudgetPeriod, CurrencyCode, ExpenseSection, SectionBudget } from "@/app/generated/prisma/client";
 
 import type { ServiceResult } from "@/features/expenses/domain/dto";
 import type { PaginatedDto } from "@/features/expenses/domain/dto";
@@ -21,6 +21,117 @@ import { prisma } from "@/lib/prisma";
 
 function parseYmdToUtcDate(ymd: string): Date {
   return new Date(`${ymd}T00:00:00.000Z`);
+}
+
+/**
+ * Resolve the monetary value of an expense in the target display currency.
+ *
+ * Priority:
+ *   1. If originalCurrency matches target → use originalAmount (exact, no FX needed)
+ *   2. Else if FX snapshot exists → use pre-computed amountUsd / amountNpr
+ *   3. Else → null (expense not counted; caller should flag as incomplete)
+ */
+function expenseAmountInCurrency(
+  expense: {
+    originalAmount: Prisma.Decimal;
+    originalCurrency: CurrencyCode;
+    amountUsd: Prisma.Decimal | null;
+    amountNpr: Prisma.Decimal | null;
+  },
+  displayCurrency: CurrencyCode,
+): Prisma.Decimal | null {
+  if (expense.originalCurrency === displayCurrency) {
+    return expense.originalAmount;
+  }
+  return displayCurrency === "USD" ? expense.amountUsd : expense.amountNpr;
+}
+
+/**
+ * Build a spend-versus-budget summary for a single budget record.
+ */
+async function buildBudgetSummary(
+  budget: SectionBudget,
+  displayCurrency: CurrencyCode,
+): Promise<ServiceResult<SectionBudgetSummaryDto>> {
+  // Resolve the budget cap in displayCurrency.
+  const budgetAmountInDisplay = expenseAmountInCurrency(
+    {
+      originalAmount: budget.budgetAmount,
+      originalCurrency: budget.budgetCurrency,
+      amountUsd: budget.budgetAmountUsd,
+      amountNpr: budget.budgetAmountNpr,
+    },
+    displayCurrency,
+  );
+
+  if (!budgetAmountInDisplay) {
+    return {
+      ok: false,
+      error: {
+        code: "FX_SNAPSHOT_MISSING",
+        message:
+          "Budget FX snapshot not available for the requested display currency",
+      },
+    };
+  }
+
+  // Fetch all non-deleted expenses in the section within the budget window.
+  const expenses = await prisma.expense.findMany({
+    where: {
+      section: budget.section,
+      deletedAt: null,
+      incurredOn: {
+        gte: budget.periodStart,
+        lte: budget.periodEnd,
+      },
+    },
+    select: {
+      originalAmount: true,
+      originalCurrency: true,
+      amountUsd: true,
+      amountNpr: true,
+    },
+  });
+
+  // Sum amounts in displayCurrency, skipping rows with no snapshot yet.
+  let spentDecimal = new Prisma.Decimal(0);
+  for (const exp of expenses) {
+    const contrib = expenseAmountInCurrency(
+      {
+        originalAmount: exp.originalAmount,
+        originalCurrency: exp.originalCurrency,
+        amountUsd: exp.amountUsd,
+        amountNpr: exp.amountNpr,
+      },
+      displayCurrency,
+    );
+    if (contrib !== null) {
+      spentDecimal = spentDecimal.add(contrib);
+    }
+  }
+
+  const remaining = budgetAmountInDisplay.sub(spentDecimal);
+  const percent =
+    budgetAmountInDisplay.isZero()
+      ? 0
+      : spentDecimal
+          .div(budgetAmountInDisplay)
+          .mul(100)
+          .toDecimalPlaces(2)
+          .toNumber();
+
+  return {
+    ok: true,
+    data: {
+      budget: serializeSectionBudget(budget),
+      displayCurrency,
+      spentAmount: spentDecimal.toDecimalPlaces(4).toString(),
+      spentPercent: percent,
+      remainingAmount: remaining.toDecimalPlaces(4).toString(),
+      isOverBudget: spentDecimal.greaterThan(budgetAmountInDisplay),
+      threshold: thresholdFromPercent(percent),
+    },
+  };
 }
 
 export async function createSectionBudgetService(
@@ -81,7 +192,7 @@ export async function createSectionBudgetService(
         error: {
           code: "CONFLICT",
           message:
-            "A budget for this section, period, and start date already exists",
+            "A budget for this section and period already exists",
         },
       };
     }
@@ -98,15 +209,11 @@ export async function updateSectionBudgetService(
     const fxSnapshot = await computeFxSnapshot(budgetAmount, input.budgetCurrency as CurrencyCode);
 
     const budget = await prisma.$transaction(async (tx) => {
-      const existing = await tx.sectionBudget.findUnique({
-        where: {
-          section_period_periodStart: {
-            section: input.section,
-            period: input.period,
-            periodStart: parseYmdToUtcDate(input.periodStart),
-          },
-        },
-      });
+      const existing = await budgetRepository.findBySectionAndPeriod(
+        tx,
+        input.section,
+        input.period,
+      );
 
       let row: SectionBudget;
 
@@ -115,6 +222,7 @@ export async function updateSectionBudgetService(
           updatedBy: { connect: { id: actorUserId } },
           budgetAmount,
           budgetCurrency: input.budgetCurrency as CurrencyCode,
+          periodStart: parseYmdToUtcDate(input.periodStart),
           periodEnd: parseYmdToUtcDate(input.periodEnd),
           notes: input.notes ?? undefined,
           budgetAmountUsd: fxSnapshot?.amountUsd ?? undefined,
@@ -169,7 +277,7 @@ export async function updateSectionBudgetService(
         error: {
           code: "CONFLICT",
           message:
-            "A budget for this section, period, and start date already exists",
+            "A budget for this section and period already exists",
         },
       };
     }
@@ -227,132 +335,56 @@ export async function listSectionBudgetsService(
 }
 
 /**
- * Resolve the monetary value of an expense in the target display currency.
- *
- * Priority:
- *   1. If originalCurrency matches target → use originalAmount (exact, no FX needed)
- *   2. Else if FX snapshot exists → use pre-computed amountUsd / amountNpr
- *   3. Else → null (expense not counted; caller should flag as incomplete)
+ * Get a single budget summary for a specific section + period.
  */
-function expenseAmountInCurrency(
-  expense: {
-    originalAmount: Prisma.Decimal;
-    originalCurrency: CurrencyCode;
-    amountUsd: Prisma.Decimal | null;
-    amountNpr: Prisma.Decimal | null;
-  },
-  displayCurrency: CurrencyCode,
-): Prisma.Decimal | null {
-  if (expense.originalCurrency === displayCurrency) {
-    return expense.originalAmount;
-  }
-  return displayCurrency === "USD" ? expense.amountUsd : expense.amountNpr;
-}
-
 export async function getSectionBudgetSummaryService(
   section: ExpenseSection,
+  period: BudgetPeriod,
   displayCurrency: CurrencyCode,
-  referenceDate: Date,
 ): Promise<ServiceResult<SectionBudgetSummaryDto>> {
   try {
-    const budget = await budgetRepository.findActiveForSectionAt(
-      prisma,
-      section,
-      referenceDate,
-    );
+    const budget = await budgetRepository.findBySectionAndPeriod(prisma, section, period);
 
     if (!budget) {
       return {
         ok: false,
         error: {
           code: "NOT_FOUND",
-          message: `No active budget found for section ${section} on ${referenceDate.toISOString().slice(0, 10)}`,
+          message: `No budget found for section ${section} and period ${period}`,
         },
       };
     }
 
-    // Resolve the budget cap in displayCurrency.
-    const budgetAmountInDisplay = expenseAmountInCurrency(
-      {
-        originalAmount: budget.budgetAmount,
-        originalCurrency: budget.budgetCurrency,
-        amountUsd: budget.budgetAmountUsd,
-        amountNpr: budget.budgetAmountNpr,
-      },
-      displayCurrency,
-    );
-
-    if (!budgetAmountInDisplay) {
-      return {
-        ok: false,
-        error: {
-          code: "FX_SNAPSHOT_MISSING",
-          message:
-            "Budget FX snapshot not available for the requested display currency",
-        },
-      };
-    }
-
-    // Fetch all non-deleted expenses in the section within the budget window.
-    const expenses = await prisma.expense.findMany({
-      where: {
-        section,
-        deletedAt: null,
-        incurredOn: {
-          gte: budget.periodStart,
-          lte: budget.periodEnd,
-        },
-      },
-      select: {
-        originalAmount: true,
-        originalCurrency: true,
-        amountUsd: true,
-        amountNpr: true,
-      },
-    });
-
-    // Sum amounts in displayCurrency, skipping rows with no snapshot yet.
-    let spentDecimal = new Prisma.Decimal(0);
-    for (const exp of expenses) {
-      const contrib = expenseAmountInCurrency(
-        {
-          originalAmount: exp.originalAmount,
-          originalCurrency: exp.originalCurrency,
-          amountUsd: exp.amountUsd,
-          amountNpr: exp.amountNpr,
-        },
-        displayCurrency,
-      );
-      if (contrib !== null) {
-        spentDecimal = spentDecimal.add(contrib);
-      }
-    }
-
-    const remaining = budgetAmountInDisplay.sub(spentDecimal);
-    const percent =
-      budgetAmountInDisplay.isZero()
-        ? 0
-        : spentDecimal
-            .div(budgetAmountInDisplay)
-            .mul(100)
-            .toDecimalPlaces(2)
-            .toNumber();
-
-    return {
-      ok: true,
-      data: {
-        budget: serializeSectionBudget(budget),
-        displayCurrency,
-        spentAmount: spentDecimal.toDecimalPlaces(4).toString(),
-        spentPercent: percent,
-        remainingAmount: remaining.toDecimalPlaces(4).toString(),
-        isOverBudget: spentDecimal.greaterThan(budgetAmountInDisplay),
-        threshold: thresholdFromPercent(percent),
-      },
-    };
+    return buildBudgetSummary(budget, displayCurrency);
   } catch (e) {
     const message = e instanceof Error ? e.message : "Budget summary failed";
     return { ok: false, error: { code: "SUMMARY_FAILED", message } };
+  }
+}
+
+/**
+ * Get all budget summaries for every period of a given section.
+ */
+export async function getSectionBudgetSummariesForSection(
+  section: ExpenseSection,
+  displayCurrency: CurrencyCode,
+): Promise<ServiceResult<SectionBudgetSummaryDto[]>> {
+  try {
+    const budgets = await budgetRepository.findMany(prisma, {
+      where: { section, isActive: true },
+      orderBy: [{ periodStart: "desc" }],
+    });
+
+    const summaries: SectionBudgetSummaryDto[] = [];
+    for (const budget of budgets) {
+      const result = await buildBudgetSummary(budget, displayCurrency);
+      if (result.ok) summaries.push(result.data);
+    }
+
+    return { ok: true, data: summaries };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Budget summaries failed";
+    return { ok: false, error: { code: "SUMMARIES_FAILED", message } };
   }
 }
 
@@ -376,11 +408,7 @@ export async function getAllActiveBudgetSummariesService(
     const summaries: SectionBudgetSummaryDto[] = [];
 
     for (const budget of activeBudgets) {
-      const result = await getSectionBudgetSummaryService(
-        budget.section,
-        displayCurrency,
-        referenceDate,
-      );
+      const result = await buildBudgetSummary(budget, displayCurrency);
       if (result.ok) summaries.push(result.data);
     }
 

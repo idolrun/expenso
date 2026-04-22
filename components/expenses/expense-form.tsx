@@ -21,7 +21,7 @@ import {
 import type { ExpenseDto, SafeAttachmentDto } from "@/features/expenses/domain/dto";
 import { expenseSectionValues, expenseStatusValues } from "@/features/expenses/validation/primitives";
 import { apiAxios } from "@/src/lib/axios";
-import type { ExpenseSectionId } from "@/src/lib/expense-sections";
+import { slugForSection, type ExpenseSectionId } from "@/src/lib/expense-sections";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { PaperclipIcon, TrashIcon, UploadIcon, FileIcon } from "@phosphor-icons/react";
 
@@ -44,24 +44,6 @@ type ExchangeRatePayload = {
   rate: number;
   lastUpdated: string;
 };
-
-const INPUT_DEBOUNCE_MS = 250;
-
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setDebouncedValue(value);
-    }, delayMs);
-
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [delayMs, value]);
-
-  return debouncedValue;
-}
 
 function RequiredLabel({
   htmlFor,
@@ -210,16 +192,12 @@ export function ExpenseForm({
   const [tagIds, setTagIds] = useState<string[]>(initial.tagIds);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
-  const [rateLastUpdated, setRateLastUpdated] = useState<string | null>(null);
-  const [rateLoading, setRateLoading] = useState(true);
-  const [rateError, setRateError] = useState<string | null>(null);
 
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<SafeAttachmentDto[]>(initialAttachments);
   const [uploadingFiles, setUploadingFiles] = useState(false);
 
-  const debouncedUsdAmount = useDebouncedValue(usdAmount, INPUT_DEBOUNCE_MS);
-  const debouncedNprAmount = useDebouncedValue(nprAmount, INPUT_DEBOUNCE_MS);
+  // Conversion syncs immediately as the user types; no debounce needed.
 
   useEffect(() => {
     let cancelled = false;
@@ -244,9 +222,6 @@ export function ExpenseForm({
     let cancelled = false;
 
     async function loadExchangeRate() {
-      setRateLoading(true);
-      setRateError(null);
-
       try {
         const response = await fetch("/api/exchange-rate", {
           cache: "no-store",
@@ -280,20 +255,11 @@ export function ExpenseForm({
         if (cancelled) return;
 
         setExchangeRate(body.rate);
-        setRateLastUpdated(body.lastUpdated);
       } catch (error) {
         if (cancelled || (error instanceof DOMException && error.name === "AbortError")) {
           return;
         }
         setExchangeRate(null);
-        setRateLastUpdated(null);
-        setRateError(
-          error instanceof Error ? error.message : "Unable to load the exchange rate",
-        );
-      } finally {
-        if (!cancelled) {
-          setRateLoading(false);
-        }
       }
     }
 
@@ -310,25 +276,24 @@ export function ExpenseForm({
 
     const timeout = window.setTimeout(() => {
       if (lastEditedCurrency === "USD") {
-        const parsedUsdAmount = parseAmountInput(debouncedUsdAmount);
+        const parsedUsdAmount = parseAmountInput(usdAmount);
         const nextNprAmount =
           parsedUsdAmount === null ? "" : toEditableAmount(parsedUsdAmount * exchangeRate);
 
         setNprAmount((current) => (current === nextNprAmount ? current : nextNprAmount));
-        return;
+      } else {
+        const parsedNprAmount = parseAmountInput(nprAmount);
+        const nextUsdAmount =
+          parsedNprAmount === null ? "" : toEditableAmount(parsedNprAmount / exchangeRate);
+
+        setUsdAmount((current) => (current === nextUsdAmount ? current : nextUsdAmount));
       }
-
-      const parsedNprAmount = parseAmountInput(debouncedNprAmount);
-      const nextUsdAmount =
-        parsedNprAmount === null ? "" : toEditableAmount(parsedNprAmount / exchangeRate);
-
-      setUsdAmount((current) => (current === nextUsdAmount ? current : nextUsdAmount));
     }, 0);
 
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [debouncedNprAmount, debouncedUsdAmount, exchangeRate, lastEditedCurrency]);
+  }, [usdAmount, nprAmount, exchangeRate, lastEditedCurrency]);
 
   const toggleTag = (id: string) => {
     setTagIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -479,7 +444,7 @@ export function ExpenseForm({
         }
         await uploadPendingFiles(res.data.id);
         toast.success("Expense created");
-        router.push(`/dashboard/expenses/${res.data.id}`);
+        router.push(`/dashboard/sections/${slugForSection(section as ExpenseSectionId)}`);
         router.refresh();
         return;
       }
@@ -503,14 +468,7 @@ export function ExpenseForm({
   const savedAmountPreview = toFormattedPreview(resolveSubmissionAmount(currency), currency);
   const usdPreview = toFormattedPreview(usdAmount, "USD");
   const nprPreview = toFormattedPreview(nprAmount, "NPR");
-  const ratePreview =
-    exchangeRate === null ? null : formatMoneyAmount(exchangeRate.toString(), "NPR");
-  const rateUpdatedPreview = rateLastUpdated
-    ? new Intl.DateTimeFormat(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(new Date(rateLastUpdated))
-    : null;
+
 
   return (
     <div className="bg-card space-y-6 rounded-xl border p-4 shadow-xs sm:p-6">
@@ -613,27 +571,11 @@ export function ExpenseForm({
         </div>
 
         <div className="space-y-2 sm:col-span-2">
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-sm font-medium">Live USD/NPR conversion</p>
-            {rateLoading ? (
-              <p className="text-muted-foreground mt-1 text-sm">Loading the latest rate...</p>
-            ) : rateError ? (
-              <p className="text-destructive mt-1 text-sm">{rateError}</p>
-            ) : (
-              <p className="mt-1 text-sm">1 USD = {ratePreview}</p>
-            )}
-            <p className="text-muted-foreground mt-1 text-xs">
-              {savedAmountPreview
-                ? `This expense will be saved as ${savedAmountPreview}.`
-                : `Choose the saved currency and enter an amount in USD or NPR.`}
-            </p>
-            {rateUpdatedPreview ? (
-              <p className="text-muted-foreground mt-1 text-xs">
-                Last updated {rateUpdatedPreview}. Conversion input sync is debounced by{" "}
-                {INPUT_DEBOUNCE_MS}ms.
-              </p>
-            ) : null}
-          </div>
+          <p className="text-muted-foreground text-xs">
+            {savedAmountPreview
+              ? `This expense will be saved as ${savedAmountPreview}.`
+              : `Choose the saved currency and enter an amount in USD or NPR.`}
+          </p>
         </div>
 
         <div className="space-y-2">

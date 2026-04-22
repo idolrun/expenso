@@ -11,19 +11,29 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import type { SectionBudgetSummaryDto } from "@/features/budgets/domain/dto";
+import { budgetPeriodToggles } from "@/features/budgets/domain/types";
 import { cn } from "@/lib/utils";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { sectionLabel } from "@/src/lib/expense-sections";
 import type { ExpenseSection } from "@/app/generated/prisma/client";
 
-function periodLabel(period: string): string {
+export function periodLabel(period: string): string {
   switch (period) {
-    case "MONTHLY": return "Monthly";
-    case "QUARTERLY": return "Quarterly";
-    case "SEMI_ANNUAL": return "Semi-annual";
-    case "ANNUAL": return "Annual";
-    default: return period.toLowerCase();
+    case "MONTHLY":
+      return "Monthly";
+    case "QUARTERLY":
+      return "Quarterly";
+    case "SEMI_ANNUAL":
+      return "Semi-annual";
+    case "ANNUAL":
+      return "Annual";
+    default:
+      return period.toLowerCase();
   }
+}
+
+function periodShortLabel(period: string): string {
+  return budgetPeriodToggles.find((t) => t.value === period)?.label ?? period;
 }
 
 function thresholdBadgeVariant(threshold: SectionBudgetSummaryDto["threshold"]) {
@@ -47,9 +57,14 @@ export function BudgetProgressCard({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <CardTitle className="text-base">
-              {sectionLabel(summary.budget.section as ExpenseSection)}
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">
+                {sectionLabel(summary.budget.section as ExpenseSection)}
+              </CardTitle>
+              <Badge variant="secondary" className="text-[10px]">
+                {periodShortLabel(summary.budget.period)}
+              </Badge>
+            </div>
             <CardDescription>
               {formatMoneyAmount(summary.budget.budgetAmount, summary.budget.budgetCurrency)}{" "}
               · {periodLabel(summary.budget.period)}

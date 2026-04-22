@@ -18,14 +18,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CurrencyToggle } from "@/components/ui/currency-toggle";
-import { BudgetProgressCard } from "@/components/budgets/budget-progress-card";
+import { periodLabel } from "@/components/budgets/budget-progress-card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { formatMoneyAmount } from "@/src/lib/format-money";
-import { sectionLabel } from "@/src/lib/expense-sections";
+import { sectionLabel, type ExpenseSectionId } from "@/src/lib/expense-sections";
 import { useDisplayCurrency } from "@/src/features/display-currency/display-currency-context";
 import { cn } from "@/lib/utils";
 
 import {
   SECTION_BREAKDOWN_PERIOD_LABELS,
+  BudgetBreakdownPieChart,
   MonthOverMonthIndicator,
   SectionBreakdownBarChart,
   StatusMixDonutChart,
@@ -271,7 +274,22 @@ export function DashboardBento({
           </CardContent>
         </Card>
 
-        {/* Budget summaries */}
+        {/* Budget breakdown */}
+        {hasBudgets ? (
+          <Card className="md:col-span-3">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Budget breakdown</CardTitle>
+              <CardDescription>
+                Active budget allocation by section (USD).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BudgetBreakdownPieChart summaries={data.sectionBudgetSummaries} />
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {/* Budget summaries — grouped by section */}
         {hasBudgets ? (
           <div className="md:col-span-6">
             <div className="mb-3 flex items-center justify-between">
@@ -283,11 +301,99 @@ export function DashboardBento({
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {data.sectionBudgetSummaries.map((summary) => (
-                <BudgetProgressCard
-                  key={summary.budget.id}
-                  summary={summary}
-                />
+              {Object.entries(
+                data.sectionBudgetSummaries.reduce<
+                  Record<string, typeof data.sectionBudgetSummaries>
+                >((groups, s) => {
+                  const key = s.budget.section;
+                  if (!groups[key]) groups[key] = [];
+                  groups[key].push(s);
+                  return groups;
+                }, {}),
+              ).map(([section, summaries]) => (
+                <Card key={section}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">
+                      {sectionLabel(section as ExpenseSectionId)}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {summaries.map((summary) => {
+                      const pct = Math.min(summary.spentPercent, 100);
+                      const remaining = Number(summary.remainingAmount);
+                      return (
+                        <div key={summary.budget.id} className="space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium">
+                                {periodLabel(summary.budget.period)}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                {formatMoneyAmount(
+                                  summary.budget.budgetAmount,
+                                  summary.budget.budgetCurrency,
+                                )}
+                              </p>
+                            </div>
+                            <Badge
+                              variant={
+                                summary.threshold === "danger"
+                                  ? "destructive"
+                                  : summary.threshold === "warning"
+                                    ? "secondary"
+                                    : "outline"
+                              }
+                              className="shrink-0"
+                            >
+                              {summary.spentPercent.toFixed(1)}%
+                            </Badge>
+                          </div>
+                          <Progress
+                            value={pct}
+                            className={cn(
+                              "h-2",
+                              summary.threshold === "danger" &&
+                                "[&>div]:bg-destructive",
+                              summary.threshold === "warning" &&
+                                "[&>div]:bg-amber-500",
+                              summary.threshold === "safe" &&
+                                "[&>div]:bg-emerald-500",
+                            )}
+                          />
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">
+                              Spent:{" "}
+                              <span className="font-medium text-foreground">
+                                {formatMoneyAmount(
+                                  summary.spentAmount,
+                                  summary.displayCurrency,
+                                )}
+                              </span>
+                            </span>
+                            <span
+                              className={cn(
+                                "tabular-nums",
+                                summary.isOverBudget
+                                  ? "font-medium text-destructive"
+                                  : "text-muted-foreground",
+                              )}
+                            >
+                              {summary.isOverBudget
+                                ? `${formatMoneyAmount(
+                                    Math.abs(remaining).toString(),
+                                    summary.displayCurrency,
+                                  )} over`
+                                : `${formatMoneyAmount(
+                                    summary.remainingAmount,
+                                    summary.displayCurrency,
+                                  )} left`}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>

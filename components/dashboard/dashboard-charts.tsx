@@ -18,6 +18,7 @@ import type {
   DashboardMonthSpendUsd,
   DashboardSectionBreakdownPeriod,
 } from "@/features/dashboard/domain/types";
+import type { SectionBudgetSummaryDto } from "@/features/budgets/domain/dto";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { sectionLabel, type ExpenseSectionId } from "@/src/lib/expense-sections";
 import { cn } from "@/lib/utils";
@@ -390,5 +391,136 @@ export function MonthOverMonthIndicator({
       </span>
       <span>{text}</span>
     </p>
+  );
+}
+
+
+export function BudgetBreakdownPieChart({
+  summaries,
+}: {
+  summaries: SectionBudgetSummaryDto[];
+}) {
+  const captionId = React.useId();
+
+  const data = React.useMemo(() => {
+    return summaries
+      .map((s) => {
+        const budgetCap = Number(s.spentAmount) + Number(s.remainingAmount);
+        return {
+          section: s.budget.section,
+          name: sectionLabel(s.budget.section as ExpenseSectionId),
+          value: budgetCap,
+          fill: sectionChartColor(s.budget.section as ExpenseSection),
+        };
+      })
+      .filter((d) => d.value > 0)
+      .sort((a, b) => b.value - a.value);
+  }, [summaries]);
+
+  const chartConfig = React.useMemo(() => {
+    const cfg: ChartConfig = {};
+    for (const row of data) {
+      cfg[row.section] = {
+        label: row.name,
+        color: row.fill,
+      };
+    }
+    return cfg;
+  }, [data]);
+
+  const totalBudget = React.useMemo(
+    () => data.reduce((sum, d) => sum + d.value, 0),
+    [data],
+  );
+
+  if (data.length === 0) {
+    return <p className="text-muted-foreground text-sm">No active budgets.</p>;
+  }
+
+  return (
+    <figure className="flex w-full flex-col items-center gap-3" aria-labelledby={captionId}>
+      <p id={captionId} className="sr-only">
+        Straight-angle pie chart of active budget allocation by section.
+        Tabular data follows.
+      </p>
+      <table className="sr-only">
+        <caption>Budget allocation by section</caption>
+        <thead>
+          <tr>
+            <th scope="col">Section</th>
+            <th scope="col">Budget (USD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row) => (
+            <tr key={row.section}>
+              <td>{row.name}</td>
+              <td>{formatMoneyAmount(String(row.value), "USD")}</td>
+            </tr>
+          ))}
+          <tr>
+            <th scope="row">Total</th>
+            <td>{formatMoneyAmount(String(totalBudget), "USD")}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div className="relative w-full max-w-[520px]">
+        <ChartContainer config={chartConfig} className="mx-auto aspect-[2/1] h-[250px] w-full max-w-[420px]">
+          <PieChart>
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  nameKey="section"
+                  formatter={(value) => formatMoneyAmount(String(value), "USD")}
+                />
+              }
+            />
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="section"
+              startAngle={180}
+              endAngle={0}
+              innerRadius="0%"
+              outerRadius="90%"
+              stroke="var(--background)"
+              strokeWidth={2}
+            />
+          </PieChart>
+        </ChartContainer>
+        <div
+          className="pointer-events-none absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end pb-1"
+          aria-hidden
+        >
+          <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-wide">
+            Total budget
+          </span>
+          <span className="font-numeric text-lg font-semibold tabular-nums">
+            {formatMoneyAmount(String(totalBudget), "USD")}
+          </span>
+        </div>
+      </div>
+      <ul className="flex w-full flex-wrap items-center justify-center gap-2" aria-hidden>
+        {data.map((row) => (
+          <li key={row.section}>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/30 px-2.5 py-1 text-xs font-medium text-foreground",
+                "dark:bg-muted/20",
+              )}
+            >
+              <span
+                className="size-2.5 shrink-0 rounded-full border border-border/40 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+                style={{ backgroundColor: row.fill }}
+              />
+              <span>{row.name}</span>
+              <span className="text-muted-foreground font-normal tabular-nums">
+                {formatMoneyAmount(String(row.value), "USD")}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </figure>
   );
 }

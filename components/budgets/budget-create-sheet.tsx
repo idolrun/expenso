@@ -39,6 +39,7 @@ import type { ExpenseSection } from "@/app/generated/prisma/client";
 import type { SectionBudgetDto } from "@/features/budgets/domain/dto";
 import { sectionLabel } from "@/src/lib/expense-sections";
 import type { ExpenseSectionId } from "@/src/lib/expense-sections";
+import type { BudgetPeriod } from "@/features/budgets/domain/types";
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -69,11 +70,15 @@ function defaultPeriodEnd(start: string, period: string): string {
 
 export function BudgetCreateSheet({
   defaultSection,
+  defaultPeriod,
   existingBudget,
+  existingBudgets = [],
   children,
 }: {
   defaultSection?: ExpenseSectionId;
+  defaultPeriod?: BudgetPeriod;
   existingBudget?: SectionBudgetDto | null;
+  existingBudgets?: SectionBudgetDto[];
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -86,7 +91,7 @@ export function BudgetCreateSheet({
     defaultSection ?? existingBudget?.section ?? ""
   );
   const [period, setPeriod] = useState<string>(
-    existingBudget?.period ?? "MONTHLY"
+    existingBudget?.period ?? defaultPeriod ?? "MONTHLY"
   );
   const [budgetCurrency, setBudgetCurrency] = useState<string>(
     existingBudget?.budgetCurrency ?? "USD"
@@ -98,11 +103,15 @@ export function BudgetCreateSheet({
     existingBudget?.periodStart ?? today()
   );
   const [periodEnd, setPeriodEnd] = useState(
-    existingBudget?.periodEnd ?? defaultPeriodEnd(today(), "MONTHLY")
+    existingBudget?.periodEnd ?? defaultPeriodEnd(today(), defaultPeriod ?? "MONTHLY")
   );
   const [notes, setNotes] = useState(existingBudget?.notes ?? "");
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const existingPeriods = new Set(
+    existingBudgets.map((b) => b.period)
+  );
 
   const handlePeriodChange = (newPeriod: string) => {
     if (!newPeriod) return;
@@ -191,7 +200,9 @@ export function BudgetCreateSheet({
         >
           <SheetHeader className="mb-6">
             <SheetTitle>
-              {isUpdate ? "Adjust section budget" : "Set section budget"}
+              {isUpdate
+                ? `Adjust ${budgetPeriodToggles.find((t) => t.value === period)?.label} budget`
+                : "Set section budget"}
             </SheetTitle>
             <SheetDescription>
               {isUpdate
@@ -227,18 +238,41 @@ export function BudgetCreateSheet({
                 variant="outline"
                 spacing={0}
                 className="w-full"
+                disabled={isUpdate}
               >
-                {budgetPeriodToggles.map((t) => (
-                  <ToggleGroupItem
-                    key={t.value}
-                    value={t.value}
-                    className="flex-1"
-                    aria-label={t.label}
-                  >
-                    {t.label}
-                  </ToggleGroupItem>
-                ))}
+                {budgetPeriodToggles.map((t) => {
+                  const hasExisting = existingPeriods.has(t.value);
+                  const isSelected = period === t.value;
+                  return (
+                    <ToggleGroupItem
+                      key={t.value}
+                      value={t.value}
+                      className="flex-1 relative"
+                      aria-label={t.label}
+                      disabled={isUpdate ? false : hasExisting}
+                      data-state={isSelected ? "on" : "off"}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        {t.label}
+                        {!isUpdate && hasExisting ? (
+                          <span className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                            Edit
+                          </span>
+                        ) : !isUpdate ? (
+                          <span className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                            Create
+                          </span>
+                        ) : null}
+                      </span>
+                    </ToggleGroupItem>
+                  );
+                })}
               </ToggleGroup>
+              {!isUpdate && existingPeriods.has(period as BudgetPeriod) ? (
+                <p className="text-destructive text-xs">
+                  This period already has a budget. Use the Edit button on the section page instead.
+                </p>
+              ) : null}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -303,7 +337,7 @@ export function BudgetCreateSheet({
             <Button
               type="button"
               className="w-full"
-              disabled={pending}
+              disabled={pending || (!isUpdate && existingPeriods.has(period as BudgetPeriod))}
               onClick={handleFormSubmit}
             >
               {pending

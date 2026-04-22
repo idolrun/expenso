@@ -79,9 +79,8 @@ export type ListSectionBudgetsQuery = z.infer<
 
 export const budgetSummaryQuerySchema = z.object({
   section: budgetSectionSchema,
+  period: budgetPeriodSchema,
   displayCurrency: budgetCurrencySchema.default("USD"),
-  /** Optional: if omitted, defaults to current date. */
-  referenceDate: dateYmdSchema.optional(),
 });
 
 export type BudgetSummaryQuery = z.infer<typeof budgetSummaryQuerySchema>;

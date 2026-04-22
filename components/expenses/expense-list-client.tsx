@@ -136,7 +136,9 @@ export function ExpenseListClient({
           ) : null}
         </div>
         <Button asChild size="sm" className="shrink-0 self-start sm:self-auto">
-          <Link href="/dashboard/expenses/new">New expense</Link>
+          <Link href={section ? `/dashboard/expenses/new?section=${section}` : "/dashboard/expenses/new"}>
+            New expense
+          </Link>
         </Button>
       </div>
 

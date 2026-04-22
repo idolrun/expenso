@@ -1,4 +1,3 @@
-import type { BudgetPeriod } from "@/app/generated/prisma/enums";
 export type { BudgetPeriod } from "@/app/generated/prisma/enums";
 
 export const budgetPeriodValues = [

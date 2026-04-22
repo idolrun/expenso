@@ -6,11 +6,11 @@ import { budgetSummaryQuerySchema } from "@/features/budgets/validation/budget";
 import type { CurrencyCode, ExpenseSection } from "@/app/generated/prisma/client";
 
 /**
- * GET /api/budgets/summary?section=TECH&displayCurrency=USD&referenceDate=2026-04-22
+ * GET /api/budgets/summary?section=TECH&period=MONTHLY&displayCurrency=USD
  *
- * Returns the active budget summary for a section on a given date
- * (defaults to today). Threshold, spent percent, and remaining amount
- * are all pre-computed from FX snapshots — no live rate call needed.
+ * Returns the budget summary for a specific section + period.
+ * Threshold, spent percent, and remaining amount are all pre-computed
+ * from FX snapshots — no live rate call needed.
  */
 export async function GET(req: NextRequest) {
   const auth = await requireExpenseReader();
@@ -32,14 +32,10 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const referenceDate = parsed.data.referenceDate
-    ? new Date(`${parsed.data.referenceDate}T00:00:00.000Z`)
-    : new Date();
-
   const result = await getSectionBudgetSummaryService(
     parsed.data.section as ExpenseSection,
+    parsed.data.period,
     parsed.data.displayCurrency as CurrencyCode,
-    referenceDate,
   );
 
   if (!result.ok) {
