@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,12 @@ import {
   expenseCurrencyValues,
   type ExpenseCurrencyCode,
 } from "@/features/expenses/domain/currency";
-import type { ExpenseDto } from "@/features/expenses/domain/dto";
+import type { ExpenseDto, SafeAttachmentDto } from "@/features/expenses/domain/dto";
 import { expenseSectionValues, expenseStatusValues } from "@/features/expenses/validation/primitives";
 import { apiAxios } from "@/src/lib/axios";
 import type { ExpenseSectionId } from "@/src/lib/expense-sections";
 import { formatMoneyAmount } from "@/src/lib/format-money";
+import { PaperclipIcon, TrashIcon, UploadIcon, FileIcon } from "@phosphor-icons/react";
 
 type TagOption = { id: string; name: string; slug: string };
 
@@ -132,19 +133,36 @@ function CurrencyFieldLabel({
   );
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const ALLOWED_FILE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+];
+
+const MAX_FILE_BYTES = 3 * 1024 * 1024;
+
 export function ExpenseForm({
   mode,
   expense,
   tags,
   defaultSection,
+  initialAttachments = [],
 }: {
   mode: "create" | "edit";
   expense?: ExpenseDto;
   tags: TagOption[];
   defaultSection?: ExpenseSectionId;
+  initialAttachments?: SafeAttachmentDto[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const initial = useMemo(() => {
     const initialCurrency =
@@ -195,6 +213,10 @@ export function ExpenseForm({
   const [rateLastUpdated, setRateLastUpdated] = useState<string | null>(null);
   const [rateLoading, setRateLoading] = useState(true);
   const [rateError, setRateError] = useState<string | null>(null);
+
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<SafeAttachmentDto[]>(initialAttachments);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   const debouncedUsdAmount = useDebouncedValue(usdAmount, INPUT_DEBOUNCE_MS);
   const debouncedNprAmount = useDebouncedValue(nprAmount, INPUT_DEBOUNCE_MS);
@@ -345,6 +367,85 @@ export function ExpenseForm({
       : toEditableAmount(sourceNumber / exchangeRate);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    const errors: string[] = [];
+    const validFiles: File[] = [];
+
+    for (const file of files) {
+      if (file.size > MAX_FILE_BYTES) {
+        errors.push(`${file.name} exceeds the 3 MB limit (${formatBytes(file.size)})`);
+        continue;
+      }
+      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+        errors.push(`${file.name}: unsupported type (${file.type || "unknown"})`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (errors.length) {
+      toast.error(errors.join("; "));
+    }
+    if (validFiles.length) {
+      setPendingFiles((prev) => [...prev, ...validFiles]);
+    }
+  };
+
+  const removePendingFile = (index: number) => {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingAttachment = async (attachmentId: string) => {
+    if (!expense) return;
+    if (!confirm("Remove this attachment?")) return;
+    try {
+      const res = await fetch(`/api/expenses/${expense.id}/attachments/${attachmentId}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      const body = await res.json() as { ok: boolean; error?: { message: string } };
+      if (!res.ok || !body.ok) {
+        toast.error(body.error?.message ?? "Failed to remove attachment");
+        return;
+      }
+      toast.success("Attachment removed");
+      setExistingAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+    } catch {
+      toast.error("Network error while removing attachment");
+    }
+  };
+
+  async function uploadPendingFiles(expenseId: string) {
+    if (pendingFiles.length === 0) return;
+    setUploadingFiles(true);
+    try {
+      for (const file of pendingFiles) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const uploadRes = await fetch(`/api/expenses/${expenseId}/attachments`, {
+          method: "POST",
+          body: formData,
+          credentials: "same-origin",
+        });
+        const body = await uploadRes.json() as {
+          ok: boolean;
+          data?: SafeAttachmentDto;
+          error?: { message: string };
+        };
+        if (!uploadRes.ok || !body.ok) {
+          toast.error(body.error?.message ?? `Failed to upload ${file.name}`);
+        }
+      }
+    } catch {
+      toast.error("Network error during file upload");
+    } finally {
+      setUploadingFiles(false);
+    }
+  }
+
   const submit = () => {
     start(async () => {
       if (!section) {
@@ -376,6 +477,7 @@ export function ExpenseForm({
           toast.error(res.error.message);
           return;
         }
+        await uploadPendingFiles(res.data.id);
         toast.success("Expense created");
         router.push(`/dashboard/expenses/${res.data.id}`);
         router.refresh();
@@ -391,6 +493,7 @@ export function ExpenseForm({
         toast.error(res.error.message);
         return;
       }
+      await uploadPendingFiles(expense.id);
       toast.success("Expense updated");
       router.push(`/dashboard/expenses/${res.data.id}`);
       router.refresh();
@@ -570,15 +673,95 @@ export function ExpenseForm({
         </div>
       </div>
 
-      {mode === "create" ? (
-        <div className="rounded-lg border border-dashed bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">Receipts: </span>
-          Save the expense first, then open it to upload receipt attachments.
+      {/* Receipts */}
+      <div className="space-y-3 rounded-lg border p-4">
+        <div className="flex items-center justify-between gap-2">
+          <Label>Receipts</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={pending || uploadingFiles}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <UploadIcon className="size-3.5" />
+            Add file
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,.png,.jpg,.jpeg"
+            className="sr-only"
+            onChange={handleFileChange}
+          />
         </div>
-      ) : null}
+        <p className="text-muted-foreground text-xs">
+          Accepted: PNG, JPEG, PDF. Max 3 MB per file.
+        </p>
+
+        {mode === "edit" && existingAttachments.length > 0 && (
+          <ul className="space-y-2">
+            {existingAttachments.map((a) => (
+              <li
+                key={a.id}
+                className="flex items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-sm"
+              >
+                <PaperclipIcon className="text-muted-foreground size-4 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{a.fileName}</p>
+                  {a.sizeBytes ? (
+                    <p className="text-muted-foreground text-xs">{formatBytes(a.sizeBytes)}</p>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive size-7"
+                  onClick={() => removeExistingAttachment(a.id)}
+                  aria-label={`Remove ${a.fileName}`}
+                >
+                  <TrashIcon className="size-3.5" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {pendingFiles.length > 0 && (
+          <ul className="space-y-2">
+            {pendingFiles.map((file, i) => (
+              <li
+                key={`${file.name}-${i}`}
+                className="flex items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-sm"
+              >
+                <FileIcon className="text-muted-foreground size-4 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{file.name}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {formatBytes(file.size)} · {file.type || "Unknown type"}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive size-7"
+                  onClick={() => removePendingFile(i)}
+                  aria-label={`Remove ${file.name}`}
+                >
+                  <TrashIcon className="size-3.5" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={pending} onClick={submit}>
+        <Button type="button" disabled={pending || uploadingFiles} onClick={submit}>
           {mode === "create" ? "Create expense" : "Save changes"}
         </Button>
         <Button type="button" variant="outline" onClick={() => router.back()}>

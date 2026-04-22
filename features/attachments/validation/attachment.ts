@@ -8,8 +8,6 @@ import { ALLOWED_MIME_TYPES, MAX_UPLOAD_BYTES } from "@/lib/cloudinary";
 const EXTENSIONS_BY_MIME: Readonly<Record<string, readonly string[]>> = {
   "image/jpeg": [".jpg", ".jpeg", ".jpe"],
   "image/png": [".png"],
-  "image/webp": [".webp"],
-  "image/gif": [".gif"],
   "application/pdf": [".pdf"],
 };
 
@@ -121,7 +119,7 @@ export function attachmentValidationMessage(
     case "FILE_TOO_LARGE":
       return `File exceeds the maximum allowed size of ${Math.round(err.maxBytes / (1024 * 1024))} MB`;
     case "UNSUPPORTED_TYPE":
-      return `Unsupported file type${err.contentType ? ` (${err.contentType})` : ""}. Allowed: JPEG, PNG, WebP, GIF, PDF`;
+      return `Unsupported file type${err.contentType ? ` (${err.contentType})` : ""}. Allowed: PNG, JPEG, PDF`;
     case "EXTENSION_MISMATCH":
       return `File extension "${err.extension}" does not match the declared type (${err.contentType}). Please verify the file is not renamed`;
   }

@@ -196,7 +196,7 @@ describe("POST /api/expenses/:id/attachments", () => {
       ok: false,
       error: {
         code: "VALIDATION_ERROR",
-        message: "Unsupported file type (text/plain). Allowed: JPEG, PNG, WebP, GIF, PDF",
+        message: "Unsupported file type (text/plain). Allowed: PNG, JPEG, PDF",
       },
     });
 
@@ -216,7 +216,7 @@ describe("POST /api/expenses/:id/attachments", () => {
       ok: false,
       error: {
         code: "VALIDATION_ERROR",
-        message: "File exceeds the maximum allowed size of 10 MB",
+        message: "File exceeds the maximum allowed size of 3 MB",
       },
     });
 

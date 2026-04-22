@@ -150,14 +150,14 @@
 }
 
 @utility badge-tone-green {
-  border-color: color-mix(in srgb, var(--green) 40%, transparent);
+  border-color: color-mix(in srgb, var(--green) 100%, transparent);
   background-color: color-mix(in srgb, var(--green) 14%, transparent);
   color: var(--green);
   --activity-badge-fill: var(--green);
 }
 
 @utility badge-tone-blue {
-  border-color: color-mix(in srgb, var(--blue) 40%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 100%, transparent);
   background-color: color-mix(in srgb, var(--blue) 14%, transparent);
   color: var(--blue);
   --activity-badge-fill: var(--blue);

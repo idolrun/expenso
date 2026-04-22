@@ -1,7 +1,5 @@
-import type { Prisma } from "@/app/generated/prisma/client";
-
-export type { SectionBudget } from "@/app/generated/prisma/client";
-export { BudgetPeriod } from "@/app/generated/prisma/client";
+import type { BudgetPeriod } from "@/app/generated/prisma/enums";
+export type { BudgetPeriod } from "@/app/generated/prisma/enums";
 
 export const budgetPeriodValues = [
   "MONTHLY",
@@ -18,10 +16,10 @@ export const budgetPeriodLabels: Record<(typeof budgetPeriodValues)[number], str
   ANNUAL: "Annual",
 };
 
-/** Filter shape for listing section budgets. */
-export type SectionBudgetListFilter = Pick<
-  Prisma.SectionBudgetWhereInput,
-  "section" | "isActive" | "period"
-> & {
-  periodOverlaps?: { start: Date; end: Date };
-};
+/** Segmented toggle options for the budget period selector. */
+export const budgetPeriodToggles: { label: string; value: (typeof budgetPeriodValues)[number] }[] = [
+  { label: "1M", value: "MONTHLY" },
+  { label: "3M", value: "QUARTERLY" },
+  { label: "6M", value: "SEMI_ANNUAL" },
+  { label: "1Y", value: "ANNUAL" },
+];

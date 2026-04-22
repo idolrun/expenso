@@ -55,7 +55,7 @@ export default async function SectionExpensesPage({
         {canWrite ? (
           <BudgetCreateSheet
             defaultSection={section}
-            onCreated={undefined /* server revalidation via router.refresh in sheet */}
+            existingBudget={budgetSummary?.budget ?? null}
           >
             <Button variant="outline" size="sm" className="shrink-0 self-start">
               {budgetSummary ? "Adjust budget" : "Set budget"}

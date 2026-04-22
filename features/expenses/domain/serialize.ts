@@ -6,6 +6,7 @@ import type {
   ExpenseDto,
   ExpenseHistoryEntryDto,
   GlobalSearchHitDto,
+  SafeAttachmentDto,
 } from "@/features/expenses/domain/dto";
 
 export type ExpenseRow = Prisma.ExpenseGetPayload<{
@@ -75,6 +76,23 @@ export function serializeAttachment(row: Attachment): AttachmentDto {
     isPrivate: row.isPrivate,
     uploadedById: row.uploadedById ?? null,
     createdAt: toIsoDateTime(row.createdAt),
+  };
+}
+
+export function serializeAttachmentForClient(row: Attachment): SafeAttachmentDto {
+  const full = serializeAttachment(row);
+  return {
+    id: full.id,
+    expenseId: full.expenseId,
+    provider: full.provider,
+    cloudinaryFolder: full.cloudinaryFolder,
+    cloudinaryFormat: full.cloudinaryFormat,
+    fileName: full.fileName,
+    contentType: full.contentType,
+    sizeBytes: full.sizeBytes,
+    isPrivate: full.isPrivate,
+    uploadedById: full.uploadedById,
+    createdAt: full.createdAt,
   };
 }
 

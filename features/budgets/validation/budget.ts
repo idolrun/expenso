@@ -45,22 +45,18 @@ export type CreateSectionBudgetSchemaInput = z.infer<
 
 export const updateSectionBudgetSchema = z
   .object({
-    id: z.string().uuid(),
-    budgetCurrency: budgetCurrencySchema.optional(),
-    budgetAmount: moneyStringSchema.optional(),
-    periodEnd: dateYmdSchema.optional(),
-    isActive: z.boolean().optional(),
+    section: budgetSectionSchema,
+    period: budgetPeriodSchema,
+    periodStart: dateYmdSchema,
+    budgetCurrency: budgetCurrencySchema,
+    budgetAmount: moneyStringSchema,
+    periodEnd: dateYmdSchema,
     notes: z.string().trim().max(5000).optional().nullable(),
   })
-  .refine(
-    (v) =>
-      v.budgetCurrency !== undefined ||
-      v.budgetAmount !== undefined ||
-      v.periodEnd !== undefined ||
-      v.isActive !== undefined ||
-      v.notes !== undefined,
-    { message: "At least one field must be provided to update" },
-  );
+  .refine((v) => v.periodStart <= v.periodEnd, {
+    message: "periodEnd must be on or after periodStart",
+    path: ["periodEnd"],
+  });
 
 export type UpdateSectionBudgetSchemaInput = z.infer<
   typeof updateSectionBudgetSchema

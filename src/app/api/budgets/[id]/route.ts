@@ -67,9 +67,7 @@ export async function PATCH(
     );
   }
 
-  const merged =
-    typeof body === "object" && body !== null ? { ...body, id } : { id };
-  const parsed = updateSectionBudgetSchema.safeParse(merged);
+  const parsed = updateSectionBudgetSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       {

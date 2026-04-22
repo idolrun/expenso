@@ -20,7 +20,7 @@ function makeFile(
 }
 
 const MB = 1024 * 1024;
-const MAX_BYTES = 10 * MB; // matches MAX_UPLOAD_BYTES
+const MAX_BYTES = 3 * MB; // matches MAX_UPLOAD_BYTES
 
 // ─── sanitizeFilename ─────────────────────────────────────────────────────────
 
@@ -88,7 +88,7 @@ describe("validateReceiptFile", () => {
   });
 
   // Size
-  it("returns FILE_TOO_LARGE when size exceeds 10 MB", () => {
+  it("returns FILE_TOO_LARGE when size exceeds 3 MB", () => {
     const file = makeFile("big.jpg", "image/jpeg", MAX_BYTES + 1);
     const err = validateReceiptFile(file);
     expect(err?.code).toBe("FILE_TOO_LARGE");
@@ -133,8 +133,6 @@ describe("validateReceiptFile", () => {
     ["receipt.jpg", "image/jpeg"],
     ["receipt.jpeg", "image/jpeg"],
     ["scan.png", "image/png"],
-    ["photo.webp", "image/webp"],
-    ["anim.gif", "image/gif"],
     ["invoice.pdf", "application/pdf"],
   ])("accepts %s with MIME %s", (name, type) => {
     const file = makeFile(name, type, 1024);
@@ -181,11 +179,11 @@ describe("attachmentValidationMessage", () => {
   it("includes the MB limit in FILE_TOO_LARGE message", () => {
     const err: AttachmentValidationError = {
       code: "FILE_TOO_LARGE",
-      maxBytes: 10 * MB,
-      actualBytes: 15 * MB,
+      maxBytes: 3 * MB,
+      actualBytes: 4 * MB,
     };
     const msg = attachmentValidationMessage(err);
-    expect(msg).toContain("10 MB");
+    expect(msg).toContain("3 MB");
   });
 
   it("includes the content type in UNSUPPORTED_TYPE message", () => {

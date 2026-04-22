@@ -70,6 +70,9 @@ export type AttachmentDto = {
   createdAt: string;
 };
 
+/** Client-safe attachment shape — strips storageKey and cloudinaryPublicId so they never reach the DOM. */
+export type SafeAttachmentDto = Omit<AttachmentDto, "storageKey" | "cloudinaryPublicId">;
+
 export type ExpenseHistoryEntryDto = {
   id: string;
   expenseId: string;

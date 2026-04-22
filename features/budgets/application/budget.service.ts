@@ -1,5 +1,5 @@
 import { AuditAction, Prisma } from "@/app/generated/prisma/client";
-import type { CurrencyCode, ExpenseSection } from "@/app/generated/prisma/client";
+import type { CurrencyCode, ExpenseSection, SectionBudget } from "@/app/generated/prisma/client";
 
 import type { ServiceResult } from "@/features/expenses/domain/dto";
 import type { PaginatedDto } from "@/features/expenses/domain/dto";
@@ -94,63 +94,85 @@ export async function updateSectionBudgetService(
   actorUserId: string,
 ): Promise<ServiceResult<SectionBudgetDto>> {
   try {
-    const existing = await budgetRepository.findById(prisma, input.id);
-    if (!existing) {
-      return { ok: false, error: { code: "NOT_FOUND", message: "Budget not found" } };
-    }
+    const budgetAmount = new Prisma.Decimal(input.budgetAmount);
+    const fxSnapshot = await computeFxSnapshot(budgetAmount, input.budgetCurrency as CurrencyCode);
 
-    const data: Prisma.SectionBudgetUpdateInput = {
-      updatedBy: { connect: { id: actorUserId } },
-    };
-
-    const needsFxUpdate =
-      input.budgetAmount !== undefined || input.budgetCurrency !== undefined;
-
-    if (input.budgetAmount !== undefined) {
-      data.budgetAmount = new Prisma.Decimal(input.budgetAmount);
-    }
-    if (input.budgetCurrency !== undefined) {
-      data.budgetCurrency = input.budgetCurrency as CurrencyCode;
-    }
-    if (input.periodEnd !== undefined) {
-      data.periodEnd = parseYmdToUtcDate(input.periodEnd);
-    }
-    if (input.isActive !== undefined) {
-      data.isActive = input.isActive;
-    }
-    if (input.notes !== undefined) {
-      data.notes = input.notes;
-    }
-
-    if (needsFxUpdate) {
-      const newAmount = input.budgetAmount
-        ? new Prisma.Decimal(input.budgetAmount)
-        : existing.budgetAmount;
-      const newCurrency = (input.budgetCurrency ?? existing.budgetCurrency) as CurrencyCode;
-      const fxSnapshot = await computeFxSnapshot(newAmount, newCurrency);
-      if (fxSnapshot) {
-        data.budgetAmountUsd = fxSnapshot.amountUsd;
-        data.budgetAmountNpr = fxSnapshot.amountNpr;
-        data.fxRateUsdNpr = fxSnapshot.fxRateUsdNpr;
-        data.fxRateSnapshotAt = fxSnapshot.fxRateSnapshotAt;
-      }
-    }
-
-    const updated = await prisma.$transaction(async (tx) => {
-      const row = await budgetRepository.update(tx, input.id, data);
-      await auditLogRepository.create(tx, {
-        action: AuditAction.SECTION_BUDGET_UPDATED,
-        entityType: "SectionBudget",
-        entityId: input.id,
-        actor: { connect: { id: actorUserId } },
-        metadata: { fxSnapshotRefreshed: needsFxUpdate },
+    const budget = await prisma.$transaction(async (tx) => {
+      const existing = await tx.sectionBudget.findUnique({
+        where: {
+          section_period_periodStart: {
+            section: input.section,
+            period: input.period,
+            periodStart: parseYmdToUtcDate(input.periodStart),
+          },
+        },
       });
+
+      let row: SectionBudget;
+
+      if (existing) {
+        const data: Prisma.SectionBudgetUpdateInput = {
+          updatedBy: { connect: { id: actorUserId } },
+          budgetAmount,
+          budgetCurrency: input.budgetCurrency as CurrencyCode,
+          periodEnd: parseYmdToUtcDate(input.periodEnd),
+          notes: input.notes ?? undefined,
+          budgetAmountUsd: fxSnapshot?.amountUsd ?? undefined,
+          budgetAmountNpr: fxSnapshot?.amountNpr ?? undefined,
+          fxRateUsdNpr: fxSnapshot?.fxRateUsdNpr ?? undefined,
+          fxRateSnapshotAt: fxSnapshot?.fxRateSnapshotAt ?? undefined,
+        };
+        row = await budgetRepository.update(tx, existing.id, data);
+      } else {
+        row = await budgetRepository.create(tx, {
+          section: input.section,
+          period: input.period,
+          budgetAmount,
+          budgetCurrency: input.budgetCurrency as CurrencyCode,
+          budgetAmountUsd: fxSnapshot?.amountUsd ?? undefined,
+          budgetAmountNpr: fxSnapshot?.amountNpr ?? undefined,
+          fxRateUsdNpr: fxSnapshot?.fxRateUsdNpr ?? undefined,
+          fxRateSnapshotAt: fxSnapshot?.fxRateSnapshotAt ?? undefined,
+          periodStart: parseYmdToUtcDate(input.periodStart),
+          periodEnd: parseYmdToUtcDate(input.periodEnd),
+          notes: input.notes ?? undefined,
+          createdBy: actorUserId ? { connect: { id: actorUserId } } : undefined,
+          updatedBy: actorUserId ? { connect: { id: actorUserId } } : undefined,
+        });
+      }
+
+      await auditLogRepository.create(tx, {
+        action: existing ? AuditAction.SECTION_BUDGET_UPDATED : AuditAction.SECTION_BUDGET_CREATED,
+        entityType: "SectionBudget",
+        entityId: row.id,
+        actor: { connect: { id: actorUserId } },
+        metadata: {
+          section: row.section,
+          period: row.period,
+          budgetCurrency: row.budgetCurrency,
+          fxSnapshotCaptured: fxSnapshot !== null,
+        },
+      });
+
       return row;
     });
 
-    return { ok: true, data: serializeSectionBudget(updated) };
+    return { ok: true, data: serializeSectionBudget(budget) };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Budget update failed";
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2002"
+    ) {
+      return {
+        ok: false,
+        error: {
+          code: "CONFLICT",
+          message:
+            "A budget for this section, period, and start date already exists",
+        },
+      };
+    }
     return { ok: false, error: { code: "UPDATE_FAILED", message } };
   }
 }

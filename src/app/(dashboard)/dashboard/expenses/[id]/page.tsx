@@ -19,7 +19,7 @@ import {
   listExpenseHistoryForExpense,
   getExpenseById,
 } from "@/features/expenses/application/expense-query.service";
-import { serializeAttachment } from "@/features/expenses/domain/serialize";
+import { serializeAttachmentForClient } from "@/features/expenses/domain/serialize";
 import { requireAuth } from "@/lib/auth/guards";
 import { parseUserRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -65,7 +65,7 @@ export default async function ExpenseDetailPage({
 
   const expense = expRes.data;
   const history = histRes.ok ? histRes.data : [];
-  const attachments = attachmentRows.map(serializeAttachment);
+  const attachments = attachmentRows.map(serializeAttachmentForClient);
 
   const historyTagIds = [
     ...new Set(
@@ -85,8 +85,6 @@ export default async function ExpenseDetailPage({
     : [];
   const tagNameById = Object.fromEntries(historyTags.map((t) => [t.id, t.name]));
 
-  const canWrite =
-    role === UserRole.ADMIN || role === UserRole.USER;
   const hasFxSnapshot =
     expense.amountUsd !== null || expense.amountNpr !== null;
 
@@ -196,11 +194,7 @@ export default async function ExpenseDetailPage({
       </Card>
 
       {/* Receipts */}
-      <AttachmentSection
-        expenseId={id}
-        initialAttachments={attachments}
-        canWrite={canWrite}
-      />
+      <AttachmentSection attachments={attachments} />
 
       {/* History */}
       <ExpenseHistoryTimeline entries={history} tagNameById={tagNameById} />
