@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { getSession, parseUserRole } from "@/lib/auth/session";
-import { canReadExpense } from "@/lib/auth/permissions";
+import { canCreateExpense, canReadExpense } from "@/lib/auth/permissions";
+import { sessionToUserId } from "@/lib/auth/actor";
 import { UserRole } from "@/app/generated/prisma/client";
 
 export async function requireExpenseReader() {
@@ -25,7 +26,55 @@ export async function requireExpenseReader() {
       ),
     };
   }
-  return { ok: true as const, session, role };
+  return { ok: true as const, session, role, userId: sessionToUserId(session) };
+}
+
+export async function requireExpenseWriter() {
+  const session = await getSession();
+  if (!session) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { ok: false, error: { code: "UNAUTHORIZED", message: "Sign in required" } },
+        { status: 401 },
+      ),
+    };
+  }
+  const role = parseUserRole(session.user.role);
+  if (!canCreateExpense(role)) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { ok: false, error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
+        { status: 403 },
+      ),
+    };
+  }
+  return { ok: true as const, session, role, userId: sessionToUserId(session) };
+}
+
+/**
+ * Minimal guard — any authenticated session is accepted.
+ * Used for attachment access where role-level policies aren't needed
+ * (expense ownership is the gate).
+ */
+export async function requireAuthenticatedUser() {
+  const session = await getSession();
+  if (!session) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { ok: false, error: { code: "UNAUTHORIZED", message: "Sign in required" } },
+        { status: 401 },
+      ),
+    };
+  }
+  return {
+    ok: true as const,
+    session,
+    role: parseUserRole(session.user.role),
+    userId: sessionToUserId(session),
+  };
 }
 
 export async function requireAuditReader() {
@@ -49,5 +98,5 @@ export async function requireAuditReader() {
       ),
     };
   }
-  return { ok: true as const, session, role };
+  return { ok: true as const, session, role, userId: sessionToUserId(session) };
 }

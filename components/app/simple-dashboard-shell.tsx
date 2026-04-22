@@ -8,11 +8,13 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ThemeToggle } from "@/components/auth/theme-toggle";
 import { GlobalSearchCommand } from "@/components/app/global-search-command";
 import { Button } from "@/components/ui/button";
+import { CurrencyToggle } from "@/components/ui/currency-toggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { AppUserRole } from "@/src/lib/app-user-role";
 import { EXPENSE_SECTION_NAV } from "@/src/lib/expense-sections";
+import { useDisplayCurrency } from "@/src/features/display-currency/display-currency-context";
 import { ListIcon, SquaresFourIcon, XIcon } from "@phosphor-icons/react";
 
 const mainLinks = [
@@ -85,6 +87,7 @@ export function SimpleDashboardShell({
 }) {
   const isAdmin = role === "ADMIN";
   const [open, setOpen] = useState(false);
+  const { displayCurrency, setDisplayCurrency } = useDisplayCurrency();
 
   return (
     <div className="bg-background flex min-h-0 min-h-full flex-1">
@@ -167,6 +170,11 @@ export function SimpleDashboardShell({
             </SheetContent>
           </Sheet>
           <div className="flex flex-1 items-center justify-end gap-2">
+            <CurrencyToggle
+              value={displayCurrency}
+              onChange={setDisplayCurrency}
+              className="hidden sm:inline-flex"
+            />
             <GlobalSearchCommand />
             <ThemeToggle />
             <SignOutButton />

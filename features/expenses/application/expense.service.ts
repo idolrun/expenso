@@ -13,6 +13,7 @@ import {
   expenseRowToSnapshot,
   type ExpenseScalarSnapshot,
 } from "@/features/expenses/application/expense-history.builder";
+import { computeFxSnapshot } from "@/features/expenses/application/fx-snapshot.service";
 import { auditLogRepository } from "@/features/audit/infrastructure/audit-log.repository";
 import { expenseHistoryRepository } from "@/features/expenses/infrastructure/expense-history.repository";
 import { expenseRepository } from "@/features/expenses/infrastructure/expense.repository";
@@ -36,14 +37,22 @@ export async function createExpenseService(
     await expenseRepository.assertCategoryExists(prisma, input.categoryId ?? null);
     await expenseRepository.assertTagsExist(prisma, input.tagIds);
 
+    const originalAmount = new Prisma.Decimal(input.amount);
+    // Compute FX snapshot before the transaction — external API call, not transactional.
+    const fxSnapshot = await computeFxSnapshot(originalAmount, input.currency);
+
     const expense = await prisma.$transaction(async (tx) => {
       const created = await expenseRepository.create(tx, {
         section: input.section,
         status: input.status,
         title: input.title,
         notes: input.notes ?? undefined,
-        originalAmount: new Prisma.Decimal(input.amount),
+        originalAmount,
         originalCurrency: input.currency,
+        amountUsd: fxSnapshot?.amountUsd ?? undefined,
+        amountNpr: fxSnapshot?.amountNpr ?? undefined,
+        fxRateUsdNpr: fxSnapshot?.fxRateUsdNpr ?? undefined,
+        fxRateSnapshotAt: fxSnapshot?.fxRateSnapshotAt ?? undefined,
         incurredOn: parseYmdToUtcDate(input.incurredOn),
         category: input.categoryId
           ? { connect: { id: input.categoryId } }
@@ -66,13 +75,16 @@ export async function createExpenseService(
         entityType: "Expense",
         entityId: created.id,
         actor: { connect: { id: actorUserId } },
-        metadata: { title: created.title, section: created.section },
+        metadata: {
+          title: created.title,
+          section: created.section,
+          originalCurrency: created.originalCurrency,
+          fxSnapshotCaptured: fxSnapshot !== null,
+        },
       });
 
       const full = await expenseRepository.findActiveById(tx, created.id);
-      if (!full) {
-        throw new Error("Expense missing after create");
-      }
+      if (!full) throw new Error("Expense missing after create");
       return full;
     });
 
@@ -125,6 +137,18 @@ export async function updateExpenseService(
       };
     }
 
+    // Re-snapshot FX only when amount or currency changed.
+    const needsFxUpdate =
+      input.amount !== undefined || input.currency !== undefined;
+    let fxSnapshot = null;
+    if (needsFxUpdate) {
+      const newAmount = input.amount
+        ? new Prisma.Decimal(input.amount)
+        : existing.originalAmount;
+      const newCurrency = input.currency ?? existing.originalCurrency;
+      fxSnapshot = await computeFxSnapshot(newAmount, newCurrency);
+    }
+
     const batchId = randomUUID();
     const historyRows = buildExpenseHistoryRows({
       expenseId: input.id,
@@ -155,6 +179,12 @@ export async function updateExpenseService(
           ? { connect: { id: input.categoryId } }
           : { disconnect: true };
       }
+      if (fxSnapshot) {
+        data.amountUsd = fxSnapshot.amountUsd;
+        data.amountNpr = fxSnapshot.amountNpr;
+        data.fxRateUsdNpr = fxSnapshot.fxRateUsdNpr;
+        data.fxRateSnapshotAt = fxSnapshot.fxRateSnapshotAt;
+      }
 
       await expenseRepository.update(tx, input.id, data);
 
@@ -177,13 +207,12 @@ export async function updateExpenseService(
         metadata: {
           batchId,
           fieldCount: historyRows.length,
+          fxSnapshotRefreshed: fxSnapshot !== null,
         },
       });
 
       const full = await expenseRepository.findActiveById(tx, input.id);
-      if (!full) {
-        throw new Error("Expense missing after update");
-      }
+      if (!full) throw new Error("Expense missing after update");
       return full;
     });
 

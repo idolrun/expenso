@@ -1,6 +1,7 @@
 import { SimpleDashboardShell } from "@/components/app/simple-dashboard-shell";
 import { requireAuth } from "@/lib/auth/guards";
 import { toAppUserRole } from "@/src/lib/app-user-role";
+import { DisplayCurrencyProvider } from "@/src/features/display-currency/display-currency-context";
 
 export default async function DashboardShellLayout({
   children,
@@ -10,11 +11,13 @@ export default async function DashboardShellLayout({
   const session = await requireAuth();
 
   return (
-    <SimpleDashboardShell
-      role={toAppUserRole(session.user.role)}
-      userEmail={session.user.email ?? null}
-    >
-      {children}
-    </SimpleDashboardShell>
+    <DisplayCurrencyProvider>
+      <SimpleDashboardShell
+        role={toAppUserRole(session.user.role)}
+        userEmail={session.user.email ?? null}
+      >
+        {children}
+      </SimpleDashboardShell>
+    </DisplayCurrencyProvider>
   );
 }

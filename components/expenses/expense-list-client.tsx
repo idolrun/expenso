@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
+import { ReceiptIcon } from "@phosphor-icons/react";
 
 import { ExpenseFilters } from "@/components/expenses/expense-filters";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,14 +32,58 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { ExpenseDto } from "@/features/expenses/domain/dto";
 import type { ListExpensesQuery } from "@/features/expenses/validation/expense";
-import { useMemo } from "react";
 import { useExpenseList } from "@/src/features/expenses/hooks/use-expense-list";
+import { useDisplayCurrency } from "@/src/features/display-currency/display-currency-context";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { sectionLabel, type ExpenseSectionId } from "@/src/lib/expense-sections";
-import { ReceiptIcon } from "@phosphor-icons/react";
 
 type TagOption = { id: string; name: string; slug: string };
+
+/**
+ * Pick the best amount to display for `displayCurrency`.
+ * Priority: exact original → stored FX snapshot → fall back to original with its currency.
+ */
+function resolveDisplayAmount(
+  expense: ExpenseDto,
+  displayCurrency: "USD" | "NPR",
+): { amount: string; currency: string; isConverted: boolean } {
+  if (expense.originalCurrency === displayCurrency) {
+    return { amount: expense.originalAmount, currency: displayCurrency, isConverted: false };
+  }
+  if (displayCurrency === "USD" && expense.amountUsd) {
+    return { amount: expense.amountUsd, currency: "USD", isConverted: true };
+  }
+  if (displayCurrency === "NPR" && expense.amountNpr) {
+    return { amount: expense.amountNpr, currency: "NPR", isConverted: true };
+  }
+  // No snapshot yet — fall back to original
+  return { amount: expense.originalAmount, currency: expense.originalCurrency, isConverted: false };
+}
+
+function AmountCell({ expense }: { expense: ExpenseDto }) {
+  const { displayCurrency } = useDisplayCurrency();
+  const { amount, currency, isConverted } = resolveDisplayAmount(expense, displayCurrency);
+  const showOriginalBadge =
+    isConverted && expense.originalAmount && expense.originalCurrency;
+
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <span className="font-numeric tabular-nums">
+        {formatMoneyAmount(amount, currency)}
+      </span>
+      {showOriginalBadge ? (
+        <Badge
+          variant="outline"
+          className="h-auto px-1.5 py-0 text-[9px] font-normal tabular-nums"
+        >
+          {formatMoneyAmount(expense.originalAmount, expense.originalCurrency)}
+        </Badge>
+      ) : null}
+    </div>
+  );
+}
 
 export function ExpenseListClient({
   tags,
@@ -164,6 +211,7 @@ export function ExpenseListClient({
             </div>
           </div>
 
+          {/* Desktop table */}
           <div className="hidden md:block">
             <div className="overflow-hidden rounded-xl border">
               <Table>
@@ -202,8 +250,8 @@ export function ExpenseListClient({
                           {sectionLabel(e.section)}
                         </TableCell>
                         <TableCell className="text-sm">{e.status}</TableCell>
-                        <TableCell className="font-numeric text-right text-sm">
-                          {formatMoneyAmount(e.originalAmount, e.originalCurrency)}
+                        <TableCell className="text-right text-sm">
+                          <AmountCell expense={e} />
                         </TableCell>
                         <TableCell className="text-right">
                           <Button asChild variant="ghost" size="sm">
@@ -218,6 +266,7 @@ export function ExpenseListClient({
             </div>
           </div>
 
+          {/* Mobile cards */}
           <div className="grid gap-3 md:hidden">
             {data.items.map((e) => (
               <Card key={e.id} className="shadow-xs transition-shadow hover:shadow-sm">
@@ -228,9 +277,7 @@ export function ExpenseListClient({
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex items-center justify-between gap-2 pt-0">
-                  <span className="font-numeric text-lg font-semibold">
-                    {formatMoneyAmount(e.originalAmount, e.originalCurrency)}
-                  </span>
+                  <AmountCell expense={e} />
                   <Button asChild size="sm" variant="secondary">
                     <Link href={`/dashboard/expenses/${e.id}`}>Open</Link>
                   </Button>

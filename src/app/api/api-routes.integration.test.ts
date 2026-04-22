@@ -198,9 +198,13 @@ describe("GET /api/dashboard", () => {
           "2m": {},
           "3m": {},
         },
+        totalSpendNpr: "0",
+        monthSpendNpr: "0",
+        spendBySectionNpr: {},
         recentExpenses: [],
         recentHistory: [],
         recentActivity: [],
+        sectionBudgetSummaries: [],
       },
     });
     const res = await getDashboard();

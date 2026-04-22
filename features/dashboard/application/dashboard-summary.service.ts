@@ -1,20 +1,17 @@
 import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 
+import { Prisma } from "@/app/generated/prisma/client";
 import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
 
 import type { DashboardActivityItemDto, DashboardSummaryDto } from "@/features/dashboard/domain/types";
 import type { ServiceResult } from "@/features/expenses/domain/dto";
 import { serializeExpense, serializeExpenseHistoryRow } from "@/features/expenses/domain/serialize";
 import { expenseRepository } from "@/features/expenses/infrastructure/expense.repository";
+import { getAllActiveBudgetSummariesService } from "@/features/budgets/application/budget.service";
 import { prisma } from "@/lib/prisma";
 
-/**
- * Base filter for "active USD-denominated expenses".
- * Phase 1: uses originalCurrency filter on originalAmount.
- * Phase 2 note: replace with amountUsd aggregation (non-null check) to include
- * NPR expenses that have been snapshotted, enabling true dual-currency rollups.
- */
 const activeUsdWhere = { deletedAt: null, originalCurrency: "USD" } as const;
+const activeNprWhere = { deletedAt: null, originalCurrency: "NPR" } as const;
 
 function userLabel(
   user: { name: string | null; email: string } | null | undefined,
@@ -23,6 +20,36 @@ function userLabel(
   if (!fallbackId && !user) return null;
   if (!user) return fallbackId ? `user ${fallbackId.slice(0, 8)}…` : null;
   return user.name?.trim() || user.email || (fallbackId ? `user ${fallbackId.slice(0, 8)}…` : null);
+}
+
+/**
+ * Merge NPR spend from two groupBy result sets:
+ *   1. Direct NPR expenses (originalAmount where originalCurrency=NPR)
+ *   2. USD expenses with FX snapshots (amountNpr where originalCurrency=USD, amountNpr != null)
+ */
+function mergeNprSectionSpend(
+  directRows: { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null } }[],
+  snapshotRows: { section: ExpenseSection; _sum: { amountNpr: Prisma.Decimal | null } }[],
+): Partial<Record<ExpenseSection, string>> {
+  const map = new Map<ExpenseSection, Prisma.Decimal>();
+
+  for (const row of directRows) {
+    if (row._sum.originalAmount) {
+      map.set(row.section, row._sum.originalAmount);
+    }
+  }
+  for (const row of snapshotRows) {
+    if (row._sum.amountNpr) {
+      const prev = map.get(row.section) ?? new Prisma.Decimal(0);
+      map.set(row.section, prev.add(row._sum.amountNpr));
+    }
+  }
+
+  const result: Partial<Record<ExpenseSection, string>> = {};
+  for (const [section, dec] of map.entries()) {
+    result[section] = dec.toString();
+  }
+  return result;
 }
 
 export async function getDashboardSummary(): Promise<
@@ -45,19 +72,31 @@ export async function getDashboardSummary(): Promise<
         end,
       };
     });
+
     const sectionBreakdownSpecs = [
       { key: "1m" as const, start: monthStart, end: monthEnd },
       { key: "2m" as const, start: startOfMonth(subMonths(now, 1)), end: monthEnd },
       { key: "3m" as const, start: startOfMonth(subMonths(now, 2)), end: monthEnd },
     ];
 
+    const budgetSummariesPromise = getAllActiveBudgetSummariesService(now, "USD");
+
     const [
       totalCount,
       totalSpendAgg,
       monthSpendAgg,
+      // NPR: direct expenses in NPR
+      nprTotalDirectAgg,
+      nprMonthDirectAgg,
+      // NPR: USD expenses with stored amountNpr snapshot
+      nprTotalSnapshotAgg,
+      nprMonthSnapshotAgg,
       statusGroups,
       sectionCountGroups,
       sectionSpendGroups,
+      // NPR section breakdown
+      nprSectionDirectGroups,
+      nprSectionSnapshotGroups,
       recentRows,
       historyRows,
       historyFeed,
@@ -68,31 +107,39 @@ export async function getDashboardSummary(): Promise<
       ...monthAggs
     ] = await Promise.all([
       prisma.expense.count({ where: { deletedAt: null } }),
+      prisma.expense.aggregate({ where: activeUsdWhere, _sum: { originalAmount: true } }),
       prisma.expense.aggregate({
-        where: activeUsdWhere,
+        where: { ...activeUsdWhere, incurredOn: { gte: monthStart, lte: monthEnd } },
         _sum: { originalAmount: true },
+      }),
+      // NPR direct totals
+      prisma.expense.aggregate({ where: activeNprWhere, _sum: { originalAmount: true } }),
+      prisma.expense.aggregate({
+        where: { ...activeNprWhere, incurredOn: { gte: monthStart, lte: monthEnd } },
+        _sum: { originalAmount: true },
+      }),
+      // NPR via FX snapshot on USD expenses
+      prisma.expense.aggregate({
+        where: { ...activeUsdWhere, amountNpr: { not: null } },
+        _sum: { amountNpr: true },
       }),
       prisma.expense.aggregate({
         where: {
           ...activeUsdWhere,
+          amountNpr: { not: null },
           incurredOn: { gte: monthStart, lte: monthEnd },
         },
-        _sum: { originalAmount: true },
+        _sum: { amountNpr: true },
       }),
-      prisma.expense.groupBy({
-        by: ["status"],
-        where: { deletedAt: null },
-        _count: { _all: true },
-      }),
-      prisma.expense.groupBy({
-        by: ["section"],
-        where: { deletedAt: null },
-        _count: { _all: true },
-      }),
+      prisma.expense.groupBy({ by: ["status"], where: { deletedAt: null }, _count: { _all: true } }),
+      prisma.expense.groupBy({ by: ["section"], where: { deletedAt: null }, _count: { _all: true } }),
+      prisma.expense.groupBy({ by: ["section"], where: activeUsdWhere, _sum: { originalAmount: true } }),
+      // NPR section breakdown
+      prisma.expense.groupBy({ by: ["section"], where: activeNprWhere, _sum: { originalAmount: true } }),
       prisma.expense.groupBy({
         by: ["section"],
-        where: activeUsdWhere,
-        _sum: { originalAmount: true },
+        where: { ...activeUsdWhere, amountNpr: { not: null } },
+        _sum: { amountNpr: true },
       }),
       expenseRepository.findManyWhere(prisma, {
         where: { deletedAt: null },
@@ -119,74 +166,65 @@ export async function getDashboardSummary(): Promise<
       prisma.auditLog.findMany({
         orderBy: { createdAt: "desc" },
         take: 12,
-        include: {
-          actor: { select: { name: true, email: true } },
-        },
+        include: { actor: { select: { name: true, email: true } } },
       }),
       ...sectionBreakdownSpecs.map(({ start, end }) =>
         prisma.expense.groupBy({
           by: ["section"],
-          where: {
-            ...activeUsdWhere,
-            incurredOn: { gte: start, lte: end },
-          },
+          where: { ...activeUsdWhere, incurredOn: { gte: start, lte: end } },
           _sum: { originalAmount: true },
         }),
       ),
       ...monthRangeSpecs.map(({ start, end }) =>
         prisma.expense.aggregate({
-          where: {
-            ...activeUsdWhere,
-            incurredOn: { gte: start, lte: end },
-          },
+          where: { ...activeUsdWhere, incurredOn: { gte: start, lte: end } },
           _sum: { originalAmount: true },
         }),
       ),
     ]);
 
+    const budgetSummariesResult = await budgetSummariesPromise;
+
+    // Compute combined NPR totals
+    const totalNprDec = (nprTotalDirectAgg._sum.originalAmount ?? new Prisma.Decimal(0)).add(
+      nprTotalSnapshotAgg._sum.amountNpr ?? new Prisma.Decimal(0),
+    );
+    const monthNprDec = (nprMonthDirectAgg._sum.originalAmount ?? new Prisma.Decimal(0)).add(
+      nprMonthSnapshotAgg._sum.amountNpr ?? new Prisma.Decimal(0),
+    );
+
     const monthlySpendUsdLast6 = monthRangeSpecs.map((spec, idx) => ({
       monthKey: spec.monthKey,
       label: spec.label,
       amount:
-        (monthAggs[idx] as { _sum: { originalAmount: { toString(): string } | null } } | undefined)?._sum.originalAmount?.toString() ??
-        "0",
+        (monthAggs[idx] as { _sum: { originalAmount: { toString(): string } | null } } | undefined)
+          ?._sum.originalAmount?.toString() ?? "0",
     }));
     const previousMonthSpendUsd = monthlySpendUsdLast6[4]?.amount ?? "0";
 
     const byStatus: Partial<Record<ExpenseStatus, number>> = {};
-    for (const row of statusGroups) {
-      byStatus[row.status] = row._count._all;
-    }
+    for (const row of statusGroups) byStatus[row.status] = row._count._all;
 
     const bySection: Partial<Record<ExpenseSection, number>> = {};
-    for (const row of sectionCountGroups) {
-      bySection[row.section] = row._count._all;
-    }
+    for (const row of sectionCountGroups) bySection[row.section] = row._count._all;
 
     const spendBySectionUsd: Partial<Record<ExpenseSection, string>> = {};
     for (const row of sectionSpendGroups) {
       spendBySectionUsd[row.section] = row._sum.originalAmount?.toString() ?? "0";
     }
+
     const mapSectionSpend = (
       rows: { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[],
     ): Partial<Record<ExpenseSection, string>> => {
-      const mapped: Partial<Record<ExpenseSection, string>> = {};
-      for (const row of rows) {
-        mapped[row.section] = row._sum.originalAmount?.toString() ?? "0";
-      }
-      return mapped;
+      const m: Partial<Record<ExpenseSection, string>> = {};
+      for (const row of rows) m[row.section] = row._sum.originalAmount?.toString() ?? "0";
+      return m;
     };
-    const spendBySectionUsdByPeriod = {
-      "1m": mapSectionSpend(
-        sectionBreakdown1m as { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[],
-      ),
-      "2m": mapSectionSpend(
-        sectionBreakdown2m as { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[],
-      ),
-      "3m": mapSectionSpend(
-        sectionBreakdown3m as { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[],
-      ),
-    };
+
+    const spendBySectionNpr = mergeNprSectionSpend(
+      nprSectionDirectGroups as { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null } }[],
+      nprSectionSnapshotGroups as { section: ExpenseSection; _sum: { amountNpr: Prisma.Decimal | null } }[],
+    );
 
     const recentHistory = historyRows.map((r) => ({
       ...serializeExpenseHistoryRow({
@@ -231,7 +269,6 @@ export async function getDashboardSummary(): Promise<
     activityCandidates.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
-    const recentActivity = activityCandidates.slice(0, 20);
 
     return {
       ok: true,
@@ -241,20 +278,25 @@ export async function getDashboardSummary(): Promise<
         monthSpendUsd: monthSpendAgg._sum.originalAmount?.toString() ?? "0",
         monthlySpendUsdLast6,
         previousMonthSpendUsd,
+        totalSpendNpr: totalNprDec.toString(),
+        monthSpendNpr: monthNprDec.toString(),
         byStatus,
         bySection,
         spendBySectionUsd,
-        spendBySectionUsdByPeriod,
+        spendBySectionUsdByPeriod: {
+          "1m": mapSectionSpend(sectionBreakdown1m as { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[]),
+          "2m": mapSectionSpend(sectionBreakdown2m as { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[]),
+          "3m": mapSectionSpend(sectionBreakdown3m as { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[]),
+        },
+        spendBySectionNpr,
         recentExpenses: recentRows.map(serializeExpense),
         recentHistory,
-        recentActivity,
+        recentActivity: activityCandidates.slice(0, 20),
+        sectionBudgetSummaries: budgetSummariesResult.ok ? budgetSummariesResult.data : [],
       },
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Dashboard summary failed";
-    return {
-      ok: false,
-      error: { code: "DASHBOARD_SUMMARY_FAILED", message },
-    };
+    return { ok: false, error: { code: "DASHBOARD_SUMMARY_FAILED", message } };
   }
 }

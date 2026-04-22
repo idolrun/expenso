@@ -57,18 +57,32 @@ export type UpdateSectionBudgetInput = {
   notes?: string | null;
 };
 
+/** < 90 % → safe, 90–100 % → warning, > 100 % → danger */
+export type BudgetThreshold = "safe" | "warning" | "danger";
+
+/** Compute the threshold tier from a percentage value (0–∞). */
+export function thresholdFromPercent(percent: number): BudgetThreshold {
+  if (percent >= 100) return "danger";
+  if (percent >= 90) return "warning";
+  return "safe";
+}
+
 /**
  * Dashboard budget summary for one section — calculated against live expense spend.
- * Carry comparison values from snapshots so the UI never needs to call the
- * exchange-rate API to render budget progress bars.
+ * All monetary amounts are in displayCurrency.
+ * Snapshot values are pre-computed so the UI never needs a live FX call to render.
  */
 export type SectionBudgetSummaryDto = {
   budget: SectionBudgetDto;
-  /** Total spend in the budget period, denominated in budgetCurrency (USD only for Phase 1). */
+  /** The currency all monetary fields in this summary are expressed in. */
+  displayCurrency: CurrencyCode;
+  /** Total spend in the budget period in displayCurrency. Decimal string. */
   spentAmount: string;
-  /** Percentage consumed: (spentAmount / budgetAmount) * 100, clamped to 0–999. */
+  /** 0–∞ percentage consumed: (spent / budget) × 100, rounded to 2 dp. */
   spentPercent: number;
-  /** Remaining amount (may be negative if over budget). Decimal string. */
+  /** Remaining budget (may be negative when over budget). Decimal string. */
   remainingAmount: string;
   isOverBudget: boolean;
+  /** Threshold tier for visual indicators. */
+  threshold: BudgetThreshold;
 };

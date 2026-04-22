@@ -570,6 +570,13 @@ export function ExpenseForm({
         </div>
       </div>
 
+      {mode === "create" ? (
+        <div className="rounded-lg border border-dashed bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Receipts: </span>
+          Save the expense first, then open it to upload receipt attachments.
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={pending} onClick={submit}>
           {mode === "create" ? "Create expense" : "Save changes"}

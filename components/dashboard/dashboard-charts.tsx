@@ -45,9 +45,11 @@ const sparklineConfig = {
 export function SectionBreakdownBarChart({
   spendBySectionUsd,
   periodLabel,
+  displayCurrency = "USD",
 }: {
   spendBySectionUsd: Partial<Record<ExpenseSectionId, string>>;
   periodLabel?: string;
+  displayCurrency?: "USD" | "NPR";
 }) {
   const captionId = React.useId();
 
@@ -72,27 +74,31 @@ export function SectionBreakdownBarChart({
   }, [rows]);
 
   if (rows.length === 0) {
-    return <p className="text-muted-foreground text-sm">No USD spend yet.</p>;
+    return (
+      <p className="text-muted-foreground text-sm">
+        No {displayCurrency} spend yet.
+      </p>
+    );
   }
 
   return (
     <figure className="w-full" aria-labelledby={captionId}>
       <p id={captionId} className="sr-only">
-        Column chart of USD spend by section. Data is repeated in the table below for screen readers.
+        Column chart of {displayCurrency} spend by section. Data is repeated in the table below for screen readers.
       </p>
       <table className="sr-only">
-        <caption>USD spend by section</caption>
+        <caption>{displayCurrency} spend by section</caption>
         <thead>
           <tr>
             <th scope="col">Section</th>
-            <th scope="col">Amount (USD)</th>
+            <th scope="col">Amount ({displayCurrency})</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.sectionKey}>
               <td>{row.name}</td>
-              <td>{formatMoneyAmount(String(row.amount), "USD")}</td>
+              <td>{formatMoneyAmount(String(row.amount), displayCurrency)}</td>
             </tr>
           ))}
         </tbody>
@@ -119,7 +125,7 @@ export function SectionBreakdownBarChart({
               typeof v === "number"
                 ? new Intl.NumberFormat(undefined, {
                     style: "currency",
-                    currency: "USD",
+                    currency: displayCurrency,
                     notation: "compact",
                     maximumFractionDigits: 1,
                   }).format(v)
@@ -130,7 +136,9 @@ export function SectionBreakdownBarChart({
             cursor={{ fill: "hsl(var(--muted) / 0.35)" }}
             content={
               <ChartTooltipContent
-                formatter={(value) => formatMoneyAmount(String(value), "USD")}
+                formatter={(value) =>
+                  formatMoneyAmount(String(value), displayCurrency)
+                }
                 labelKey="name"
               />
             }
