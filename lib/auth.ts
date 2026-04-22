@@ -6,6 +6,9 @@ import { passkey } from "@better-auth/passkey";
 
 import { prisma } from "@/lib/prisma";
 import { getPublicAppUrl } from "@/lib/env/public-url";
+import { sendMail } from "@/lib/email/send-mail";
+import { generateMagicLinkEmail } from "@/lib/email/templates/magic-link";
+import { rateLimit } from "@/lib/email/rate-limit";
 
 const secret = process.env.BETTER_AUTH_SECRET;
 if (!secret || secret.length < 32) {
@@ -75,24 +78,27 @@ export const auth = betterAuth({
     }),
     magicLink({
       sendMagicLink: async ({ email, url }) => {
-        if (process.env.NODE_ENV !== "production") {
-          // Local development: log the full URL so you can complete sign-in without SMTP.
-          // Do not enable verbose magic-link logging in production.
-          console.info(`[expenso] Magic link for ${email}`);
-          console.info(url);
-          return;
-        }
-
-        if (process.env.MAGIC_LINK_LOG_ONLY === "true") {
-          console.warn(
-            "[expenso] MAGIC_LINK_LOG_ONLY is enabled; magic link email is not being sent.",
+        const limit = rateLimit(email, { maxRequests: 3, windowMs: 60_000 });
+        if (!limit.ok) {
+          throw new Error(
+            "Too many login attempts. Please try again in a minute.",
           );
-          return;
         }
 
-        throw new Error(
-          "Magic link email is not configured for production. Wire sendMagicLink to your mail provider (e.g. Resend, SES) or set MAGIC_LINK_LOG_ONLY=true for non-production-style environments.",
-        );
+        const { subject, text, html } = generateMagicLinkEmail({ magicLink: url });
+
+        try {
+          const result = await sendMail({ to: email, subject, text, html });
+          console.info(
+            `[auth] Magic link email sent to ${email} (messageId: ${result.messageId})`,
+          );
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Unknown error";
+          console.error(`[auth] Failed to send magic link to ${email}:`, message);
+          throw new Error(
+            "Failed to send login email. Please try again later.",
+          );
+        }
       },
     }),
   ],
