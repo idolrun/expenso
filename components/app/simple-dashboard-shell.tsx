@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -15,7 +16,8 @@ import { cn } from "@/lib/utils";
 import type { AppUserRole } from "@/src/lib/app-user-role";
 import { EXPENSE_SECTION_NAV } from "@/src/lib/expense-sections";
 import { useDisplayCurrency } from "@/src/features/display-currency/display-currency-context";
-import { ListIcon, SquaresFourIcon, XIcon } from "@phosphor-icons/react";
+import { ListIcon, XIcon } from "@phosphor-icons/react";
+
 
 const mainLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -90,12 +92,32 @@ export function SimpleDashboardShell({
   const { displayCurrency, setDisplayCurrency } = useDisplayCurrency();
 
   return (
-    <div className="bg-background flex min-h-0 min-h-full flex-1">
+    <div className="bg-background flex  min-h-full flex-1">
       <aside className="bg-sidebar text-sidebar-foreground border-sidebar-border sticky top-0 hidden h-svh w-60 shrink-0 flex-col border-r lg:flex">
         <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-          <SquaresFourIcon className="size-5 opacity-90" />
-          <Link href="/dashboard" className="font-heading text-lg font-semibold tracking-tight">
-            Expenso
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2"
+          >
+            <Image
+              src="/logos/logo-dark.png"
+              alt="Expenso"
+              width={2000}
+              height={2000}
+              priority
+              className="block h-8 w-auto dark:hidden"
+            />
+            <Image
+              src="/logos/logo-white.png"
+              alt="Expenso"
+              width={2000}
+              height={2000}
+              priority
+              className="hidden h-8 w-auto dark:block"
+            />
+            <span className="font-heading text-lg font-semibold tracking-tight">
+              Expenso
+            </span>
           </Link>
         </div>
         <ScrollArea className="flex-1 px-2 py-3">

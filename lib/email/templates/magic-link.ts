@@ -6,7 +6,7 @@ export interface GenerateMagicLinkEmailOptions {
 
 export function generateMagicLinkEmail({
   magicLink,
-  appName = "IdolRun",
+  appName = "Expenso",
   expiryMinutes = 10,
 }: GenerateMagicLinkEmailOptions) {
   const year = new Date().getFullYear();
