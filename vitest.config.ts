@@ -6,7 +6,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["**/*.{test,integration.test}.ts"],
-    exclude: ["node_modules", ".next", "dist"],
+    exclude: ["node_modules", ".next", "dist", ".kilo"],
     setupFiles: ["./tests/setup/vitest.setup.ts"],
   },
   resolve: {
