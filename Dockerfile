@@ -26,13 +26,26 @@ COPY prisma/ prisma/
 ENV PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x"
 RUN pnpm run db:generate
 
-# Dummy build-time env vars so Next.js does not crash during static analysis.
-# Real values are injected at runtime via docker-compose env_file.
-ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
-ENV BETTER_AUTH_SECRET=build-time-placeholder-secret-32chars!!
-ENV NEXT_PUBLIC_APP_URL=https://expenso.idolrun.com
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+# Debug: list what Prisma packages actually exist in node_modules
+RUN echo "=== Prisma packages in node_modules ===" && \
+    ls /app/node_modules/@prisma/ && \
+    echo "=== Prisma CLI binary ===" && \
+    ls /app/node_modules/.bin/prisma && \
+    echo "=== Prisma build ===" && \
+    ls /app/node_modules/prisma/
+
+# Dummy build-time values only — real secrets are injected at runtime via docker-compose env_file.
+# Using ARG for secrets avoids Docker security scanner warnings; they are passed through to ENV
+# only because Next.js build reads them at compile time.
+ARG BETTER_AUTH_SECRET="build-time-dummy-secret-not-used"
+ARG DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+ARG NEXT_PUBLIC_APP_URL="https://expenso.idolrun.com"
+
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NODE_ENV=production \
+    DATABASE_URL=${DATABASE_URL} \
+    BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET} \
+    NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 
 # Build Next.js production app (requires output: 'standalone' in next.config.ts)
 RUN pnpm run build
@@ -62,14 +75,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # Copy Prisma schema for runtime migrations
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
-# Prisma CLI and engine binaries — required for migrate deploy at startup
+# Prisma CLI and client — copy entire @prisma scope (Prisma 7 bundles engines inside prisma/)
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/engines-version ./node_modules/@prisma/engines-version
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/fetch-engine ./node_modules/@prisma/fetch-engine
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/get-platform ./node_modules/@prisma/get-platform
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
 # Copy startup script
 COPY --chown=nextjs:nodejs scripts/docker-entrypoint.sh ./docker-entrypoint.sh
