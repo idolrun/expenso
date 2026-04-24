@@ -43,6 +43,142 @@ const sparklineConfig = {
   },
 } satisfies ChartConfig;
 
+export function SectionBudgetExpenseBarChart({
+  spendBySectionUsd,
+  sectionBudgetSummaries,
+  periodLabel,
+  displayCurrency = "USD",
+}: {
+  spendBySectionUsd: Partial<Record<ExpenseSectionId, string>>;
+  sectionBudgetSummaries: SectionBudgetSummaryDto[];
+  periodLabel?: string;
+  displayCurrency?: "USD" | "NPR";
+}) {
+  const captionId = React.useId();
+
+  const rows = React.useMemo(() => {
+    const budgetMap = new Map<string, number>();
+    for (const s of sectionBudgetSummaries) {
+      const section = s.budget.section;
+      const amount =
+        s.budget.budgetAmountUsd != null
+          ? Number(s.budget.budgetAmountUsd)
+          : s.budget.budgetCurrency === "USD"
+            ? Number(s.budget.budgetAmount)
+            : 0;
+      if (amount > 0) {
+        budgetMap.set(section, (budgetMap.get(section) ?? 0) + amount);
+      }
+    }
+
+    const allSections = new Set([
+      ...Object.keys(spendBySectionUsd),
+      ...budgetMap.keys(),
+    ]);
+
+    const result = Array.from(allSections)
+      .map((section) => ({
+        sectionKey: section as ExpenseSectionId,
+        name: sectionLabel(section as ExpenseSectionId),
+        expense: Number(spendBySectionUsd[section as ExpenseSectionId] ?? 0),
+        budget: budgetMap.get(section) ?? 0,
+      }))
+      .filter((r) => r.expense > 0 || r.budget > 0)
+      .sort((a, b) => b.expense + b.budget - (a.expense + a.budget));
+
+    return result;
+  }, [spendBySectionUsd, sectionBudgetSummaries]);
+
+  const chartConfig = {
+    expense: {
+      label: "Expense",
+      color: "hsl(217 55% 58%)",
+    },
+    budget: {
+      label: "Budget",
+      color: "hsl(152 40% 48%)",
+    },
+  } satisfies ChartConfig;
+
+  if (rows.length === 0) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        No {displayCurrency} data yet.
+      </p>
+    );
+  }
+
+  return (
+    <figure className="w-full" aria-labelledby={captionId}>
+      <p id={captionId} className="sr-only">
+        Grouped column chart comparing {displayCurrency} spend versus budget by section.
+      </p>
+      <table className="sr-only">
+        <caption>{displayCurrency} spend versus budget by section</caption>
+        <thead>
+          <tr>
+            <th scope="col">Section</th>
+            <th scope="col">Expense ({displayCurrency})</th>
+            <th scope="col">Budget ({displayCurrency})</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.sectionKey}>
+              <td>{row.name}</td>
+              <td>{formatMoneyAmount(String(row.expense), displayCurrency)}</td>
+              <td>{formatMoneyAmount(String(row.budget), displayCurrency)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {periodLabel ? <p className="sr-only">{periodLabel}</p> : null}
+      <ChartContainer config={chartConfig} className="aspect-auto h-[min(22rem,calc(100vw-3rem))] w-full md:h-72">
+        <BarChart data={rows} margin={{ left: 4, right: 8, top: 8, bottom: 4 }}>
+          <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/60" />
+          <XAxis
+            type="category"
+            dataKey="name"
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 12 }}
+            interval={0}
+          />
+          <YAxis
+            type="number"
+            tickLine={false}
+            axisLine={false}
+            width={56}
+            tickFormatter={(v) =>
+              typeof v === "number"
+                ? new Intl.NumberFormat(undefined, {
+                    style: "currency",
+                    currency: displayCurrency,
+                    notation: "compact",
+                    maximumFractionDigits: 1,
+                  }).format(v)
+                : String(v)
+            }
+          />
+          <ChartTooltip
+            cursor={{ fill: "hsl(var(--muted) / 0.35)" }}
+            content={
+              <ChartTooltipContent
+                formatter={(value) =>
+                  formatMoneyAmount(String(value), displayCurrency)
+                }
+                labelKey="name"
+              />
+            }
+          />
+          <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} maxBarSize={32} />
+          <Bar dataKey="budget" fill="var(--color-budget)" radius={[4, 4, 0, 0]} maxBarSize={32} />
+        </BarChart>
+      </ChartContainer>
+    </figure>
+  );
+}
+
 export function SectionBreakdownBarChart({
   spendBySectionUsd,
   periodLabel,

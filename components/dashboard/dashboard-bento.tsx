@@ -28,9 +28,8 @@ import { cn } from "@/lib/utils";
 
 import {
   SECTION_BREAKDOWN_PERIOD_LABELS,
-  BudgetBreakdownPieChart,
   MonthOverMonthIndicator,
-  SectionBreakdownBarChart,
+  SectionBudgetExpenseBarChart,
   StatusMixDonutChart,
   TotalSpendSparkline,
 } from "@/components/dashboard/dashboard-charts";
@@ -224,7 +223,7 @@ export function DashboardBento({
             <div className="space-y-1">
               <CardTitle className="text-base">Section breakdown</CardTitle>
               <CardDescription>
-                {displayCurrency} spend by area
+                {displayCurrency} spend vs budget by area
                 {displayCurrency === "NPR" ? " (period filter uses USD data)" : ""}.
               </CardDescription>
             </div>
@@ -246,8 +245,9 @@ export function DashboardBento({
             ) : null}
           </CardHeader>
           <CardContent>
-            <SectionBreakdownBarChart
+            <SectionBudgetExpenseBarChart
               spendBySectionUsd={sectionSpend}
+              sectionBudgetSummaries={data.sectionBudgetSummaries}
               displayCurrency={displayCurrency}
               periodLabel={
                 displayCurrency === "NPR"
@@ -273,21 +273,6 @@ export function DashboardBento({
             />
           </CardContent>
         </Card>
-
-        {/* Budget breakdown */}
-        {hasBudgets ? (
-          <Card className="md:col-span-3">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Budget breakdown</CardTitle>
-              <CardDescription>
-                Active budget allocation by section (USD).
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <BudgetBreakdownPieChart summaries={data.sectionBudgetSummaries} />
-            </CardContent>
-          </Card>
-        ) : null}
 
         {/* Budget summaries — grouped by section */}
         {hasBudgets ? (
