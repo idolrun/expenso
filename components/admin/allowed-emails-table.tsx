@@ -62,8 +62,6 @@ export function AllowedEmailsTable() {
   const [saving, setSaving] = useState(false);
 
   const fetchEmails = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     const res = await listAllowedEmailsAction();
     if (!res.ok) {
       setError(res.error.message);
@@ -74,8 +72,22 @@ export function AllowedEmailsTable() {
   }, []);
 
   useEffect(() => {
-    fetchEmails();
-  }, [fetchEmails]);
+    let cancelled = false;
+    async function load() {
+      const res = await listAllowedEmailsAction();
+      if (cancelled) return;
+      if (!res.ok) {
+        setError(res.error.message);
+      } else {
+        setEmails(res.data);
+      }
+      setLoading(false);
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleCreate(formData: FormData) {
     const email = normalizeEmail(String(formData.get("email") ?? ""));

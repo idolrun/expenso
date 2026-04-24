@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { userRecordIdSchema } from "@/features/expenses/validation/primitives";
-
 export const allowedEmailRecordIdSchema = z.string().uuid();
 
 export const createAllowedEmailSchema = z.object({
