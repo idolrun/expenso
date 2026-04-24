@@ -30,7 +30,7 @@ function getTransporter() {
   });
 }
 
-export interface SendMailOptions {
+interface SendMailOptions {
   to: string;
   subject: string;
   text: string;

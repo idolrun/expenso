@@ -1,4 +1,4 @@
-export interface GenerateMagicLinkEmailOptions {
+interface GenerateMagicLinkEmailOptions {
   magicLink: string;
   appName?: string;
   expiryMinutes?: number;

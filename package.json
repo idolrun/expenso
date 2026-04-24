@@ -16,7 +16,11 @@
     "db:reset": "pnpm exec prisma migrate reset",
     "db:generate": "pnpm exec prisma generate",
     "db:studio": "pnpm exec prisma studio",
-    "db:seed": "pnpm exec prisma db seed"
+    "db:seed": "pnpm exec prisma db seed",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f db",
+    "docker:reset": "docker compose down -v && docker compose up -d"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",

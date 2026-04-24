@@ -407,6 +407,7 @@ export function BudgetBreakdownPieChart({
       .map((s) => {
         const budgetCap = Number(s.spentAmount) + Number(s.remainingAmount);
         return {
+          id: s.budget.id,
           section: s.budget.section,
           name: sectionLabel(s.budget.section as ExpenseSectionId),
           value: budgetCap,
@@ -453,7 +454,7 @@ export function BudgetBreakdownPieChart({
         </thead>
         <tbody>
           {data.map((row) => (
-            <tr key={row.section}>
+            <tr key={row.id}>
               <td>{row.name}</td>
               <td>{formatMoneyAmount(String(row.value), "USD")}</td>
             </tr>
@@ -502,7 +503,7 @@ export function BudgetBreakdownPieChart({
       </div>
       <ul className="flex w-full flex-wrap items-center justify-center gap-2" aria-hidden>
         {data.map((row) => (
-          <li key={row.section}>
+          <li key={row.id}>
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/30 px-2.5 py-1 text-xs font-medium text-foreground",

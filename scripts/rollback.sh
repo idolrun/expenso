@@ -15,13 +15,13 @@ CURRENT_TAG=$(grep '^IMAGE_TAG=' "$ENV_FILE" | cut -d '=' -f 2- | sed 's/^["'\''
 echo "Initiating rollback: $CURRENT_TAG -> $TAG"
 
 echo ">>> Stopping app container..."
-docker compose stop app
+docker compose -f docker-compose.prod.yml stop app
 
 echo ">>> Updating IMAGE_TAG to $TAG in $ENV_FILE..."
 sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=\"$TAG\"/" "$ENV_FILE"
 
 echo ">>> Starting app with tag $TAG..."
-docker compose up -d --no-deps app
+docker compose -f docker-compose.prod.yml up -d --no-deps app
 
 echo ">>> Waiting for service to become healthy..."
 if ./scripts/healthcheck.sh; then
@@ -30,6 +30,6 @@ if ./scripts/healthcheck.sh; then
 else
   echo "Rollback failed — app is unhealthy. Restoring previous tag $CURRENT_TAG..."
   sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=\"$CURRENT_TAG\"/" "$ENV_FILE"
-  docker compose up -d --no-deps app
+  docker compose -f docker-compose.prod.yml up -d --no-deps app
   exit 1
 fi

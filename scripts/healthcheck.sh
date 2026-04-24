@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-URL="http://localhost:3001/api/health"
+URL="http://localhost:3000/api/health"
 MAX_RETRIES=10
 INTERVAL=6
 
@@ -9,12 +9,13 @@ i=0
 while [ "$i" -lt "$MAX_RETRIES" ]; do
   i=$((i + 1))
 
-  if wget -qO- "$URL" > /dev/null 2>&1; then
-    echo "Service is healthy (attempt $i/$MAX_RETRIES)"
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+  if [ "$STATUS" -eq 200 ]; then
+    echo "Health check passed (attempt $i)"
     exit 0
   fi
 
-  echo "Health check attempt $i/$MAX_RETRIES failed, retrying in ${INTERVAL}s..."
+  echo "Attempt $i failed (status: $STATUS), retrying in ${INTERVAL}s..."
   sleep "$INTERVAL"
 done
 

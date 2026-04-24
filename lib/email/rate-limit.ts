@@ -14,7 +14,7 @@ function cleanup() {
   }
 }
 
-export interface RateLimitResult {
+interface RateLimitResult {
   ok: boolean;
   remaining: number;
   resetAt: number;
