@@ -1,0 +1,13 @@
+.env
+.env.*
+.env.local
+.env.production
+node_modules
+.next
+.git
+.gitignore
+coverage
+*.log
+docker-compose*.yml
+README.md
+prisma/migrations

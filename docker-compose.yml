@@ -1,16 +1,49 @@
 services:
-  postgres:
-    image: postgres:18.1-trixie
-    container_name: expenso_container
+  db:
+    image: postgres:16-alpine
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: expenso_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5431:5432"
+    env_file:
+      - .env.production
+    expose:
+      - "5432"
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - expenso_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  app:
+    image: bibek25/expenso:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=postgresql://expenso_db_user:expenso_26@db:5432/expenso_db
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - expenso_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  expenso_net:
+    driver: bridge
 
 volumes:
-  postgres_data:
+  db_data:
