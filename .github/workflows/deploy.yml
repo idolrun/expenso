@@ -155,15 +155,22 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Deploy via SSH
+        id: deploy-ssh
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            set -euo pipefail
+            # Trace every command and dump diagnostics on any error
+            set -euxo pipefail
 
             cd ${{ secrets.SERVER_DEPLOY_PATH }}
+            echo "=== Working directory: $(pwd) ==="
+            echo "=== Current Docker status ==="
+            docker compose -f docker-compose.prod.yml ps || true
+            echo "=== Disk usage ==="
+            df -h | grep -E '(/$|/var)'
 
             # Store previous image tag for potential rollback
             PREVIOUS_TAG=$(grep IMAGE_TAG .env.production | cut -d '=' -f2)
@@ -172,29 +179,67 @@ jobs:
 
             # Update image tag in .env.production
             sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=sha-${{ github.sha }}/" .env.production
+            echo "Updated .env.production IMAGE_TAG to: sha-${{ github.sha }}"
 
             # Pull new image
+            echo "=== Pulling new image ==="
             docker compose -f docker-compose.prod.yml pull app
+            echo "=== Verifying image exists ==="
+            docker images | grep "expenso" || true
 
             # Rolling restart
+            echo "=== Restarting app container ==="
             docker compose -f docker-compose.prod.yml up -d --no-deps --remove-orphans app
+            echo "=== Post-start container status ==="
+            docker compose -f docker-compose.prod.yml ps
 
             # Wait for service to start
+            echo "=== Waiting 15s for service startup ==="
             sleep 15
 
-            # Health check
-            bash scripts/healthcheck.sh
+            # Dump recent logs before healthcheck so we can see startup errors
+            echo "=== App container logs (last 50 lines) ==="
+            docker compose -f docker-compose.prod.yml logs --tail=50 app || true
 
-            echo "Deployment successful: sha-${{ github.sha }}"
+            # Health check
+            echo "=== Running health check ==="
+            if bash scripts/healthcheck.sh; then
+              echo "=== Deployment successful: sha-${{ github.sha }} ==="
+              exit 0
+            fi
+
+            # If we get here, healthcheck failed — auto-rollback
+            echo "=== HEALTHCHECK FAILED — initiating rollback to $PREVIOUS_TAG ==="
+            echo "=== App container logs at failure (last 100 lines) ==="
+            docker compose -f docker-compose.prod.yml logs --tail=100 app || true
+            echo "=== All container statuses ==="
+            docker compose -f docker-compose.prod.yml ps || true
+
+            sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$PREVIOUS_TAG/" .env.production
+            docker compose -f docker-compose.prod.yml pull app || true
+            docker compose -f docker-compose.prod.yml up -d --no-deps app
+            sleep 10
+            echo "=== Rollback health check ==="
+            bash scripts/healthcheck.sh || true
+            echo "=== Rollback complete ==="
+            exit 1
+
+      - name: Upload deploy logs artifact
+        if: failure()
+        run: |
+          echo "Deploy step failed. Check the 'Deploy via SSH' step output above for full logs."
 
   verify:
     name: Post-Deploy Verification
     needs: [deploy]
+    if: always() && needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Verify public health endpoint
+        id: verify-curl
         run: |
-          curl -f --retry 5 --retry-delay 5 \
+          echo "=== Checking public health endpoint ==="
+          curl -v -f --retry 5 --retry-delay 5 \
             https://${{ secrets.PUBLIC_DOMAIN }}/api/health
 
       - name: Rollback on verification failure
@@ -205,6 +250,8 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            set -euxo pipefail
             cd ${{ secrets.SERVER_DEPLOY_PATH }}
             PREVIOUS_TAG=$(cat .previous_tag)
+            echo "=== Verify failed — rolling back to $PREVIOUS_TAG ==="
             bash scripts/rollback.sh "$PREVIOUS_TAG"
