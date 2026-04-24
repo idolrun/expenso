@@ -15,10 +15,10 @@ import { NextRequest } from "next/server";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
-vi.mock("@/lib/auth/session", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/auth/session")>();
-  return { ...actual, getSession: vi.fn() };
-});
+vi.mock("@/lib/auth/session", () => ({
+  getSession: vi.fn(),
+  parseUserRole: (role: unknown) => (role === "ADMIN" ? "ADMIN" : "USER"),
+}));
 
 vi.mock("@/features/attachments/application/attachment.service", () => ({
   uploadAttachmentService: vi.fn(),

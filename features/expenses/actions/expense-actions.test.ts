@@ -1,12 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/auth/session", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/auth/session")>();
-  return {
-    ...actual,
-    getSession: vi.fn(),
-  };
-});
+vi.mock("@/lib/auth/session", () => ({
+  getSession: vi.fn(),
+  parseUserRole: (role: unknown) => (role === "ADMIN" ? "ADMIN" : "USER"),
+}));
 
 import { getSession } from "@/lib/auth/session";
 import {

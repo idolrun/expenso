@@ -1,13 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-vi.mock("@/lib/auth/session", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/auth/session")>();
-  return {
-    ...actual,
-    getSession: vi.fn(),
-  };
-});
+vi.mock("@/lib/auth/session", () => ({
+  getSession: vi.fn(),
+  parseUserRole: (role: unknown) => (role === "ADMIN" ? "ADMIN" : "USER"),
+}));
 
 vi.mock("@/features/expenses/application/expense-query.service", () => ({
   listExpenses: vi.fn(),
