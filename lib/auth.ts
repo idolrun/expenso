@@ -98,6 +98,16 @@ export const auth = betterAuth({
 
         const { subject, text, html } = generateMagicLinkEmail({ magicLink: url });
 
+        const isDev =
+          process.env.NODE_ENV === "development" ||
+          process.env.MAGIC_LINK_LOG_ONLY === "true";
+
+        if (isDev) {
+          console.info(`\n✉️  Magic link for ${email}:`);
+          console.info(`   ${url}\n`);
+          return;
+        }
+
         try {
           const result = await sendMail({ to: email, subject, text, html });
           console.info(
