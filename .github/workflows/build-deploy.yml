@@ -321,6 +321,44 @@ jobs:
             source .env.production
             set +a
 
+            # ── Fix hostname for Docker network resolution ────────────────────
+            # .env.production may use "localhost" or "db" (docker-compose
+            # service name). Neither resolves for plain `docker run` containers.
+            # The actual Postgres container name is "expenso-db-1".
+            DB_HOST="expenso-db-1"
+            DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DB_HOST}:5432/${POSTGRES_DB}"
+
+            # Log connection details (password masked)
+            echo ">>> Database host:     ${DB_HOST}"
+            echo ">>> Database port:     5432"
+            echo ">>> Database user:     ${POSTGRES_USER}"
+            echo ">>> Database name:     ${POSTGRES_DB}"
+            echo ">>> DATABASE_URL:      postgresql://${POSTGRES_USER}:****@${DB_HOST}:5432/${POSTGRES_DB}"
+
+            # ── Verify DB is reachable from migration container ───────────────
+            echo ">>> Probing database connectivity..."
+            DB_READY=false
+            for i in 1 2 3 4 5; do
+              if docker run --rm --network expenso-net busybox:1.36 \
+                sh -c "timeout 2 sh -c 'echo > /dev/tcp/${DB_HOST}/5432'" 2>/dev/null; then
+                echo ">>> Database port 5432 is open (attempt $i)"
+                DB_READY=true
+                break
+              fi
+              echo ">>> DB not reachable, attempt $i/5..."
+              sleep 3
+            done
+
+            if [ "$DB_READY" != "true" ]; then
+              echo "ERROR: Cannot reach database at ${DB_HOST}:5432"
+              echo ">>> Docker networks:"
+              docker network ls
+              echo ">>> Containers on expenso-net:"
+              docker network inspect expenso-net --format '{{range .Containers}}{{.Name}} {{end}}' || true
+              exit 1
+            fi
+
+            # ── Run migrations ────────────────────────────────────────────────
             echo ">>> Running prisma migrate deploy..."
             docker run --rm \
               -e DATABASE_URL="$DATABASE_URL" \
