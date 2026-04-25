@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4.2.2
         with:
           persist-credentials: false
@@ -52,17 +52,17 @@ jobs:
       - name: Generate Prisma client
         run: pnpm run db:generate
 
-      - name: Run ESLint
+      - name: Lint
         run: pnpm run lint
 
-      - name: Run TypeScript type check
+      - name: Type check
         run: pnpm run typecheck
 
-      - name: Run unit tests
+      - name: Unit tests
         run: pnpm run test
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 2. Integration Tests (requires real Postgres)
+  # 2. Integration Tests
   # ═══════════════════════════════════════════════════════════════════════════
   integration-test:
     name: Integration Tests
@@ -72,8 +72,6 @@ jobs:
     env:
       TEST_DB_USER: expenso_test
       TEST_DB_NAME: expensodb_test
-      # Fallback to a hardcoded test password if the secret is not set.
-      # For production CI, set secrets.TEST_DB_PASSWORD in the repository settings.
       TEST_DB_PASSWORD: ${{ secrets.TEST_DB_PASSWORD || 'expenso_test_ci_password' }}
       DATABASE_URL: postgresql://expenso_test:${{ secrets.TEST_DB_PASSWORD || 'expenso_test_ci_password' }}@localhost:5432/expensodb_test
     services:
@@ -92,18 +90,7 @@ jobs:
           --health-retries 10
           --health-start-period 10s
     steps:
-      - name: Validate test configuration
-        run: |
-          if [ -z "$TEST_DB_PASSWORD" ]; then
-            echo "::error::TEST_DB_PASSWORD is empty. Set the secrets.TEST_DB_PASSWORD repository secret."
-            exit 1
-          fi
-          echo ">>> Test DB config validated"
-          echo ">>> Host: localhost:5432"
-          echo ">>> User: $TEST_DB_USER"
-          echo ">>> Database: $TEST_DB_NAME"
-
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4.2.2
         with:
           persist-credentials: false
@@ -123,56 +110,32 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Debug PostgreSQL service status
-        run: |
-          echo ">>> Docker containers:"
-          docker ps -a
-          echo ""
-          echo ">>> Postgres container logs (last 30 lines):"
-          docker logs "${{ job.services.postgres.id }}" 2>&1 | tail -n 30 || true
-          echo ""
-          echo ">>> Running healthcheck manually:"
-          docker exec "${{ job.services.postgres.id }}" pg_isready -U "$TEST_DB_USER" -d "$TEST_DB_NAME" || true
-          echo ""
-          echo ">>> Testing SQL connectivity:"
-          docker exec -e PGPASSWORD="$TEST_DB_PASSWORD" "${{ job.services.postgres.id }}" psql -U "$TEST_DB_USER" -d "$TEST_DB_NAME" -c "SELECT 1 AS health;" || true
-
       - name: Generate Prisma client
         run: pnpm run db:generate
 
-      - name: Deploy migrations to test database
+      - name: Deploy migrations
         run: |
           for i in 1 2 3; do
             echo ">>> Migration attempt $i..."
-            if pnpm run db:deploy; then
-              echo ">>> Migrations applied successfully"
-              exit 0
-            fi
-            echo ">>> Migration attempt $i failed, waiting 3s..."
+            pnpm run db:deploy && exit 0
             sleep 3
           done
-          echo ">>> All migration attempts failed"
+          echo "Migrations failed"
           exit 1
 
       - name: Run integration tests
         run: pnpm run test:integration
 
-      - name: Dump PostgreSQL diagnostics on failure
+      - name: Diagnostics on failure
         if: failure()
         run: |
-          echo "==================== POSTGRESQL FAILURE DIAGNOSTICS ===================="
-          echo ">>> Container status:"
-          docker inspect "${{ job.services.postgres.id }}" --format='Status: {{.State.Status}} | Health: {{.State.Health.Status}}' 2>/dev/null || true
-          echo ""
-          echo ">>> Full container logs:"
+          echo "Container status:"
+          docker inspect "${{ job.services.postgres.id }}" --format='{{.State.Status}} | {{.State.Health.Status}}' 2>/dev/null || true
+          echo "Logs:"
           docker logs "${{ job.services.postgres.id }}" 2>&1 || true
-          echo ""
-          echo ">>> Environment check:"
-          echo "TEST_DB_PASSWORD is set: $([ -n "$TEST_DB_PASSWORD" ] && echo YES || echo NO)"
-          echo "======================================================================="
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 3. Build, Container Scan, SBOM & Sign
+  # 3. Build, Scan, SBOM & Sign
   # ═══════════════════════════════════════════════════════════════════════════
   build-scan-sign:
     name: Build, Scan & Sign Image
@@ -182,7 +145,7 @@ jobs:
     outputs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
@@ -206,7 +169,7 @@ jobs:
             type=raw,value=sha-${{ github.sha }}
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
+      - name: Build and push
         id: build
         uses: docker/build-push-action@v7.1.0
         with:
@@ -223,8 +186,7 @@ jobs:
           provenance: true
           sbom: true
 
-      # ── Trivy DB cache ───────────────────────────────────────────────────────
-      - name: Cache Trivy vulnerability DB
+      - name: Cache Trivy DB
         uses: actions/cache@v4.2.3
         with:
           path: ~/.cache/trivy
@@ -232,11 +194,7 @@ jobs:
           restore-keys: |
             trivy-db-${{ runner.os }}-
 
-      # ═══════════════════════════════════════════════════════════════════════════
-      # Trivy Container Scan — Option B (Balanced)
-      #   Scans: HIGH + CRITICAL  |  Fails: CRITICAL only  |  ignore-unfixed: true
-      # ═══════════════════════════════════════════════════════════════════════════
-      - name: Run Trivy container scan
+      - name: Trivy container scan
         id: trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -248,73 +206,43 @@ jobs:
           scanners: 'vuln'
           ignore-unfixed: true
 
-      # ── Fail only on CRITICAL (manual gate for Option B behavior) ──────────────
-      - name: Gate on CRITICAL vulnerabilities
+      - name: Gate on CRITICAL
         run: |
           if [ ! -f trivy-container-results.sarif ]; then
-            echo "::warning::SARIF file missing; skipping CRITICAL gate."
+            echo "::warning::SARIF missing; skipping gate."
             exit 0
           fi
-          CRITICAL_COUNT=$(grep -o '"severity": "CRITICAL"' trivy-container-results.sarif | wc -l || echo 0)
-          if [ "$CRITICAL_COUNT" -gt 0 ]; then
-            echo "::error::$CRITICAL_COUNT CRITICAL vulnerability(ies) detected in container image."
-            echo "::error::Review the SARIF output in the GitHub Security tab."
+          COUNT=$(grep -o '"severity": "CRITICAL"' trivy-container-results.sarif | wc -l || echo 0)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::error::$COUNT CRITICAL finding(s). Review Security tab."
             exit 1
           fi
-          echo "✅ No CRITICAL vulnerabilities found."
+          echo "✅ No CRITICAL vulnerabilities."
 
-      # ── SARIF safety net ─────────────────────────────────────────────────────
-      - name: Ensure Trivy SARIF exists
+      - name: Ensure SARIF exists
         if: always()
         run: |
           if [ ! -f trivy-container-results.sarif ]; then
             echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[{"tool":{"driver":{"name":"Trivy","informationUri":"https://github.com/aquasecurity/trivy"}},"results":[]}]}' > trivy-container-results.sarif
-            echo "::warning::Trivy did not produce a SARIF file; created empty placeholder."
           fi
 
-      - name: Upload Trivy container SARIF
+      - name: Upload Trivy SARIF
         uses: github/codeql-action/upload-sarif@v3.28.16
         if: always()
         with:
           sarif_file: 'trivy-container-results.sarif'
 
-      - name: Post Trivy scan summary
-        if: always()
-        run: |
-          echo "### 🔒 Trivy Container Scan Summary" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.trivy.outcome }}" == "failure" ]; then
-            echo "- **Status**: ❌ FAILED (scan execution error)" >> $GITHUB_STEP_SUMMARY
-          else
-            CRITICAL_COUNT=$(grep -o '"severity": "CRITICAL"' trivy-container-results.sarif | wc -l || echo 0)
-            HIGH_COUNT=$(grep -o '"severity": "HIGH"' trivy-container-results.sarif | wc -l || echo 0)
-            if [ "$CRITICAL_COUNT" -gt 0 ]; then
-              echo "- **Status**: ❌ GATE FAILED ($CRITICAL_COUNT CRITICAL)" >> $GITHUB_STEP_SUMMARY
-              echo "- **Action required**: Patch or suppress CRITICAL findings." >> $GITHUB_STEP_SUMMARY
-            else
-              echo "- **Status**: ✅ PASSED (no CRITICAL vulnerabilities)" >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "- **HIGH findings**: $HIGH_COUNT (non-blocking, visible in Security tab)" >> $GITHUB_STEP_SUMMARY
-            echo "- **CRITICAL findings**: $CRITICAL_COUNT" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Policy**: Option B — Balanced (report HIGH+CRITICAL, fail only on CRITICAL)" >> $GITHUB_STEP_SUMMARY
-
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.1.1
 
-      # ── Debug: validate digest format before signing ───────────────────────────
-      - name: Print image digest
+      - name: Sign image
         run: |
-          echo "Image digest: ${{ steps.build.outputs.digest }}"
-          echo "Full reference: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
-
-      - name: Sign image with Cosign (keyless)
-        run: |
+          echo "Digest: ${{ steps.build.outputs.digest }}"
           cosign sign --yes \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 4. Production Blue/Green Deploy (automatic — zero downtime)
+  # 4. Production Blue/Green Deploy (INLINE — no external scripts)
   # ═══════════════════════════════════════════════════════════════════════════
   deploy-production:
     name: Deploy to Production (Blue/Green)
@@ -324,83 +252,160 @@ jobs:
     environment: production
     steps:
       - name: Blue/Green deploy via SSH
-        id: deploy-ssh
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           command_timeout: 10m
-          script_stop: true
           script: |
             set -euo pipefail
-            echo "════════════════════════════════════════════════════════════════"
-            echo "  BLUE/GREEN DEPLOY START"
-            echo "  Digest: ${{ needs.build-scan-sign.outputs.digest }}"
-            echo "  Time:   $(date -Iseconds)"
-            echo "════════════════════════════════════════════════════════════════"
 
-            cd ${{ secrets.SERVER_DEPLOY_PATH }}
+            # ── Config ──────────────────────────────────────────────────────
+            COMPOSE_FILE="docker-compose.prod.yml"
+            STATE_FILE=".bluegreen.state"
+            NGINX_SITE="${NGINX_SITE_PATH:-/etc/nginx/sites-available/expenso}"
+            NEW_DIGEST="${{ needs.build-scan-sign.outputs.digest }}"
+            REGISTRY="${REGISTRY:-docker.io}"
+            IMAGE_NAME="${IMAGE_NAME:-devidolrun/expenso}"
+            FULL_IMAGE="${REGISTRY}/${IMAGE_NAME}@${NEW_DIGEST}"
+
+            cd "${{ secrets.SERVER_DEPLOY_PATH }}"
             echo ">>> Working directory: $(pwd)"
-            echo ">>> Disk space: $(df -h . | tail -1)"
-            echo ">>> Active nginx upstream:"
-            grep 'set \$active_upstream' /etc/nginx/sites-available/expenso 2>/dev/null || echo "(could not detect)"
+            echo ">>> Disk: $(df -h . | tail -1)"
 
-            bash scripts/deploy-bluegreen.sh "${{ needs.build-scan-sign.outputs.digest }}"
+            # ── Detect active color ─────────────────────────────────────────
+            ACTIVE_COLOR=$(grep -oP 'set\s+\$active_upstream\s+\K\w+' "$NGINX_SITE" 2>/dev/null || true)
+            if [ -z "$ACTIVE_COLOR" ] || { [ "$ACTIVE_COLOR" != "blue" ] && [ "$ACTIVE_COLOR" != "green" ]; }; then
+              ACTIVE_COLOR="blue"
+            fi
 
+            # ── Determine target ────────────────────────────────────────────
+            if [ "$ACTIVE_COLOR" = "blue" ]; then
+              TARGET_COLOR="green"
+              TARGET_PORT=3001
+            else
+              TARGET_COLOR="blue"
+              TARGET_PORT=3000
+            fi
+
+            echo ""
             echo "════════════════════════════════════════════════════════════════"
-            echo "  BLUE/GREEN DEPLOY COMPLETE"
-            echo "  Time: $(date -Iseconds)"
+            echo "  BLUE/GREEN DEPLOY"
+            echo "  Active: $ACTIVE_COLOR  →  Target: $TARGET_COLOR (port $TARGET_PORT)"
+            echo "  Image:  $FULL_IMAGE"
             echo "════════════════════════════════════════════════════════════════"
 
-      - name: Dump diagnostics on deploy failure
+            # ── Step 1: Clean up & deploy target ────────────────────────────
+            echo ">>> [1/5] Cleaning up existing $TARGET_COLOR container..."
+            docker compose -f "$COMPOSE_FILE" rm -sf "app-$TARGET_COLOR" 2>/dev/null || true
+
+            echo ">>> [2/5] Pulling image for $TARGET_COLOR..."
+            export "${TARGET_COLOR^^}_IMAGE=$FULL_IMAGE"
+            docker compose -f "$COMPOSE_FILE" pull "app-$TARGET_COLOR"
+
+            echo ">>> [3/5] Starting $TARGET_COLOR container..."
+            docker compose -f "$COMPOSE_FILE" up -d "app-$TARGET_COLOR"
+
+            # ── Step 2: Health check ────────────────────────────────────────
+            echo ">>> [4/5] Health check on $TARGET_COLOR (localhost:$TARGET_PORT)..."
+            HEALTHY=false
+            for i in 1 2 3 4 5; do
+              echo ">>>   Attempt $i/5..."
+              if curl -sf "http://127.0.0.1:$TARGET_PORT/api/health" >/dev/null 2>&1; then
+                echo ">>>   HTTP 200 OK"
+                HEALTHY=true
+                break
+              fi
+              # Also show Docker health status for observability
+              DOCKER_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "expenso-$TARGET_COLOR" 2>/dev/null || echo "unknown")
+              echo ">>>   Docker health: $DOCKER_HEALTH"
+              sleep 3
+            done
+
+            if [ "$HEALTHY" != "true" ]; then
+              echo ""
+              echo "ERROR: $TARGET_COLOR failed health checks."
+              echo ">>> Destroying $TARGET_COLOR container..."
+              docker compose -f "$COMPOSE_FILE" rm -sf "app-$TARGET_COLOR" 2>/dev/null || true
+              echo ">>> Kept $ACTIVE_COLOR running. Users unaffected."
+              echo "════════════════════════════════════════════════════════════════"
+              echo "  DEPLOY FAILED — No traffic was switched"
+              echo "════════════════════════════════════════════════════════════════"
+              exit 1
+            fi
+
+            # ── Step 3: Switch traffic ──────────────────────────────────────
+            echo ">>> [5/5] Switching nginx from $ACTIVE_COLOR → $TARGET_COLOR..."
+            sudo sed -i "s/set\s*\\\$active_upstream\s\+\w\+;/set \$active_upstream $TARGET_COLOR;/g" "$NGINX_SITE"
+
+            echo ">>> Testing nginx config..."
+            sudo nginx -t
+
+            echo ">>> Reloading nginx gracefully..."
+            sudo nginx -s reload
+
+            # ── Step 4: Grace period & cleanup ──────────────────────────────
+            echo ">>> Waiting 10s for connection drain..."
+            sleep 10
+
+            echo ">>> Stopping previous $ACTIVE_COLOR container..."
+            docker compose -f "$COMPOSE_FILE" stop "app-$ACTIVE_COLOR" 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" rm -sf "app-$ACTIVE_COLOR" 2>/dev/null || true
+
+            # ── Save state ──────────────────────────────────────────────────
+            cat > "$STATE_FILE" <<EOF
+ACTIVE_COLOR=$TARGET_COLOR
+BLUE_DIGEST=$([ "$TARGET_COLOR" = "blue" ] && echo "$NEW_DIGEST" || echo "$BLUE_DIGEST")
+GREEN_DIGEST=$([ "$TARGET_COLOR" = "green" ] && echo "$NEW_DIGEST" || echo "$GREEN_DIGEST")
+EOF
+
+            echo ""
+            echo "════════════════════════════════════════════════════════════════"
+            echo "  DEPLOY SUCCESSFUL"
+            echo "  Active: $TARGET_COLOR"
+            echo "  Digest: $NEW_DIGEST"
+            echo "════════════════════════════════════════════════════════════════"
+
+      - name: Diagnostics on deploy failure
         if: failure()
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          command_timeout: 8m
-          script_stop: true
+          command_timeout: 5m
           script: |
-            echo "════════════════════════════════════════════════════════════════"
-            echo "  DEPLOY FAILURE DIAGNOSTICS"
-            echo "════════════════════════════════════════════════════════════════"
-            cd ${{ secrets.SERVER_DEPLOY_PATH }}
-            echo ">>> Blue/Green state:"
-            cat .bluegreen.state 2>/dev/null || echo "(no state file)"
-            echo ""
-            echo ">>> Nginx active upstream:"
-            grep 'set \$active_upstream' /etc/nginx/sites-available/expenso 2>/dev/null || echo "(could not detect)"
-            echo ""
-            echo ">>> Docker Compose status:"
+            set -euo pipefail
+            cd "${{ secrets.SERVER_DEPLOY_PATH }}"
+            echo ">>> State:"
+            cat .bluegreen.state 2>/dev/null || echo "(none)"
+            echo ">>> Nginx upstream:"
+            grep 'set \$active_upstream' /etc/nginx/sites-available/expenso 2>/dev/null || true
+            echo ">>> Containers:"
             docker compose -f docker-compose.prod.yml ps || true
-            echo ""
-            echo ">>> App logs (blue):"
-            docker compose -f docker-compose.prod.yml logs --tail=50 app-blue || true
-            echo ""
-            echo ">>> App logs (green):"
-            docker compose -f docker-compose.prod.yml logs --tail=50 app-green || true
-            echo ""
-            echo ">>> System resources:"
+            echo ">>> Logs (blue):"
+            docker compose -f docker-compose.prod.yml logs --tail=30 app-blue || true
+            echo ">>> Logs (green):"
+            docker compose -f docker-compose.prod.yml logs --tail=30 app-green || true
+            echo ">>> Resources:"
             free -h || true
             df -h || true
-            echo "════════════════════════════════════════════════════════════════"
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 5. Post-Deploy Verification + Automatic Rollback
+  # 5. Post-Deploy Verification + Automatic Rollback (INLINE)
   # ═══════════════════════════════════════════════════════════════════════════
   verify-production:
-    name: Post-Deploy Verification
+    name: Verify & Rollback Guard
     needs: [deploy-production]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Verify public health endpoint
-        id: verify-curl
+        id: verify
         run: |
           if [ -z "${{ secrets.PUBLIC_DOMAIN }}" ]; then
-            echo "::error::PUBLIC_DOMAIN secret is not set"
+            echo "::error::PUBLIC_DOMAIN secret not set"
             exit 1
           fi
           echo ">>> Checking https://${{ secrets.PUBLIC_DOMAIN }}/api/health"
@@ -409,16 +414,14 @@ jobs:
             --retry 5 --retry-delay 6 --retry-connrefused \
             https://${{ secrets.PUBLIC_DOMAIN }}/api/health)
           HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
-          BODY=$(echo "$RESPONSE" | grep -v "HTTP_STATUS")
-          echo ">>> Response body: $BODY"
           echo ">>> HTTP status: $HTTP_STATUS"
           if [ "$HTTP_STATUS" != "200" ]; then
-            echo ">>> FAILED: Expected 200, got $HTTP_STATUS"
+            echo "FAILED: Expected 200, got $HTTP_STATUS"
             exit 1
           fi
           echo ">>> Public health check PASSED"
 
-      - name: Automatic Blue/Green rollback on verification failure
+      - name: Automatic rollback on failure
         if: failure()
         uses: appleboy/ssh-action@v1.2.5
         with:
@@ -426,15 +429,78 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           command_timeout: 8m
-          script_stop: true
           script: |
+            set -euo pipefail
+
+            cd "${{ secrets.SERVER_DEPLOY_PATH }}"
+            STATE_FILE=".bluegreen.state"
+            NGINX_SITE="${NGINX_SITE_PATH:-/etc/nginx/sites-available/expenso}"
+            COMPOSE_FILE="docker-compose.prod.yml"
+
+            echo ""
             echo "════════════════════════════════════════════════════════════════"
-            echo "  AUTOMATIC ROLLBACK TRIGGERED"
+            echo "  AUTOMATIC ROLLBACK"
             echo "  Reason: external health check failed"
             echo "  Time:   $(date -Iseconds)"
             echo "════════════════════════════════════════════════════════════════"
-            cd ${{ secrets.SERVER_DEPLOY_PATH }}
-            bash scripts/rollback-bluegreen.sh
+
+            if [ ! -f "$STATE_FILE" ]; then
+              echo "ERROR: No state file. Cannot rollback automatically."
+              exit 1
+            fi
+
+            # shellcheck source=/dev/null
+            source "$STATE_FILE"
+
+            if [ "$ACTIVE_COLOR" = "blue" ]; then
+              PREVIOUS_COLOR="green"
+              PREVIOUS_DIGEST="${GREEN_DIGEST:-}"
+              PREVIOUS_PORT=3001
+            else
+              PREVIOUS_COLOR="blue"
+              PREVIOUS_DIGEST="${BLUE_DIGEST:-}"
+              PREVIOUS_PORT=3000
+            fi
+
+            if [ -z "$PREVIOUS_DIGEST" ]; then
+              echo "ERROR: No previous digest recorded. Cannot rollback."
+              exit 1
+            fi
+
+            echo ">>> Rolling back: $ACTIVE_COLOR → $PREVIOUS_COLOR"
+
+            # Ensure previous container is running
+            REGISTRY="${REGISTRY:-docker.io}"
+            IMAGE_NAME="${IMAGE_NAME:-devidolrun/expenso}"
+            export "${PREVIOUS_COLOR^^}_IMAGE=${REGISTRY}/${IMAGE_NAME}@${PREVIOUS_DIGEST}"
+
+            echo ">>> Starting $PREVIOUS_COLOR container..."
+            docker compose -f "$COMPOSE_FILE" up -d "app-$PREVIOUS_COLOR"
+
+            # Quick health check
+            echo ">>> Health check on $PREVIOUS_COLOR (port $PREVIOUS_PORT)..."
+            for i in 1 2 3 4 5; do
+              if curl -sf "http://127.0.0.1:$PREVIOUS_PORT/api/health" >/dev/null 2>&1; then
+                echo ">>> $PREVIOUS_COLOR is healthy"
+                break
+              fi
+              sleep 3
+            done
+
+            # Switch nginx back
+            echo ">>> Reverting nginx to $PREVIOUS_COLOR..."
+            sudo sed -i "s/set\s*\\\$active_upstream\s\+\w\+;/set \$active_upstream $PREVIOUS_COLOR;/g" "$NGINX_SITE"
+            sudo nginx -t && sudo nginx -s reload
+
+            # Update state
+            cat > "$STATE_FILE" <<EOF
+ACTIVE_COLOR=$PREVIOUS_COLOR
+BLUE_DIGEST=$BLUE_DIGEST
+GREEN_DIGEST=$GREEN_DIGEST
+EOF
+
+            echo ""
             echo "════════════════════════════════════════════════════════════════"
             echo "  ROLLBACK COMPLETE"
+            echo "  Active: $PREVIOUS_COLOR"
             echo "════════════════════════════════════════════════════════════════"
