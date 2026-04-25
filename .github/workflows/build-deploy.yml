@@ -189,7 +189,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2320dab5c97342360d27 # v3.10.0
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
 
       - name: Login to Docker Hub
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
@@ -199,7 +199,7 @@ jobs:
 
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a360e3bb043 # v5.7.0
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -208,7 +208,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb370c95b335cb085 # v6.16.0
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.16.0
         with:
           context: .
           file: ./Dockerfile
@@ -235,7 +235,7 @@ jobs:
           exit-code: '1'
 
       - name: Upload Trivy container SARIF
-        uses: github/codeql-action/upload-sarif@28deaeda66b76a05916b6923827895de2a14ebe8 # v3.28.16
+        uses: github/codeql-action/upload-sarif@28deaeda66b76a05916b6923827895f2b14ab387 # v3.28.16
         if: always()
         with:
           sarif_file: 'trivy-container-results.sarif'
@@ -262,7 +262,7 @@ jobs:
     environment: staging
     steps:
       - name: Deploy to staging VPS
-        uses: appleboy/ssh-action@029f5b4a0e7f2173b4482f649310f1ebbf200df4 # v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         with:
           host: ${{ secrets.STAGING_SERVER_IP }}
           username: ${{ secrets.STAGING_SERVER_USER }}
@@ -290,7 +290,7 @@ jobs:
     steps:
       - name: Deploy to production VPS
         id: deploy-ssh
-        uses: appleboy/ssh-action@029f5b4a0e7f2173b4482f649310f1ebbf200df4 # v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
@@ -339,7 +339,7 @@ jobs:
 
       - name: Dump container logs on failure
         if: failure()
-        uses: appleboy/ssh-action@029f5b4a0e7f2173b4482f649310f1ebbf200df4 # v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
@@ -393,7 +393,7 @@ jobs:
 
       - name: Rollback on verification failure
         if: failure()
-        uses: appleboy/ssh-action@029f5b4a0e7f2173b4482f649310f1ebbf200df4 # v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
