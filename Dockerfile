@@ -62,27 +62,23 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 RUN pnpm run build
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Stage 3 — Runner (production)
-#   Minimal runtime image: only Node.js, global Prisma CLI, and the app.
+# Stage 3 — App (production runtime)
+#   Minimal image: only the compiled Next.js app + Prisma generated client.
+#   NO Prisma CLI, NO schema, NO migrations, NO prisma.config.ts.
 # ═══════════════════════════════════════════════════════════════════════════════
-FROM node:22.15.0-alpine3.21 AS runner
+FROM node:22.15.0-alpine3.21 AS app
 
 WORKDIR /app
 
 ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
-    NEXT_TELEMETRY_DISABLED=1 \
-    PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x"
+    NEXT_TELEMETRY_DISABLED=1
 
-# Patch Alpine OS packages to latest security fixes, then install Prisma CLI.
-# PRISMA_CLI_BINARY_TARGETS ensures the musl-compatible query engine is fetched.
-RUN apk upgrade --no-cache && \
-    npm install -g prisma@7.7.0 && \
-    npm cache clean --force
+# Patch Alpine OS packages to latest security fixes.
+RUN apk upgrade --no-cache
 
 # Create non-root user and group with fixed UID/GID (1001).
-# Fixed IDs prevent permission mismatches between host and container.
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001 -G nodejs
 
@@ -93,10 +89,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # Copy generated Prisma client (includes the query-engine binary for linux-musl).
 COPY --from=builder --chown=nextjs:nodejs /app/src/app/generated/prisma ./src/app/generated/prisma
-
-# Copy Prisma schema, migrations, and config for CLI commands.
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 
 # Copy startup script.
 COPY --chown=nextjs:nodejs scripts/docker-entrypoint.sh ./docker-entrypoint.sh
@@ -115,3 +107,30 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget -qO- http://localhost:3000/api/health || exit 1
 
 CMD ["./docker-entrypoint.sh"]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stage 4 — Migrate (dedicated migration runner)
+#   Lightweight image with ONLY the Prisma CLI + schema + config.
+#   Used for "prisma migrate deploy" during CI/CD — never runs in production.
+#   Prisma is installed LOCALLY (not globally) so prisma.config.ts resolves
+#   "prisma/config" imports correctly.
+# ═══════════════════════════════════════════════════════════════════════════════
+FROM node:22.15.0-alpine3.21 AS migrate
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Install prisma locally (NOT globally) so Node module resolution works
+# for imports like: import { defineConfig } from "prisma/config"
+RUN npm install prisma@7.7.0 --no-package-lock --no-audit --no-fund && \
+    npm cache clean --force
+
+# Copy only what the Prisma CLI needs to run migrations.
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/package.json ./package.json
+
+# Default command: deploy pending migrations.
+# Override in CI if needed (e.g. for "prisma migrate status").
+CMD ["./node_modules/.bin/prisma", "migrate", "deploy", "--schema=./prisma/schema.prisma"]
