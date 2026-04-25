@@ -314,92 +314,50 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 4. Staging Deploy (automatic)
-  # ═══════════════════════════════════════════════════════════════════════════
-  deploy-staging:
-    name: Deploy to Staging
-    needs: [build-scan-sign]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    environment: staging
-    steps:
-      - name: Deploy to staging VPS
-        uses: appleboy/ssh-action@v1.2.5
-        with:
-          host: ${{ secrets.STAGING_SERVER_IP }}
-          username: ${{ secrets.STAGING_SERVER_USER }}
-          key: ${{ secrets.STAGING_SERVER_SSH_KEY }}
-          command_timeout: 8m
-          script_stop: true
-          script: |
-            set -euo pipefail
-            cd ${{ secrets.STAGING_SERVER_DEPLOY_PATH }}
-            echo ">>> Deploying sha-${{ github.sha }} to staging"
-            sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=sha-${{ github.sha }}/" .env.production
-            docker compose -f docker-compose.prod.yml pull app
-            docker compose -f docker-compose.prod.yml up -d --no-deps --remove-orphans app
-            echo ">>> Staging deploy complete"
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # 5. Production Deploy (manual approval required)
+  # 4. Production Blue/Green Deploy (automatic — zero downtime)
   # ═══════════════════════════════════════════════════════════════════════════
   deploy-production:
-    name: Deploy to Production
+    name: Deploy to Production (Blue/Green)
     needs: [build-scan-sign]
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment: production
     steps:
-      - name: Deploy to production VPS
+      - name: Blue/Green deploy via SSH
         id: deploy-ssh
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          command_timeout: 8m
+          command_timeout: 10m
           script_stop: true
           script: |
             set -euo pipefail
-            echo "=============================="
-            echo "DEPLOY START: $(date)"
-            echo "SHA: sha-${{ github.sha }}"
-            echo "=============================="
+            echo "════════════════════════════════════════════════════════════════"
+            echo "  BLUE/GREEN DEPLOY START"
+            echo "  Digest: ${{ needs.build-scan-sign.outputs.digest }}"
+            echo "  Time:   $(date -Iseconds)"
+            echo "════════════════════════════════════════════════════════════════"
 
             cd ${{ secrets.SERVER_DEPLOY_PATH }}
             echo ">>> Working directory: $(pwd)"
             echo ">>> Disk space: $(df -h . | tail -1)"
 
-            PREVIOUS_TAG=$(grep IMAGE_TAG .env.production | cut -d '=' -f2 || echo "none")
-            echo ">>> Previous IMAGE_TAG: $PREVIOUS_TAG"
-            echo "$PREVIOUS_TAG" > .previous_tag
+            # Ensure nginx configs exist (first-time setup safety)
+            if [ ! -f nginx/nginx.conf ]; then
+              echo "ERROR: nginx/nginx.conf not found. Run first-time setup first."
+              exit 1
+            fi
 
-            sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=sha-${{ github.sha }}/" .env.production
-            echo ">>> Updated IMAGE_TAG to: sha-${{ github.sha }}"
+            bash scripts/deploy-bluegreen.sh "${{ needs.build-scan-sign.outputs.digest }}"
 
-            echo ">>> Pulling new image..."
-            docker compose -f docker-compose.prod.yml pull app
-            echo ">>> Pull complete"
+            echo "════════════════════════════════════════════════════════════════"
+            echo "  BLUE/GREEN DEPLOY COMPLETE"
+            echo "  Time: $(date -Iseconds)"
+            echo "════════════════════════════════════════════════════════════════"
 
-            echo ">>> Starting app container..."
-            docker compose -f docker-compose.prod.yml up -d --no-deps --remove-orphans app
-            echo ">>> Container started"
-
-            echo ">>> Waiting 20s for app to initialize..."
-            sleep 20
-
-            echo ">>> App container logs (last 50 lines):"
-            docker compose -f docker-compose.prod.yml logs --tail=50 app || true
-
-            echo ">>> Running health check..."
-            bash scripts/healthcheck.sh
-
-            echo "=============================="
-            echo "DEPLOY SUCCESS: sha-${{ github.sha }}"
-            echo "TIME: $(date)"
-            echo "=============================="
-
-      - name: Dump container logs on failure
+      - name: Dump diagnostics on deploy failure
         if: failure()
         uses: appleboy/ssh-action@v1.2.5
         with:
@@ -409,21 +367,32 @@ jobs:
           command_timeout: 8m
           script_stop: true
           script: |
-            echo "=============================="
-            echo "FAILURE DIAGNOSTICS"
-            echo "=============================="
+            echo "════════════════════════════════════════════════════════════════"
+            echo "  DEPLOY FAILURE DIAGNOSTICS"
+            echo "════════════════════════════════════════════════════════════════"
             cd ${{ secrets.SERVER_DEPLOY_PATH }}
+            echo ">>> Blue/Green state:"
+            cat .bluegreen.state 2>/dev/null || echo "(no state file)"
+            echo ""
+            echo ">>> Docker Compose status:"
             docker compose -f docker-compose.prod.yml ps || true
-            docker compose -f docker-compose.prod.yml logs --tail=100 app || true
-            docker compose -f docker-compose.prod.yml logs --tail=30 db || true
+            echo ""
+            echo ">>> App logs (blue):"
+            docker compose -f docker-compose.prod.yml logs --tail=50 app-blue || true
+            echo ""
+            echo ">>> App logs (green):"
+            docker compose -f docker-compose.prod.yml logs --tail=50 app-green || true
+            echo ""
+            echo ">>> Nginx logs:"
+            docker compose -f docker-compose.prod.yml logs --tail=30 nginx || true
+            echo ""
+            echo ">>> System resources:"
             free -h || true
             df -h || true
-            docker ps -a || true
-            docker images | grep "expenso" || true
-            echo "=============================="
+            echo "════════════════════════════════════════════════════════════════"
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 6. Post-Deploy Verification
+  # 5. Post-Deploy Verification + Automatic Rollback
   # ═══════════════════════════════════════════════════════════════════════════
   verify-production:
     name: Post-Deploy Verification
@@ -451,9 +420,9 @@ jobs:
             echo ">>> FAILED: Expected 200, got $HTTP_STATUS"
             exit 1
           fi
-          echo ">>> Health check PASSED"
+          echo ">>> Public health check PASSED"
 
-      - name: Rollback on verification failure
+      - name: Automatic Blue/Green rollback on verification failure
         if: failure()
         uses: appleboy/ssh-action@v1.2.5
         with:
@@ -463,7 +432,13 @@ jobs:
           command_timeout: 8m
           script_stop: true
           script: |
+            echo "════════════════════════════════════════════════════════════════"
+            echo "  AUTOMATIC ROLLBACK TRIGGERED"
+            echo "  Reason: external health check failed"
+            echo "  Time:   $(date -Iseconds)"
+            echo "════════════════════════════════════════════════════════════════"
             cd ${{ secrets.SERVER_DEPLOY_PATH }}
-            PREVIOUS_TAG=$(cat .previous_tag)
-            echo ">>> Rolling back to: $PREVIOUS_TAG"
-            bash scripts/rollback.sh "$PREVIOUS_TAG"
+            bash scripts/rollback-bluegreen.sh
+            echo "════════════════════════════════════════════════════════════════"
+            echo "  ROLLBACK COMPLETE"
+            echo "════════════════════════════════════════════════════════════════"

@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:16.8-alpine
     restart: unless-stopped
+    container_name: expenso-db
     env_file:
       - .env.production
     environment:
@@ -30,12 +31,20 @@ services:
           memory: 256M
     security_opt:
       - no-new-privileges:true
-    # Prevent container from gaining new capabilities
     cap_drop:
       - ALL
 
-  app:
-    image: ${REGISTRY:-docker.io}/${IMAGE_NAME:-devidolrun/expenso}:${IMAGE_TAG:-latest}
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Blue / Green Application Containers
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Only ONE of these is live at any time (controlled by nginx upstream).
+  # The inactive container is stopped after a successful switch.
+  # Both share the same database and Docker network.
+  # ═══════════════════════════════════════════════════════════════════════════════
+
+  app-blue:
+    image: ${BLUE_IMAGE:-${REGISTRY:-docker.io}/${IMAGE_NAME:-devidolrun/expenso}:latest}
+    container_name: expenso-blue
     restart: unless-stopped
     env_file:
       - .env.production
@@ -43,8 +52,8 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
-    ports:
-      - "${APP_HOST_PORT:-3000}:3000"
+    expose:
+      - "3000"
     depends_on:
       db:
         condition: service_healthy
@@ -52,9 +61,9 @@ services:
       - expenso_net
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 10s
+      timeout: 5s
+      retries: 5
       start_period: 60s
     deploy:
       resources:
@@ -64,27 +73,95 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
-      # Kubernetes-style readiness for future migration
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-    # ── Container Security Hardening ──
-    # Read-only root filesystem — immutability at runtime
     read_only: true
-    # Drop ALL Linux capabilities; the app binds to port 3000 (>1024) so
-    # NET_BIND_SERVICE is unnecessary.
     cap_drop:
       - ALL
-    # Prevent privilege escalation (e.g. setuid binaries)
     security_opt:
       - no-new-privileges:true
-    # Explicit non-root UID/GID (must match Dockerfile USER)
     user: "1001:1001"
-    # Writable tmpfs mounts for any ephemeral file I/O
     tmpfs:
       - /tmp:noexec,nosuid,size=100m
-    # Limit log size to prevent disk exhaustion
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  app-green:
+    image: ${GREEN_IMAGE:-${REGISTRY:-docker.io}/${IMAGE_NAME:-devidolrun/expenso}:latest}
+    container_name: expenso-green
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    expose:
+      - "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - expenso_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1001:1001"
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Nginx Reverse Proxy
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Handles traffic switching between Blue and Green with zero-downtime reload.
+  # The active backend is defined in nginx/active.conf (rewritten by deploy script).
+  # ═══════════════════════════════════════════════════════════════════════════════
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: expenso-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/active.conf:/etc/nginx/conf.d/active.conf:ro
+    networks:
+      - expenso_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
     logging:
       driver: json-file
       options:
