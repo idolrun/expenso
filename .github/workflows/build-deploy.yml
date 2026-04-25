@@ -232,6 +232,14 @@ jobs:
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
 
+      - name: Ensure Trivy SARIF exists
+        if: always()
+        run: |
+          if [ ! -f trivy-container-results.sarif ]; then
+            echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[{"tool":{"driver":{"name":"Trivy","informationUri":"https://github.com/aquasecurity/trivy"}},"results":[]}]}' > trivy-container-results.sarif
+            echo "::warning::Trivy did not produce a SARIF file; created empty placeholder."
+          fi
+
       - name: Upload Trivy container SARIF
         uses: github/codeql-action/upload-sarif@v3.28.16
         if: always()

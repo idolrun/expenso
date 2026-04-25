@@ -48,7 +48,7 @@ RUN pnpm run db:generate
 # Dummy build-time values ONLY — real secrets are injected at runtime.
 # Using ARG prevents accidental leakage into the final image layers
 # because ARGs are scoped to the build stage they are defined in.
-ARG BETTER_AUTH_SECRET="build-time-dummy"
+ARG BETTER_AUTH_SECRET="build-time-dummy-secret-must-be-at-least-32-chars-long"
 ARG DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 ARG NEXT_PUBLIC_APP_URL="https://example.com"
 
@@ -75,12 +75,10 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x"
 
-# Install pnpm and the Prisma CLI globally with an EXACT pinned version.
-# Then prune the store to keep the layer as small as possible.
-RUN corepack enable && corepack prepare pnpm@10.8.0 --activate && \
-    pnpm add -g prisma@7.7.0 && \
-    pnpm store prune && \
-    rm -rf /root/.cache /tmp/*
+# Install the Prisma CLI globally using npm (more reliable than pnpm in Alpine).
+# PRISMA_CLI_BINARY_TARGETS ensures the musl-compatible query engine is fetched.
+RUN npm install -g prisma@7.7.0 && \
+    npm cache clean --force
 
 # Create non-root user and group with fixed UID/GID (1001).
 # Fixed IDs prevent permission mismatches between host and container.
