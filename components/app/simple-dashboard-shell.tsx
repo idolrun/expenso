@@ -115,7 +115,7 @@ export function SimpleDashboardShell({
               priority
               className="hidden h-8 w-auto dark:block"
             />
-            <span className="font-heading text-lg font-semibold tracking-tight">
+            <span className="font-heading text-lg font-semibold tracking-tight uppercase">
               Expenso
             </span>
           </Link>
