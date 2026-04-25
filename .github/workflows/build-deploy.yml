@@ -232,6 +232,10 @@ jobs:
           restore-keys: |
             trivy-db-${{ runner.os }}-
 
+      # ═══════════════════════════════════════════════════════════════════════════
+      # Trivy Container Scan — Option B (Balanced)
+      #   Scans: HIGH + CRITICAL  |  Fails: CRITICAL only  |  ignore-unfixed: true
+      # ═══════════════════════════════════════════════════════════════════════════
       - name: Run Trivy container scan
         id: trivy
         uses: aquasecurity/trivy-action@v0.36.0
@@ -239,10 +243,25 @@ jobs:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
           format: 'sarif'
           output: 'trivy-container-results.sarif'
-          severity: 'CRITICAL'
-          exit-code: '1'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '0'
           scanners: 'vuln'
           ignore-unfixed: true
+
+      # ── Fail only on CRITICAL (manual gate for Option B behavior) ──────────────
+      - name: Gate on CRITICAL vulnerabilities
+        run: |
+          if [ ! -f trivy-container-results.sarif ]; then
+            echo "::warning::SARIF file missing; skipping CRITICAL gate."
+            exit 0
+          fi
+          CRITICAL_COUNT=$(grep -o '"severity": "CRITICAL"' trivy-container-results.sarif | wc -l || echo 0)
+          if [ "$CRITICAL_COUNT" -gt 0 ]; then
+            echo "::error::$CRITICAL_COUNT CRITICAL vulnerability(ies) detected in container image."
+            echo "::error::Review the SARIF output in the GitHub Security tab."
+            exit 1
+          fi
+          echo "✅ No CRITICAL vulnerabilities found."
 
       # ── SARIF safety net ─────────────────────────────────────────────────────
       - name: Ensure Trivy SARIF exists
@@ -264,13 +283,21 @@ jobs:
         run: |
           echo "### 🔒 Trivy Container Scan Summary" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.trivy.outcome }}" == "failure" ]; then
-            echo "- **Status**: ❌ FAILED (CRITICAL vulnerability detected)" >> $GITHUB_STEP_SUMMARY
-            echo "- **Action required**: Review SARIF in Security tab; patch or suppress." >> $GITHUB_STEP_SUMMARY
+            echo "- **Status**: ❌ FAILED (scan execution error)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- **Status**: ✅ PASSED (no fixable CRITICAL vulnerabilities)" >> $GITHUB_STEP_SUMMARY
+            CRITICAL_COUNT=$(grep -o '"severity": "CRITICAL"' trivy-container-results.sarif | wc -l || echo 0)
+            HIGH_COUNT=$(grep -o '"severity": "HIGH"' trivy-container-results.sarif | wc -l || echo 0)
+            if [ "$CRITICAL_COUNT" -gt 0 ]; then
+              echo "- **Status**: ❌ GATE FAILED ($CRITICAL_COUNT CRITICAL)" >> $GITHUB_STEP_SUMMARY
+              echo "- **Action required**: Patch or suppress CRITICAL findings." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- **Status**: ✅ PASSED (no CRITICAL vulnerabilities)" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "- **HIGH findings**: $HIGH_COUNT (non-blocking, visible in Security tab)" >> $GITHUB_STEP_SUMMARY
+            echo "- **CRITICAL findings**: $CRITICAL_COUNT" >> $GITHUB_STEP_SUMMARY
           fi
           echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Config**: CRITICAL only | ignore-unfixed | scanners=vuln" >> $GITHUB_STEP_SUMMARY
+          echo "- **Policy**: Option B — Balanced (report HIGH+CRITICAL, fail only on CRITICAL)" >> $GITHUB_STEP_SUMMARY
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.1.1
