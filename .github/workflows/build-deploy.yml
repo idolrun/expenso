@@ -343,12 +343,8 @@ jobs:
             cd ${{ secrets.SERVER_DEPLOY_PATH }}
             echo ">>> Working directory: $(pwd)"
             echo ">>> Disk space: $(df -h . | tail -1)"
-
-            # Ensure nginx configs exist (first-time setup safety)
-            if [ ! -f nginx/nginx.conf ]; then
-              echo "ERROR: nginx/nginx.conf not found. Run first-time setup first."
-              exit 1
-            fi
+            echo ">>> Active nginx upstream:"
+            grep 'set \$active_upstream' /etc/nginx/sites-available/expenso 2>/dev/null || echo "(could not detect)"
 
             bash scripts/deploy-bluegreen.sh "${{ needs.build-scan-sign.outputs.digest }}"
 
@@ -374,6 +370,9 @@ jobs:
             echo ">>> Blue/Green state:"
             cat .bluegreen.state 2>/dev/null || echo "(no state file)"
             echo ""
+            echo ">>> Nginx active upstream:"
+            grep 'set \$active_upstream' /etc/nginx/sites-available/expenso 2>/dev/null || echo "(could not detect)"
+            echo ""
             echo ">>> Docker Compose status:"
             docker compose -f docker-compose.prod.yml ps || true
             echo ""
@@ -382,9 +381,6 @@ jobs:
             echo ""
             echo ">>> App logs (green):"
             docker compose -f docker-compose.prod.yml logs --tail=50 app-green || true
-            echo ""
-            echo ">>> Nginx logs:"
-            docker compose -f docker-compose.prod.yml logs --tail=30 nginx || true
             echo ""
             echo ">>> System resources:"
             free -h || true

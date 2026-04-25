@@ -2,35 +2,35 @@
 set -euo pipefail
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Blue/Green Deployment Script
+# Blue/Green Deployment Script  (system nginx variant)
 # ═══════════════════════════════════════════════════════════════════════════════
 # Usage: ./scripts/deploy-bluegreen.sh <image-digest>
 # Example: ./scripts/deploy-bluegreen.sh sha256:abc123...
 #
-# Flow:
-#   1. Read current active color from .bluegreen.state
-#   2. Determine target color (the opposite of active)
-#   3. Pull and start target container with new digest
-#   4. Run health checks on target (retry with backoff)
-#   5. If healthy → rewrite nginx/active.conf → reload nginx (zero-downtime)
-#   6. If unhealthy → destroy target → keep active running (no user impact)
-#   7. Update state file
+# Architecture:
+#   - System nginx on the VPS (not in Docker)
+#   - Blue container → host port 3000  (127.0.0.1:3000)
+#   - Green container → host port 3001 (127.0.0.1:3001)
+#   - Nginx config:  set $active_upstream blue|green;
 #
-# Safety:
-#   - Old container is kept running for instant rollback
-#   - Next deploy naturally cleans up the previously old container
-#   - All changes are logged with timestamps
+# Flow:
+#   1. Detect current active color from nginx config
+#   2. Target = opposite color
+#   3. Pull & start target container with new digest
+#   4. Health check target on its localhost port
+#   5. If healthy → update nginx → reload (zero downtime)
+#   6. If unhealthy → destroy target → keep active (no user impact)
+#   7. Stop old container after grace period
 # ═══════════════════════════════════════════════════════════════════════════════
 
 COMPOSE_FILE="docker-compose.prod.yml"
 STATE_FILE=".bluegreen.state"
-NGINX_ACTIVE_CONF="nginx/active.conf"
-MAX_HEALTH_RETRIES=15
-HEALTH_INTERVAL=4
-GRACE_PERIOD_SECS=15
+NGINX_SITE="${NGINX_SITE_PATH:-/etc/nginx/sites-available/expenso}"
+MAX_HEALTH_RETRIES=5
+HEALTH_RETRY_DELAY=3
+GRACE_PERIOD_SECS=10
 
 cd "$(dirname "$0")/.."
-DEPLOY_DIR="$(pwd)"
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
 NEW_DIGEST="${1:-}"
@@ -40,108 +40,110 @@ if [ -z "$NEW_DIGEST" ]; then
     exit 1
 fi
 
-# ── Load shared env defaults ─────────────────────────────────────────────────
+# ── Load shared defaults ─────────────────────────────────────────────────────
 REGISTRY="${REGISTRY:-docker.io}"
 IMAGE_NAME="${IMAGE_NAME:-devidolrun/expenso}"
 FULL_IMAGE="${REGISTRY}/${IMAGE_NAME}@${NEW_DIGEST}"
 
-# ── Load current state ────────────────────────────────────────────────────────
-ACTIVE_COLOR="blue"
-BLUE_DIGEST=""
-GREEN_DIGEST=""
-
-if [ -f "$STATE_FILE" ]; then
-    # shellcheck source=/dev/null
-    source "$STATE_FILE"
+# ── Detect current active color from nginx config ────────────────────────────
+if [ ! -f "$NGINX_SITE" ]; then
+    echo "ERROR: Nginx site config not found at $NGINX_SITE"
+    echo "Set NGINX_SITE_PATH env var if your config is elsewhere."
+    exit 1
 fi
 
-if [ "$ACTIVE_COLOR" != "blue" ] && [ "$ACTIVE_COLOR" != "green" ]; then
-    echo "WARN: Invalid ACTIVE_COLOR '$ACTIVE_COLOR' in state. Defaulting to blue."
+ACTIVE_COLOR=$(grep -oP 'set\s+\$active_upstream\s+\K\w+' "$NGINX_SITE" 2>/dev/null || true)
+
+if [ -z "$ACTIVE_COLOR" ] || { [ "$ACTIVE_COLOR" != "blue" ] && [ "$ACTIVE_COLOR" != "green" ]; }; then
+    echo "WARN: Could not detect active upstream from nginx config. Defaulting to blue."
     ACTIVE_COLOR="blue"
 fi
 
-# Determine target color (the one that is NOT currently active)
+# Determine target color
 if [ "$ACTIVE_COLOR" = "blue" ]; then
     TARGET_COLOR="green"
+    TARGET_PORT=3001
 else
     TARGET_COLOR="blue"
+    TARGET_PORT=3000
 fi
-
-TARGET_VAR="${TARGET_COLOR^^}_IMAGE"
-ACTIVE_VAR="${ACTIVE_COLOR^^}_IMAGE"
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  BLUE/GREEN DEPLOYMENT"
-echo "  Active: $ACTIVE_COLOR  →  Target: $TARGET_COLOR"
+echo "  Active: $ACTIVE_COLOR  →  Target: $TARGET_COLOR (port $TARGET_PORT)"
 echo "  Image:  $FULL_IMAGE"
 echo "  Time:   $(date -Iseconds)"
 echo "════════════════════════════════════════════════════════════════"
 
-# ── Step 1: Deploy target container ───────────────────────────────────────────
-echo ">>> [1/5] Pulling image for $TARGET_COLOR..."
-export "$TARGET_VAR=$FULL_IMAGE"
+# ── Step 1: Stop & remove any existing target container ───────────────────────
+echo ">>> [1/6] Cleaning up any existing $TARGET_COLOR container..."
+docker compose -f "$COMPOSE_FILE" rm -sf "app-$TARGET_COLOR" 2>/dev/null || true
+
+# ── Step 2: Pull & start target container ─────────────────────────────────────
+echo ">>> [2/6] Pulling image for $TARGET_COLOR..."
+export "${TARGET_COLOR^^}_IMAGE=$FULL_IMAGE"
 docker compose -f "$COMPOSE_FILE" pull "app-$TARGET_COLOR"
 
-echo ">>> [2/5] Starting $TARGET_COLOR container..."
+echo ">>> [3/6] Starting $TARGET_COLOR container on port $TARGET_PORT..."
 docker compose -f "$COMPOSE_FILE" up -d "app-$TARGET_COLOR"
 
-# ── Step 2: Health checks on target ───────────────────────────────────────────
-echo ">>> [3/5] Running health checks on $TARGET_COLOR..."
+# ── Step 3: Health check on target ────────────────────────────────────────────
+echo ">>> [4/6] Running health checks on $TARGET_COLOR (localhost:$TARGET_PORT)..."
 HEALTHY=false
 for i in $(seq 1 $MAX_HEALTH_RETRIES); do
-    # First: check Docker-native health status
-    HEALTH_STATUS=$(docker inspect \
-        --format='{{.State.Health.Status}}' \
-        "expenso-$TARGET_COLOR" 2>/dev/null || echo "unknown")
+    echo ">>>   Attempt $i/$MAX_HEALTH_RETRIES..."
 
-    echo ">>>   Attempt $i/$MAX_HEALTH_RETRIES — Docker health: $HEALTH_STATUS"
-
-    if [ "$HEALTH_STATUS" = "healthy" ]; then
-        # Second: verify HTTP response from inside the container
-        if docker compose -f "$COMPOSE_FILE" exec -T "app-$TARGET_COLOR" \
-            sh -c 'wget -qO- http://localhost:3000/api/health' >/dev/null 2>&1; then
-            echo ">>>   $TARGET_COLOR passed HTTP health check"
-            HEALTHY=true
-            break
-        fi
+    # Use curl against the host-bound localhost port
+    if curl -sf "http://127.0.0.1:$TARGET_PORT/api/health" >/dev/null 2>&1; then
+        echo ">>>   $TARGET_COLOR responded with HTTP 200"
+        HEALTHY=true
+        break
     fi
 
-    sleep "$HEALTH_INTERVAL"
+    # Also check Docker-native health status for extra confidence
+    DOCKER_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "expenso-$TARGET_COLOR" 2>/dev/null || echo "unknown")
+    echo ">>>   Docker health status: $DOCKER_HEALTH"
+
+    sleep "$HEALTH_RETRY_DELAY"
 done
 
 if [ "$HEALTHY" != "true" ]; then
     echo ""
     echo "ERROR: $TARGET_COLOR failed all health checks."
     echo ">>> Destroying $TARGET_COLOR container..."
-    docker compose -f "$COMPOSE_FILE" rm -sf "app-$TARGET_COLOR" || true
-    echo ">>> Kept $ACTIVE_COLOR running. NO traffic was switched."
+    docker compose -f "$COMPOSE_FILE" rm -sf "app-$TARGET_COLOR" 2>/dev/null || true
+    echo ">>> Kept $ACTIVE_COLOR running on port $([ "$ACTIVE_COLOR" = "blue" ] && echo 3000 || echo 3001)."
+    echo ">>> NO traffic was switched. Users are unaffected."
     echo "════════════════════════════════════════════════════════════════"
-    echo "  DEPLOYMENT FAILED — Users unaffected"
+    echo "  DEPLOYMENT FAILED — Rollback not needed (switch never happened)"
     echo "════════════════════════════════════════════════════════════════"
     exit 1
 fi
 
-# ── Step 3: Switch traffic (zero-downtime nginx reload) ───────────────────────
-echo ">>> [4/5] Switching nginx from $ACTIVE_COLOR → $TARGET_COLOR..."
-cat > "$NGINX_ACTIVE_CONF" <<EOF
-# Auto-generated by deploy-bluegreen.sh at $(date -Iseconds)
-# Active backend: $TARGET_COLOR
-upstream backend {
-    server app-${TARGET_COLOR}:3000;
-}
-EOF
+# ── Step 4: Switch traffic (zero-downtime nginx reload) ───────────────────────
+echo ">>> [5/6] Switching nginx from $ACTIVE_COLOR → $TARGET_COLOR..."
+sudo sed -i "s/set\s*\\\$active_upstream\s\+\w\+;/set \$active_upstream $TARGET_COLOR;/g" "$NGINX_SITE"
+
+# Validate nginx config before reloading
+echo ">>> Testing nginx configuration..."
+if ! sudo nginx -t; then
+    echo "ERROR: Nginx config test failed. Reverting sed change..."
+    sudo sed -i "s/set\s*\\\$active_upstream\s\+\w\+;/set \$active_upstream $ACTIVE_COLOR;/g" "$NGINX_SITE"
+    docker compose -f "$COMPOSE_FILE" rm -sf "app-$TARGET_COLOR" 2>/dev/null || true
+    exit 1
+fi
 
 echo ">>> Reloading nginx gracefully..."
-docker compose -f "$COMPOSE_FILE" exec nginx nginx -s reload
+sudo nginx -s reload
 
-# ── Step 4: Grace period for connection drain ─────────────────────────────────
+# ── Step 5: Grace period for connection drain ─────────────────────────────────
 echo ">>> Waiting ${GRACE_PERIOD_SECS}s for connections to drain from $ACTIVE_COLOR..."
 sleep "$GRACE_PERIOD_SECS"
 
-# ── Step 5: Stop old container (kept until now for instant rollback) ──────────
-echo ">>> [5/5] Stopping previous $ACTIVE_COLOR container..."
-docker compose -f "$COMPOSE_FILE" stop "app-$ACTIVE_COLOR" || true
-docker compose -f "$COMPOSE_FILE" rm -sf "app-$ACTIVE_COLOR" || true
+# ── Step 6: Stop old container ────────────────────────────────────────────────
+echo ">>> [6/6] Stopping previous $ACTIVE_COLOR container..."
+docker compose -f "$COMPOSE_FILE" stop "app-$ACTIVE_COLOR" 2>/dev/null || true
+docker compose -f "$COMPOSE_FILE" rm -sf "app-$ACTIVE_COLOR" 2>/dev/null || true
 
 # ── Update state ──────────────────────────────────────────────────────────────
 cat > "$STATE_FILE" <<EOF
@@ -155,7 +157,7 @@ EOF
 echo ""
 echo "════════════════════════════════════════════════════════════════"
 echo "  DEPLOYMENT SUCCESSFUL"
-echo "  Active color: $TARGET_COLOR"
+echo "  Active color: $TARGET_COLOR  (port $TARGET_PORT)"
 echo "  Digest:       $NEW_DIGEST"
 echo "  Time:         $(date -Iseconds)"
 echo "════════════════════════════════════════════════════════════════"

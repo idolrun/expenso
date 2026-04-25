@@ -37,9 +37,9 @@ services:
   # ═══════════════════════════════════════════════════════════════════════════════
   # Blue / Green Application Containers
   # ═══════════════════════════════════════════════════════════════════════════════
-  # Only ONE of these is live at any time (controlled by nginx upstream).
-  # The inactive container is stopped after a successful switch.
-  # Both share the same database and Docker network.
+  # Only ONE receives live traffic at a time (controlled by system nginx).
+  # Blue binds host port 3000; Green binds host port 3001.
+  # System nginx proxies to whichever port is active.
   # ═══════════════════════════════════════════════════════════════════════════════
 
   app-blue:
@@ -52,8 +52,8 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
-    expose:
-      - "3000"
+    ports:
+      - "127.0.0.1:3000:3000"
     depends_on:
       db:
         condition: service_healthy
@@ -97,8 +97,8 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
-    expose:
-      - "3000"
+    ports:
+      - "127.0.0.1:3001:3000"
     depends_on:
       db:
         condition: service_healthy
@@ -126,42 +126,6 @@ services:
     user: "1001:1001"
     tmpfs:
       - /tmp:noexec,nosuid,size=100m
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # Nginx Reverse Proxy
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # Handles traffic switching between Blue and Green with zero-downtime reload.
-  # The active backend is defined in nginx/active.conf (rewritten by deploy script).
-  # ═══════════════════════════════════════════════════════════════════════════════
-
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: expenso-nginx
-    restart: unless-stopped
-    ports:
-      - "${NGINX_HTTP_PORT:-80}:80"
-      - "${NGINX_HTTPS_PORT:-443}:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/active.conf:/etc/nginx/conf.d/active.conf:ro
-    networks:
-      - expenso_net
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 128M
     logging:
       driver: json-file
       options:
