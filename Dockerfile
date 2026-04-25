@@ -75,9 +75,10 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x"
 
-# Install the Prisma CLI globally using npm (more reliable than pnpm in Alpine).
+# Patch Alpine OS packages to latest security fixes, then install Prisma CLI.
 # PRISMA_CLI_BINARY_TARGETS ensures the musl-compatible query engine is fetched.
-RUN npm install -g prisma@7.7.0 && \
+RUN apk upgrade --no-cache && \
+    npm install -g prisma@7.7.0 && \
     npm cache clean --force
 
 # Create non-root user and group with fixed UID/GID (1001).

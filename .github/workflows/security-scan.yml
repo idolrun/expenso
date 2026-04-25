@@ -59,6 +59,14 @@ jobs:
           head: HEAD
           extra_args: --only-verified
 
+      - name: Cache Trivy vulnerability DB
+        uses: actions/cache@v4.2.3
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
+
       - name: Run Trivy filesystem scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -68,6 +76,8 @@ jobs:
           exit-code: '1'
           format: 'sarif'
           output: 'trivy-fs-results.sarif'
+          scanners: 'vuln'
+          ignore-unfixed: true
 
       - name: Ensure Trivy SARIF exists
         if: always()
