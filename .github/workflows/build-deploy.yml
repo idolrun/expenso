@@ -267,6 +267,9 @@ jobs:
             echo "  Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-scan-sign.outputs.digest }}"
             echo "════════════════════════════════════════════════════════════════"
 
+            echo ">>> Ensuring Docker network exists..."
+            docker network create expenso-net || true
+
             echo ">>> Pulling image for migration runner..."
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-scan-sign.outputs.digest }}
 
@@ -290,7 +293,7 @@ jobs:
             docker run --rm \
               -e DATABASE_URL="$DATABASE_URL" \
               -e PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x" \
-              --network expenso_net \
+              --network expenso-net \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-scan-sign.outputs.digest }} \
               prisma migrate deploy --schema=./prisma/schema.prisma
 

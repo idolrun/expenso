@@ -14,7 +14,7 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
-      - expenso_net
+      - expenso-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1"]
       interval: 10s
@@ -58,7 +58,7 @@ services:
       db:
         condition: service_healthy
     networks:
-      - expenso_net
+      - expenso-net
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 10s
@@ -103,7 +103,7 @@ services:
       db:
         condition: service_healthy
     networks:
-      - expenso_net
+      - expenso-net
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 10s
@@ -133,7 +133,7 @@ services:
         max-file: "3"
 
 networks:
-  expenso_net:
+  expenso-net:
     driver: bridge
 
 volumes:
