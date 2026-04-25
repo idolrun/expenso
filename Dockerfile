@@ -61,27 +61,37 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
     NEXT_TELEMETRY_DISABLED=1 \
+    PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x" \
     PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Create non-root user and group
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001 -G nodejs
 
-# Copy Next.js standalone output + static assets
+# Copy package files for prisma install
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+
+# Install prisma + client — this downloads linux-musl engine binary
+RUN pnpm add prisma @prisma/client --ignore-scripts=false
+
+# Copy prisma schema for generate
+COPY --from=builder /app/prisma ./prisma
+
+# Generate prisma client for linux
+RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
+
+# Copy standalone Next.js output (overwrites node_modules selectively)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Copy Prisma schema for runtime migrations
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-
-# Prisma CLI and client — copy entire @prisma scope (Prisma 7 bundles engines inside prisma/)
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-
 # Copy startup script
-COPY --chown=nextjs:nodejs scripts/docker-entrypoint.sh ./docker-entrypoint.sh
+COPY scripts/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 
 # Ensure entire /app is owned by nextjs:nodejs

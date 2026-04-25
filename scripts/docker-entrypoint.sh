@@ -1,14 +1,14 @@
 #!/bin/sh
 set -e
 
+echo ">>> Node version: $(node --version)"
 echo ">>> DATABASE_URL is set: $([ -n "$DATABASE_URL" ] && echo YES || echo NO)"
 echo ">>> Running Prisma migrate deploy..."
-# Use locally installed prisma binary — copied into standalone output by Dockerfile
-if [ -f "./node_modules/.bin/prisma" ]; then
-  ./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema.prisma
+if ./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema.prisma; then
+  echo ">>> Migrations completed successfully"
 else
-  echo ">>> Warning: local prisma binary not found, skipping migrations"
-  echo ">>> Run migrations manually: docker compose exec app ./node_modules/.bin/prisma migrate deploy"
+  echo ">>> WARNING: Migrations failed with exit code $?"
+  echo ">>> Continuing app startup — run migrations manually if needed"
 fi
-echo ">>> Starting Next.js on port $PORT..."
+echo ">>> Starting Next.js on port ${PORT:-3000}..."
 exec node server.js
