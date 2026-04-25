@@ -302,12 +302,16 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.1.1
 
+      # ── Debug: validate digest format before signing ───────────────────────────
+      - name: Print image digest
+        run: |
+          echo "Image digest: ${{ steps.build.outputs.digest }}"
+          echo "Full reference: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+
       - name: Sign image with Cosign (keyless)
         run: |
           cosign sign --yes \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:${{ steps.build.outputs.digest }}
-        env:
-          COSIGN_EXPERIMENTAL: 1
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
 
   # ═══════════════════════════════════════════════════════════════════════════
   # 4. Staging Deploy (automatic)
