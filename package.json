@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:integration": "RUN_DB_INTEGRATION=1 vitest run",
+    "test:integration": "RUN_DB_INTEGRATION=1 vitest run --fileParallelism=false \"**/*.integration.test.ts\"",
     "db:migrate": "pnpm exec prisma migrate dev",
     "db:deploy": "pnpm exec prisma migrate deploy",
     "db:reset": "pnpm exec prisma migrate reset",

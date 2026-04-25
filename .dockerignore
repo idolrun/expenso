@@ -22,9 +22,16 @@ out
 *.swp
 *.swo
 
+# Agent / CI artifacts
+.agents/
+.kilo/
+
 # OS
 .DS_Store
 Thumbs.db
+
+# Test fixtures & setup (not needed in production image)
+tests/
 
 # Logs
 *.log
