@@ -1,0 +1,334 @@
+name: Build, Security Scan & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  security-events: write
+
+concurrency:
+  group: build-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: devidolrun/expenso
+  IMAGE_TAG: sha-${{ github.sha }}
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 1. Quality Gate
+  # ═══════════════════════════════════════════════════════════════════════════
+  quality:
+    name: Lint, Type-check & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@a7487c77e1389ea5b85e8a83d96e6d3ca80f8713 # v4.1.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm run db:generate
+
+      - name: Run ESLint
+        run: pnpm run lint
+
+      - name: Run TypeScript type check
+        run: pnpm run typecheck
+
+      - name: Run unit tests
+        run: pnpm run test
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 2. Integration Tests (requires real Postgres)
+  # ═══════════════════════════════════════════════════════════════════════════
+  integration-test:
+    name: Integration Tests
+    needs: [quality]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.8-alpine
+        env:
+          POSTGRES_USER: expenso_test
+          POSTGRES_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+          POSTGRES_DB: expensodb_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@a7487c77e1389ea5b85e8a83d96e6d3ca80f8713 # v4.1.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm run db:generate
+        env:
+          DATABASE_URL: postgresql://expenso_test:${{ secrets.TEST_DB_PASSWORD }}@localhost:5432/expensodb_test
+
+      - name: Deploy migrations to test database
+        run: pnpm run db:deploy
+        env:
+          DATABASE_URL: postgresql://expenso_test:${{ secrets.TEST_DB_PASSWORD }}@localhost:5432/expensodb_test
+
+      - name: Run integration tests
+        run: pnpm run test:integration
+        env:
+          DATABASE_URL: postgresql://expenso_test:${{ secrets.TEST_DB_PASSWORD }}@localhost:5432/expensodb_test
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 3. Build, Container Scan, SBOM & Sign
+  # ═══════════════════════════════════════════════════════════════════════════
+  build-scan-sign:
+    name: Build, Scan & Sign Image
+    needs: [integration-test]
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2320dab5c97342360d27 # v3.10.0
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a360e3bb043 # v5.7.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=sha-${{ github.sha }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb370c95b335cb085 # v6.16.0
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_TELEMETRY_DISABLED=1
+          # Generate SLSA provenance + SBOM attestation
+          provenance: true
+          sbom: true
+
+      # ── Container Vulnerability Scan ──
+      - name: Run Trivy container scan
+        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # v0.30.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-container-results.sarif'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
+
+      - name: Upload Trivy container SARIF
+        uses: github/codeql-action/upload-sarif@28deaeda66b76a05916b6923827895de2a14ebe8 # v3.28.16
+        if: always()
+        with:
+          sarif_file: 'trivy-container-results.sarif'
+
+      # ── Sign Image with Cosign ──
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+
+      - name: Sign image with Cosign (keyless)
+        run: |
+          cosign sign --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:${{ steps.build.outputs.digest }}
+        env:
+          COSIGN_EXPERIMENTAL: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 4. Staging Deploy (automatic)
+  # ═══════════════════════════════════════════════════════════════════════════
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [build-scan-sign]
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Deploy to staging VPS
+        uses: appleboy/ssh-action@029f5b4a0e7f2173b4482f649310f1ebbf200df4 # v1.0.3
+        with:
+          host: ${{ secrets.STAGING_SERVER_IP }}
+          username: ${{ secrets.STAGING_SERVER_USER }}
+          key: ${{ secrets.STAGING_SERVER_SSH_KEY }}
+          command_timeout: 8m
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd ${{ secrets.STAGING_SERVER_DEPLOY_PATH }}
+            echo ">>> Deploying sha-${{ github.sha }} to staging"
+            sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=sha-${{ github.sha }}/" .env.production
+            docker compose -f docker-compose.prod.yml pull app
+            docker compose -f docker-compose.prod.yml up -d --no-deps --remove-orphans app
+            echo ">>> Staging deploy complete"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 5. Production Deploy (manual approval required)
+  # ═══════════════════════════════════════════════════════════════════════════
+  deploy-production:
+    name: Deploy to Production
+    needs: [build-scan-sign]
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - name: Deploy to production VPS
+        id: deploy-ssh
+        uses: appleboy/ssh-action@029f5b4a0e7f2173b4482f649310f1ebbf200df4 # v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 8m
+          script_stop: true
+          script: |
+            set -euo pipefail
+            echo "=============================="
+            echo "DEPLOY START: $(date)"
+            echo "SHA: sha-${{ github.sha }}"
+            echo "=============================="
+
+            cd ${{ secrets.SERVER_DEPLOY_PATH }}
+            echo ">>> Working directory: $(pwd)"
+            echo ">>> Disk space: $(df -h . | tail -1)"
+
+            PREVIOUS_TAG=$(grep IMAGE_TAG .env.production | cut -d '=' -f2 || echo "none")
+            echo ">>> Previous IMAGE_TAG: $PREVIOUS_TAG"
+            echo "$PREVIOUS_TAG" > .previous_tag
+
+            sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=sha-${{ github.sha }}/" .env.production
+            echo ">>> Updated IMAGE_TAG to: sha-${{ github.sha }}"
+
+            echo ">>> Pulling new image..."
+            docker compose -f docker-compose.prod.yml pull app
+            echo ">>> Pull complete"
+
+            echo ">>> Starting app container..."
+            docker compose -f docker-compose.prod.yml up -d --no-deps --remove-orphans app
+            echo ">>> Container started"
+
+            echo ">>> Waiting 20s for app to initialize..."
+            sleep 20
+
+            echo ">>> App container logs (last 50 lines):"
+            docker compose -f docker-compose.prod.yml logs --tail=50 app || true
+
+            echo ">>> Running health check..."
+            bash scripts/healthcheck.sh
+
+            echo "=============================="
+            echo "DEPLOY SUCCESS: sha-${{ github.sha }}"
+            echo "TIME: $(date)"
+            echo "=============================="
+
+      - name: Dump container logs on failure
+        if: failure()
+        uses: appleboy/ssh-action@029f5b4a0e7f2173b4482f649310f1ebbf200df4 # v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 8m
+          script_stop: true
+          script: |
+            echo "=============================="
+            echo "FAILURE DIAGNOSTICS"
+            echo "=============================="
+            cd ${{ secrets.SERVER_DEPLOY_PATH }}
+            docker compose -f docker-compose.prod.yml ps || true
+            docker compose -f docker-compose.prod.yml logs --tail=100 app || true
+            docker compose -f docker-compose.prod.yml logs --tail=30 db || true
+            free -h || true
+            df -h || true
+            docker ps -a || true
+            docker images | grep "expenso" || true
+            echo "=============================="
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 6. Post-Deploy Verification
+  # ═══════════════════════════════════════════════════════════════════════════
+  verify-production:
+    name: Post-Deploy Verification
+    needs: [deploy-production]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify public health endpoint
+        id: verify-curl
+        run: |
+          echo ">>> Checking https://${{ secrets.PUBLIC_DOMAIN }}/api/health"
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            --retry 5 --retry-delay 6 --retry-connrefused \
+            https://${{ secrets.PUBLIC_DOMAIN }}/api/health)
+          HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | grep -v "HTTP_STATUS")
+          echo ">>> Response body: $BODY"
+          echo ">>> HTTP status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo ">>> FAILED: Expected 200, got $HTTP_STATUS"
+            exit 1
+          fi
+          echo ">>> Health check PASSED"
+
+      - name: Rollback on verification failure
+        if: failure()
+        uses: appleboy/ssh-action@029f5b4a0e7f2173b4482f649310f1ebbf200df4 # v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 8m
+          script_stop: true
+          script: |
+            cd ${{ secrets.SERVER_DEPLOY_PATH }}
+            PREVIOUS_TAG=$(cat .previous_tag)
+            echo ">>> Rolling back to: $PREVIOUS_TAG"
+            bash scripts/rollback.sh "$PREVIOUS_TAG"

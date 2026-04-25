@@ -1,23 +1,38 @@
 services:
   db:
-    image: postgres:18.1-trixie
+    image: postgres:16.8-alpine
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: expenso_db
     env_file:
       - .env
+    environment:
+      # Defaults that can be overridden via .env
+      POSTGRES_USER: ${POSTGRES_USER:-expenso}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-expenso_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-expenso_db}
     ports:
-      - "5431:5432"
+      - "${DB_HOST_PORT:-5431}:5432"
     volumes:
-      - db_data_local:/var/lib/postgresql
+      - db_data_local:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    networks:
+      - expenso_dev
+    # Prevent privilege escalation
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   db_data_local:
+
+networks:
+  expenso_dev:
+    driver: bridge
