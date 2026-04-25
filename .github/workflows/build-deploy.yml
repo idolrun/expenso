@@ -26,13 +26,19 @@ jobs:
   # ═══════════════════════════════════════════════════════════════════════════
   quality:
     name: Lint, Type-check & Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Install pnpm
-        uses: pnpm/action-setup@a7487c77e1389ea5b85e8a83d96e6d3ca80f8713 # v4.1.1
+        uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e # v6.0.3
+        with:
+          package_json_file: package.json
+          cache: true
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -61,7 +67,8 @@ jobs:
   integration-test:
     name: Integration Tests
     needs: [quality]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16.8-alpine
@@ -79,9 +86,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Install pnpm
-        uses: pnpm/action-setup@a7487c77e1389ea5b85e8a83d96e6d3ca80f8713 # v4.1.1
+        uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e # v6.0.3
+        with:
+          package_json_file: package.json
+          cache: true
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -113,7 +125,8 @@ jobs:
   build-scan-sign:
     name: Build, Scan & Sign Image
     needs: [integration-test]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     outputs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
@@ -121,6 +134,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2320dab5c97342360d27 # v3.10.0
@@ -191,7 +205,8 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     needs: [build-scan-sign]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment: staging
     steps:
       - name: Deploy to staging VPS
@@ -217,9 +232,9 @@ jobs:
   deploy-production:
     name: Deploy to Production
     needs: [build-scan-sign]
-    runs-on: ubuntu-latest
-    environment: production
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
+    environment: production
     steps:
       - name: Deploy to production VPS
         id: deploy-ssh
@@ -299,7 +314,8 @@ jobs:
   verify-production:
     name: Post-Deploy Verification
     needs: [deploy-production]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - name: Verify public health endpoint
         id: verify-curl
