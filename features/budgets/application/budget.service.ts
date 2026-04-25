@@ -19,6 +19,15 @@ import type {
 } from "@/features/budgets/validation/budget";
 import { prisma } from "@/lib/prisma";
 
+function isUniqueConstraintError(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "code" in e &&
+    (e as Record<string, unknown>).code === "P2002"
+  );
+}
+
 function parseYmdToUtcDate(ymd: string): Date {
   return new Date(`${ymd}T00:00:00.000Z`);
 }
@@ -183,10 +192,7 @@ export async function createSectionBudgetService(
   } catch (e) {
     const message = e instanceof Error ? e.message : "Budget create failed";
     // Surface unique constraint violations explicitly.
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2002"
-    ) {
+    if (isUniqueConstraintError(e)) {
       return {
         ok: false,
         error: {
@@ -268,10 +274,7 @@ export async function updateSectionBudgetService(
     return { ok: true, data: serializeSectionBudget(budget) };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Budget update failed";
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2002"
-    ) {
+    if (isUniqueConstraintError(e)) {
       return {
         ok: false,
         error: {
