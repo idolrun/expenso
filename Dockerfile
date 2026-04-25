@@ -94,8 +94,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # Copy generated Prisma client (includes the query-engine binary for linux-musl).
 COPY --from=builder --chown=nextjs:nodejs /app/src/app/generated/prisma ./src/app/generated/prisma
 
-# Copy Prisma schema and migrations for "prisma migrate deploy" at startup.
+# Copy Prisma schema, migrations, and config for CLI commands.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 
 # Copy startup script.
 COPY --chown=nextjs:nodejs scripts/docker-entrypoint.sh ./docker-entrypoint.sh

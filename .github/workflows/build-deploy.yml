@@ -242,11 +242,68 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 4. Production Blue/Green Deploy (INLINE — no external scripts)
+  # 4. Run DB Migrations (before deployment — never inside containers)
+  # ═══════════════════════════════════════════════════════════════════════════
+  run-migrations:
+    name: Run DB Migrations
+    needs: [build-scan-sign]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - name: Deploy migrations on VPS
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.SERVER_DEPLOY_PATH }}"
+
+            echo "════════════════════════════════════════════════════════════════"
+            echo "  DB MIGRATIONS"
+            echo "  Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-scan-sign.outputs.digest }}"
+            echo "════════════════════════════════════════════════════════════════"
+
+            echo ">>> Pulling image for migration runner..."
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-scan-sign.outputs.digest }}
+
+            echo ">>> Waiting for database to be ready..."
+            for i in 1 2 3 4 5; do
+              if docker compose -f docker-compose.prod.yml exec -T db \
+                pg_isready -U "${POSTGRES_USER:-expenso}" -d "${POSTGRES_DB:-expensodb}" >/dev/null 2>&1; then
+                echo ">>> Database is ready"
+                break
+              fi
+              echo ">>> DB not ready, attempt $i/5..."
+              sleep 3
+            done
+
+            echo ">>> Loading environment..."
+            set -a
+            source .env.production
+            set +a
+
+            echo ">>> Running prisma migrate deploy..."
+            docker run --rm \
+              -e DATABASE_URL="$DATABASE_URL" \
+              -e PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x" \
+              --network expenso_net \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-scan-sign.outputs.digest }} \
+              prisma migrate deploy --schema=./prisma/schema.prisma
+
+            echo "════════════════════════════════════════════════════════════════"
+            echo "  MIGRATIONS COMPLETE"
+            echo "════════════════════════════════════════════════════════════════"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 5. Production Blue/Green Deploy (INLINE — no external scripts)
   # ═══════════════════════════════════════════════════════════════════════════
   deploy-production:
     name: Deploy to Production (Blue/Green)
-    needs: [build-scan-sign]
+    needs: [run-migrations]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: production
@@ -398,7 +455,7 @@ jobs:
             df -h || true
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 5. Post-Deploy Verification + Automatic Rollback (INLINE)
+  # 6. Post-Deploy Verification + Automatic Rollback (INLINE)
   # ═══════════════════════════════════════════════════════════════════════════
   verify-production:
     name: Verify & Rollback Guard

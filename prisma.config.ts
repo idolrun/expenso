@@ -2,10 +2,8 @@ import { defineConfig } from "prisma/config"
 
 const databaseUrl = process.env.DATABASE_URL
 
-if (!databaseUrl) {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("DATABASE_URL environment variable is required in production")
-  }
+if (!databaseUrl && process.env.NODE_ENV === "production") {
+  throw new Error("DATABASE_URL environment variable is required in production")
 }
 
 export default defineConfig({
@@ -14,9 +12,7 @@ export default defineConfig({
     path: "prisma/migrations",
     seed: "tsx prisma/seed.ts",
   },
-  ...(databaseUrl && {
-    datasource: {
-      url: databaseUrl,
-    },
-  }),
+  datasource: {
+    url: databaseUrl,
+  },
 })
