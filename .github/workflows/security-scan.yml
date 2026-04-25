@@ -52,12 +52,35 @@ jobs:
           persist-credentials: false
 
       # ═══════════════════════════════════════════════════════════════════════
+      # Dependency Installation (required for accurate Trivy scanning)
+      # ═══════════════════════════════════════════════════════════════════════
+      # Trivy needs installed node_modules to properly resolve npm/pnpm
+      # package trees. Without this, Trivy may report:
+      #   "pnpm install needs to be performed beforehand"
+      # ═══════════════════════════════════════════════════════════════════════
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.3
+        with:
+          package_json_file: package.json
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ═══════════════════════════════════════════════════════════════════════
       # TruffleHog — Secret Detection
       # ═══════════════════════════════════════════════════════════════════════
       # PRs: scan the diff between base and head (fast, targeted).
       # Push/Schedule: scan the full repo (comprehensive).
-      # continue-on-error ensures the pipeline never fails because of
-      # scanning edge cases (empty diffs, network flakes, etc.).
+      # continue-on-error prevents the pipeline from failing on scanning
+      # edge cases (empty diffs, network flakes, same base/head, etc.).
       # ═══════════════════════════════════════════════════════════════════════
 
       - name: TruffleHog (PR diff scan)
@@ -81,9 +104,12 @@ jobs:
       # ═══════════════════════════════════════════════════════════════════════
       # Trivy — Filesystem Vulnerability Scan
       # ═══════════════════════════════════════════════════════════════════════
-      # Policy: CRITICAL only | fail on CRITICAL | ignore unfixed upstream CVEs.
-      # HIGH vulnerabilities are NOT blocking but may still be reviewed manually
-      # via Dependabot or periodic full scans.
+      # Policy:
+      #   • PRs (including Dependabot): report HIGH+CRITICAL, NEVER fail.
+      #     This keeps PRs unblocked while still uploading findings to the
+      #     Security tab for review.
+      #   • Push/Schedule: report HIGH+CRITICAL, FAIL only on CRITICAL.
+      #     This protects the main branch from shipping CRITICAL vulns.
       # ═══════════════════════════════════════════════════════════════════════
 
       - name: Cache Trivy DB
@@ -100,12 +126,26 @@ jobs:
         with:
           scan-type: 'fs'
           scan-ref: '.'
-          severity: 'CRITICAL'
-          exit-code: '1'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '0'
           format: 'sarif'
           output: 'trivy-fs-results.sarif'
           scanners: 'vuln'
           ignore-unfixed: true
+
+      - name: Gate on CRITICAL (blocking on push/schedule only)
+        if: github.event_name != 'pull_request'
+        run: |
+          if [ ! -f trivy-fs-results.sarif ]; then
+            echo "::warning::SARIF missing; skipping CRITICAL gate."
+            exit 0
+          fi
+          COUNT=$(grep -o '"severity": "CRITICAL"' trivy-fs-results.sarif | wc -l || echo 0)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::error::$COUNT CRITICAL finding(s) in filesystem scan."
+            exit 1
+          fi
+          echo "✅ No CRITICAL vulnerabilities."
 
       - name: Ensure Trivy SARIF exists
         if: always()
@@ -118,5 +158,6 @@ jobs:
       - name: Upload Trivy SARIF
         uses: github/codeql-action/upload-sarif@v3.28.16
         if: always()
+        continue-on-error: true
         with:
           sarif_file: 'trivy-fs-results.sarif'

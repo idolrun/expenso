@@ -354,11 +354,16 @@ jobs:
             docker compose -f "$COMPOSE_FILE" rm -sf "app-$ACTIVE_COLOR" 2>/dev/null || true
 
             # ── Save state ──────────────────────────────────────────────────
-            cat > "$STATE_FILE" <<EOF
-ACTIVE_COLOR=$TARGET_COLOR
-BLUE_DIGEST=$([ "$TARGET_COLOR" = "blue" ] && echo "$NEW_DIGEST" || echo "$BLUE_DIGEST")
-GREEN_DIGEST=$([ "$TARGET_COLOR" = "green" ] && echo "$NEW_DIGEST" || echo "$GREEN_DIGEST")
-EOF
+            {
+              echo "ACTIVE_COLOR=$TARGET_COLOR"
+              if [ "$TARGET_COLOR" = "blue" ]; then
+                echo "BLUE_DIGEST=$NEW_DIGEST"
+                echo "GREEN_DIGEST=$GREEN_DIGEST"
+              else
+                echo "BLUE_DIGEST=$BLUE_DIGEST"
+                echo "GREEN_DIGEST=$NEW_DIGEST"
+              fi
+            } > "$STATE_FILE"
 
             echo ""
             echo "════════════════════════════════════════════════════════════════"
@@ -493,11 +498,11 @@ EOF
             sudo nginx -t && sudo nginx -s reload
 
             # Update state
-            cat > "$STATE_FILE" <<EOF
-ACTIVE_COLOR=$PREVIOUS_COLOR
-BLUE_DIGEST=$BLUE_DIGEST
-GREEN_DIGEST=$GREEN_DIGEST
-EOF
+            {
+              echo "ACTIVE_COLOR=$PREVIOUS_COLOR"
+              echo "BLUE_DIGEST=$BLUE_DIGEST"
+              echo "GREEN_DIGEST=$GREEN_DIGEST"
+            } > "$STATE_FILE"
 
             echo ""
             echo "════════════════════════════════════════════════════════════════"
