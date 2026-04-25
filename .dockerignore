@@ -1,13 +1,63 @@
-.env
-.env.*
-.env.local
-.env.production
-node_modules
-.next
+# Git
 .git
 .gitignore
-coverage
+
+# Dependencies
+node_modules
+.pnpm-store
+
+# Environment files (never copy real secrets into build context)
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Next.js build output
+.next
+out
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
 *.log
-docker-compose*.yml
+npm-debug.log*
+pnpm-debug.log*
+
+# Testing
+coverage
+.nyc_output
+**/*.test.ts
+**/*.test.tsx
+vitest.config.*
+
+# Documentation
 README.md
-prisma/migrations
+CHANGELOG.md
+docs/
+
+# Docker & Compose (not needed inside image)
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github/
+
+# Deployment scripts (not needed in container image)
+scripts/healthcheck.sh
+scripts/rollback.sh
+scripts/deploy.sh
+
+# Prisma seed (not needed at runtime)
+prisma/seed.ts
+
+# Misc
+*.md

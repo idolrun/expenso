@@ -1,45 +1,56 @@
 # syntax=docker/dockerfile:1
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Stage 1 — Builder
+# Stage 1 — Dependencies
+#   Install all dependencies (including devDependencies) with optimal caching.
 # ═══════════════════════════════════════════════════════════════════════════════
-FROM node:22-alpine AS builder
+FROM node:22.15.0-alpine3.21 AS deps
 
-# Enable pnpm via corepack
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Pin pnpm to the exact version declared in package.json to prevent
+# supply-chain drift (packageManager: "pnpm@10.8.0").
+RUN corepack enable && corepack prepare pnpm@10.8.0 --activate
 
 WORKDIR /app
 
-# Copy dependency manifests first for optimal layer caching
+# Copy dependency manifests first for optimal layer caching.
+# If these files don't change, the install layer is cached.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# Install all dependencies (devDependencies are required for the build)
-RUN pnpm install --frozen-lockfile
+# Use BuildKit cache mount for pnpm store to speed up rebuilds.
+# --frozen-lockfile guarantees reproducible installs.
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile
 
-# Copy all source files
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stage 2 — Builder
+#   Generate Prisma client and build Next.js standalone output.
+# ═══════════════════════════════════════════════════════════════════════════════
+FROM node:22.15.0-alpine3.21 AS builder
+
+RUN corepack enable && corepack prepare pnpm@10.8.0 --activate
+
+WORKDIR /app
+
+# Bring in dependencies from the deps stage (cached if lockfile unchanged).
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./package.json
+COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
+
+# Copy source code and Prisma schema.
+# .dockerignore ensures secrets, .git, docs, and test files stay out.
 COPY . .
 
-# Copy prisma/ directory explicitly
-COPY prisma/ prisma/
-
-# Generate Prisma client for the target platform binary
+# Generate Prisma client for the target platform binary.
+# binaryTargets in schema.prisma already includes "linux-musl-openssl-3.0.x".
 ENV PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x"
 RUN pnpm run db:generate
 
-# Debug: list what Prisma packages actually exist in node_modules
-RUN echo "=== Prisma packages in node_modules ===" && \
-    ls /app/node_modules/@prisma/ && \
-    echo "=== Prisma CLI binary ===" && \
-    ls /app/node_modules/.bin/prisma && \
-    echo "=== Prisma build ===" && \
-    ls /app/node_modules/prisma/
-
-# Dummy build-time values only — real secrets are injected at runtime via docker-compose env_file.
-# Using ARG for secrets avoids Docker security scanner warnings; they are passed through to ENV
-# only because Next.js build reads them at compile time.
-ARG BETTER_AUTH_SECRET="build-time-dummy-secret-not-used"
+# Dummy build-time values ONLY — real secrets are injected at runtime.
+# Using ARG prevents accidental leakage into the final image layers
+# because ARGs are scoped to the build stage they are defined in.
+ARG BETTER_AUTH_SECRET="build-time-dummy"
 ARG DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-ARG NEXT_PUBLIC_APP_URL="https://expenso.idolrun.com"
+ARG NEXT_PUBLIC_APP_URL="https://example.com"
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production \
@@ -47,13 +58,14 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET} \
     NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 
-# Build Next.js production app (requires output: 'standalone' in next.config.ts)
+# Build Next.js production app (requires output: 'standalone' in next.config.ts).
 RUN pnpm run build
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Stage 2 — Runner (production)
+# Stage 3 — Runner (production)
+#   Minimal runtime image: only Node.js, global Prisma CLI, and the app.
 # ═══════════════════════════════════════════════════════════════════════════════
-FROM node:22-alpine AS runner
+FROM node:22.15.0-alpine3.21 AS runner
 
 WORKDIR /app
 
@@ -61,47 +73,44 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
     NEXT_TELEMETRY_DISABLED=1 \
-    PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x" \
-    PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+    PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x"
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install pnpm and the Prisma CLI globally with an EXACT pinned version.
+# Then prune the store to keep the layer as small as possible.
+RUN corepack enable && corepack prepare pnpm@10.8.0 --activate && \
+    pnpm add -g prisma@7.7.0 && \
+    pnpm store prune && \
+    rm -rf /root/.cache /tmp/*
 
-# Create non-root user and group
+# Create non-root user and group with fixed UID/GID (1001).
+# Fixed IDs prevent permission mismatches between host and container.
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001 -G nodejs
 
-# Copy package files for prisma install
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-
-# Install prisma + client — this downloads linux-musl engine binary
-RUN pnpm add prisma @prisma/client --ignore-scripts=false
-
-# Copy prisma schema for generate
-COPY --from=builder /app/prisma ./prisma
-
-# Generate prisma client for linux
-RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
-
-# Copy standalone Next.js output (overwrites node_modules selectively)
+# Copy standalone Next.js output (self-contained, no node_modules needed).
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Copy startup script
-COPY scripts/docker-entrypoint.sh ./docker-entrypoint.sh
+# Copy generated Prisma client (includes the query-engine binary for linux-musl).
+COPY --from=builder --chown=nextjs:nodejs /app/src/app/generated/prisma ./src/app/generated/prisma
+
+# Copy Prisma schema and migrations for "prisma migrate deploy" at startup.
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+
+# Copy startup script.
+COPY --chown=nextjs:nodejs scripts/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 
-# Ensure entire /app is owned by nextjs:nodejs
+# Harden ownership — entire /app tree belongs to nextjs:nodejs.
 RUN chown -R nextjs:nodejs /app
 
-# Run as non-root
+# Drop to non-root user. All runtime processes run unprivileged.
 USER nextjs
 
 EXPOSE 3000
 
+# Lightweight healthcheck using busybox wget (included in alpine).
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget -qO- http://localhost:3000/api/health || exit 1
 
