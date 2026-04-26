@@ -28,6 +28,10 @@ jobs:
     name: Lint, Type-check & Unit Tests
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      # prisma.config.ts requires DATABASE_URL to be resolvable even for
+      # `prisma generate`, which does not actually connect to the database.
+      DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
