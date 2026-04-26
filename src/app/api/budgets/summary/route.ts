@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireExpenseReader } from "@/lib/api/auth-guard";
 import { getSectionBudgetSummaryService } from "@/features/budgets/application/budget.service";
 import { budgetSummaryQuerySchema } from "@/features/budgets/validation/budget";
-import type { CurrencyCode, ExpenseSection } from "@/app/generated/prisma/client";
+import type { CurrencyCode, ExpenseSection } from "@/generated/prisma/client";
 
 /**
  * GET /api/budgets/summary?section=TECH&period=MONTHLY&displayCurrency=USD

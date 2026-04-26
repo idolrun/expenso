@@ -1,7 +1,7 @@
 import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 
-import { Prisma } from "@/app/generated/prisma/client";
-import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
+import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
 
 import type { DashboardActivityItemDto, DashboardSummaryDto } from "@/features/dashboard/domain/types";
 import type { ServiceResult } from "@/features/expenses/domain/dto";

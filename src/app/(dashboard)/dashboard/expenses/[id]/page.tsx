@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { UserRole } from "@/app/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 
 import { AdminDeleteExpense } from "@/components/expenses/admin-delete-expense";
 import { AttachmentSection } from "@/components/expenses/attachment-section";

@@ -1,4 +1,4 @@
-import type { Prisma } from "@/app/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 
 import type { GlobalSearchQuery } from "@/features/expenses/validation/expense";
 import type { GlobalSearchHitDto, ServiceResult } from "@/features/expenses/domain/dto";

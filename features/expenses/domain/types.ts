@@ -1,16 +1,16 @@
-import type { Prisma } from "@/app/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 
 export type {
   Attachment,
   Expense,
   ExpenseHistory,
   ExpenseTag,
-} from "@/app/generated/prisma/client";
+} from "@/generated/prisma/client";
 
 export {
   ExpenseSection,
   ExpenseStatus,
-} from "@/app/generated/prisma/client";
+} from "@/generated/prisma/client";
 
 /** Common filter shape for list/search (services fill in Phase 2). */
 export type ExpenseListFilter = Pick<

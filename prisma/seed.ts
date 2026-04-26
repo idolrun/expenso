@@ -8,7 +8,7 @@ import {
   ExpenseStatus,
   Prisma,
   UserRole,
-} from "../src/app/generated/prisma/client";
+} from "../src/generated/prisma/client";
 import { prisma } from "../lib/prisma";
 
 const SEED_MARKER = "__SEED__:expenso-dev__";

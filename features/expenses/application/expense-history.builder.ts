@@ -1,5 +1,5 @@
-import type { Prisma } from "@/app/generated/prisma/client";
-import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
+import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
 import {
   defaultExpenseCurrency,
   expenseCurrencyValues,

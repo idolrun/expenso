@@ -4,7 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { listUsersAction } from "@/features/users/actions/user-actions";
 import { sessionToUserId } from "@/lib/auth/actor";
 import { requireRole } from "@/lib/auth/guards";
-import { UserRole } from "@/app/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 
 export default async function AdminUsersPage() {
   const { session } = await requireRole([UserRole.ADMIN]);

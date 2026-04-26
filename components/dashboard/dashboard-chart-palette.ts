@@ -1,4 +1,4 @@
-import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
+import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
 
 /** Muted, accessible fills for status distribution (dark-theme friendly). */
 export const DASHBOARD_STATUS_CHART_COLORS: Record<ExpenseStatus, string> = {

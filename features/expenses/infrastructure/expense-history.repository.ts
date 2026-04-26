@@ -1,4 +1,4 @@
-import type { Prisma } from "@/app/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 
 import type { DbClient } from "@/features/expenses/infrastructure/db.types";
 

@@ -1,5 +1,5 @@
-import { AuditAction, Prisma } from "@/app/generated/prisma/client";
-import type { BudgetPeriod, CurrencyCode, ExpenseSection, SectionBudget } from "@/app/generated/prisma/client";
+import { AuditAction, Prisma } from "@/generated/prisma/client";
+import type { BudgetPeriod, CurrencyCode, ExpenseSection, SectionBudget } from "@/generated/prisma/client";
 
 import type { ServiceResult } from "@/features/expenses/domain/dto";
 import type { PaginatedDto } from "@/features/expenses/domain/dto";

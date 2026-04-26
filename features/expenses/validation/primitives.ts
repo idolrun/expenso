@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
+import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
 import { expenseCurrencyValues } from "@/features/expenses/domain/currency";
 
 export const expenseSectionValues = [

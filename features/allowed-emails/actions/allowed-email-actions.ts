@@ -1,6 +1,6 @@
 "use server";
 
-import { UserRole } from "@/app/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 
 import { sessionToUserId } from "@/lib/auth/actor";
 import { getSession, parseUserRole } from "@/lib/auth/session";

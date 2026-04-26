@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { Prisma } from "@/app/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
 // Mock the exchange-rate module before importing the service.
 vi.mock("@/lib/exchange-rate", () => ({

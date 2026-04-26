@@ -1,2 +1,2 @@
-export type { AuditLog } from "@/app/generated/prisma/client";
-export { AuditAction } from "@/app/generated/prisma/client";
+export type { AuditLog } from "@/generated/prisma/client";
+export { AuditAction } from "@/generated/prisma/client";

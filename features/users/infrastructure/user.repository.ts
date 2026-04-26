@@ -1,4 +1,4 @@
-import type { UserRole } from "@/app/generated/prisma/client";
+import type { UserRole } from "@/generated/prisma/client";
 
 import type { DbClient } from "@/features/expenses/infrastructure/db.types";
 

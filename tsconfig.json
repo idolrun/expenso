@@ -20,7 +20,7 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "@/app/generated/*": ["./src/app/generated/*"]
+      "@/generated/*": ["./src/generated/*"]
     }
   },
   "include": [

@@ -1,4 +1,4 @@
-import type { Attachment, Prisma } from "@/app/generated/prisma/client";
+import type { Attachment, Prisma } from "@/generated/prisma/client";
 
 import type {
   AttachmentDto,

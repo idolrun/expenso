@@ -1,4 +1,4 @@
-import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
+import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
 
 import type { ExpenseDto, ExpenseHistoryWithExpenseDto } from "@/features/expenses/domain/dto";
 import type { SectionBudgetSummaryDto } from "@/features/budgets/domain/dto";

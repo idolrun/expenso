@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { BudgetPeriod, ExpenseSection } from "@/app/generated/prisma/client";
+import type { BudgetPeriod, ExpenseSection } from "@/generated/prisma/client";
 import { expenseCurrencyValues } from "@/features/expenses/domain/currency";
 import {
   dateYmdSchema,

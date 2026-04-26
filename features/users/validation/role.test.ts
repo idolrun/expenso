@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { UserRole } from "@/app/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 import { updateUserRoleSchema } from "@/features/users/validation/role";
 
 describe("updateUserRoleSchema", () => {

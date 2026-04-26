@@ -1,4 +1,4 @@
-import type { BudgetPeriod, ExpenseSection, Prisma, SectionBudget } from "@/app/generated/prisma/client";
+import type { BudgetPeriod, ExpenseSection, Prisma, SectionBudget } from "@/generated/prisma/client";
 
 import type { DbClient } from "@/features/expenses/infrastructure/db.types";
 

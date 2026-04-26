@@ -1,7 +1,7 @@
 import { Readable } from "node:stream";
 import type { UploadApiResponse } from "cloudinary";
 
-import { AuditAction } from "@/app/generated/prisma/client";
+import { AuditAction } from "@/generated/prisma/client";
 
 import type { AttachmentDto, ServiceResult } from "@/features/expenses/domain/dto";
 import { serializeAttachment } from "@/features/expenses/domain/serialize";

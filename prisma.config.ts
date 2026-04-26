@@ -7,8 +7,6 @@ import "dotenv/config"
 import { defineConfig, env } from "prisma/config"
 
 export default defineConfig({
-  // Prisma 7: earlyAccess is required while the new config API is in preview.
-  earlyAccess: true,
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",

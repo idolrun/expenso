@@ -20,8 +20,8 @@ export default defineConfig({
   resolve: {
     alias: [
       {
-        find: /^@\/app\/generated\//,
-        replacement: `${path.resolve(__dirname, "src/app/generated")}/`,
+        find: /^@\/generated\//,
+        replacement: `${path.resolve(__dirname, "src/generated")}/`,
       },
       {
         find: /^@\//,

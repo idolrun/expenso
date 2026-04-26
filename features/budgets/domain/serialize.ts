@@ -1,4 +1,4 @@
-import type { SectionBudget } from "@/app/generated/prisma/client";
+import type { SectionBudget } from "@/generated/prisma/client";
 
 import type { SectionBudgetDto } from "@/features/budgets/domain/dto";
 

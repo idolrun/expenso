@@ -3,7 +3,7 @@ import type { AuditLogEntryDto, PaginatedDto, ServiceResult } from "@/features/e
 import { auditLogRepository } from "@/features/audit/infrastructure/audit-log.repository";
 import { prisma } from "@/lib/prisma";
 import { serializeAuditLogRow } from "@/features/expenses/domain/serialize";
-import type { Prisma } from "@/app/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 
 export async function listAuditLogs(
   query: AuditLogQuery,

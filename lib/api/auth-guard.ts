@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getSession, parseUserRole } from "@/lib/auth/session";
 import { canCreateExpense, canReadExpense } from "@/lib/auth/permissions";
 import { sessionToUserId } from "@/lib/auth/actor";
-import { UserRole } from "@/app/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 
 export async function requireExpenseReader() {
   const session = await getSession();

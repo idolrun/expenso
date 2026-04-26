@@ -1,4 +1,4 @@
-import { Prisma } from "@/app/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
 import type { ListExpensesQuery } from "@/features/expenses/validation/expense";
 import { expenseRepository } from "@/features/expenses/infrastructure/expense.repository";

@@ -1,4 +1,4 @@
-import { UserRole } from "@/app/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 
 import { DashboardBento } from "@/components/dashboard/dashboard-bento";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";

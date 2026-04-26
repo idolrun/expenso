@@ -1,4 +1,4 @@
-import type { BudgetPeriod, CurrencyCode, ExpenseSection } from "@/app/generated/prisma/client";
+import type { BudgetPeriod, CurrencyCode, ExpenseSection } from "@/generated/prisma/client";
 
 /** Serializable budget row for API responses and dashboard display. */
 export type SectionBudgetDto = {

@@ -22,7 +22,7 @@ import type { SectionBudgetSummaryDto } from "@/features/budgets/domain/dto";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { sectionLabel, type ExpenseSectionId } from "@/src/lib/expense-sections";
 import { cn } from "@/lib/utils";
-import type { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
+import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
 
 import {
   ChartContainer,

@@ -1,4 +1,4 @@
-import { UserRole } from "@/app/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 
 /** Expense domain (Phase 3+): USER may not hard-delete; ADMIN may. */
 export function canDeleteExpense(role: UserRole): boolean {

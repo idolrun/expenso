@@ -15,7 +15,7 @@ import { budgetPeriodToggles } from "@/features/budgets/domain/types";
 import { cn } from "@/lib/utils";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { sectionLabel } from "@/src/lib/expense-sections";
-import type { ExpenseSection } from "@/app/generated/prisma/client";
+import type { ExpenseSection } from "@/generated/prisma/client";
 
 export function periodLabel(period: string): string {
   switch (period) {

@@ -1,4 +1,4 @@
-export type { BudgetPeriod } from "@/app/generated/prisma/client";
+export type { BudgetPeriod } from "@/generated/prisma/client";
 
 export const budgetPeriodValues = [
   "MONTHLY",

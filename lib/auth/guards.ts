@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { UserRole } from "@/app/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 
 import { getSession, parseUserRole } from "@/lib/auth/session";
 

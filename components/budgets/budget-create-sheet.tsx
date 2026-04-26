@@ -35,7 +35,7 @@ import {
 import { budgetPeriodToggles } from "@/features/budgets/domain/types";
 import { expenseCurrencyValues } from "@/features/expenses/domain/currency";
 import { expenseSectionValues } from "@/features/expenses/validation/primitives";
-import type { ExpenseSection } from "@/app/generated/prisma/client";
+import type { ExpenseSection } from "@/generated/prisma/client";
 import type { SectionBudgetDto } from "@/features/budgets/domain/dto";
 import { sectionLabel } from "@/src/lib/expense-sections";
 import type { ExpenseSectionId } from "@/src/lib/expense-sections";

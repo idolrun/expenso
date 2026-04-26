@@ -5,7 +5,7 @@ generator client {
   provider      = "prisma-client"
   // Prisma 7 breaking change: output is now REQUIRED.
   // Prisma Client will no longer be generated in node_modules by default.
-  output        = "../src/app/generated/prisma"
+  output        = "../src/generated/prisma"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 

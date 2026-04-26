@@ -1,4 +1,4 @@
-import { UserRole } from "@/app/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 
 import type { ServiceResult } from "@/features/expenses/domain/dto";
 import type { UserSummaryDto } from "@/features/users/domain/user-summary";

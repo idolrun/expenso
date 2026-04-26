@@ -4,7 +4,7 @@ import {
   AuditAction,
   Prisma,
   UserRole,
-} from "@/app/generated/prisma/client";
+} from "@/generated/prisma/client";
 import type { CreateExpenseInput, UpdateExpenseInput } from "@/features/expenses/validation/expense";
 import type { DeleteExpenseInput } from "@/features/expenses/validation/expense";
 import type { ExpenseDto, ServiceResult } from "@/features/expenses/domain/dto";

@@ -1,6 +1,6 @@
 import { AuditLogPanel } from "@/components/admin/audit-log-panel";
 import { requireRole } from "@/lib/auth/guards";
-import { UserRole } from "@/app/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 
 export default async function AdminAuditPage() {
   await requireRole([UserRole.ADMIN]);

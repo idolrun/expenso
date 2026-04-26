@@ -1,5 +1,5 @@
-import { Prisma } from "@/app/generated/prisma/client";
-import type { CurrencyCode } from "@/app/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
+import type { CurrencyCode } from "@/generated/prisma/client";
 
 import { fetchUsdNprRate } from "@/lib/exchange-rate";
 

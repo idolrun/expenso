@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { UserRole } from "@/app/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 
 import { userRecordIdSchema } from "@/features/expenses/validation/primitives";
 

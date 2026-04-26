@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
+import { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
 import {
   buildExpenseHistoryRows,
   expenseRowToSnapshot,

@@ -1,4 +1,4 @@
-import type { AttachmentProvider, ExpenseSection, ExpenseStatus } from "@/app/generated/prisma/client";
+import type { AttachmentProvider, ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
 
 import type { ExpenseCurrencyCode } from "@/features/expenses/domain/currency";
 

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { UserRole } from "@/app/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 import { ExpenseListClient } from "@/components/expenses/expense-list-client";
 import { BudgetCreateSheet } from "@/components/budgets/budget-create-sheet";
 import { Button } from "@/components/ui/button";
