@@ -1,7 +1,6 @@
 import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
 
 import type { ExpenseDto, ExpenseHistoryWithExpenseDto } from "@/features/expenses/domain/dto";
-import type { SectionBudgetSummaryDto } from "@/features/budgets/domain/dto";
 
 export type DashboardActivityItemDto =
   | {
@@ -71,11 +70,4 @@ export type DashboardSummaryDto = {
   recentExpenses: ExpenseDto[];
   recentHistory: ExpenseHistoryWithExpenseDto[];
   recentActivity: DashboardActivityItemDto[];
-
-  /**
-   * Active budget summaries for today across all configured sections.
-   * Denominated in USD (matches totalSpendUsd convention for the dashboard).
-   * Empty array when no budgets are configured.
-   */
-  sectionBudgetSummaries: SectionBudgetSummaryDto[];
 };

@@ -79,7 +79,7 @@ describe("formatMoneyAmount", () => {
 
   // ── Negative amounts ─────────────────────────────────────────────────────
 
-  it("formats negative USD amounts (over-budget remaining)", () => {
+  it("formats negative USD amounts", () => {
     const result = formatMoneyAmount("-100.00", "USD");
     // Should contain the magnitude
     expect(result).toContain("100");

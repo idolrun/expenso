@@ -11,7 +11,7 @@ export type FxSnapshotFields = {
 };
 
 /**
- * Compute the FX snapshot for an expense or budget amount.
+ * Compute the FX snapshot for an expense amount.
  *
  * Returns null when the exchange-rate API is unreachable — callers must
  * handle null gracefully (leave snapshot fields as null in the DB and

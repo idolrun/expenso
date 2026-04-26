@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { getSession, parseUserRole } from "@/lib/auth/session";
-import { canCreateExpense, canReadExpense } from "@/lib/auth/permissions";
+import {
+  canCreateExpense,
+  canReadExpense,
+  canReadCredential,
+} from "@/lib/auth/permissions";
 import { sessionToUserId } from "@/lib/auth/actor";
 import { UserRole } from "@/generated/prisma/client";
 
@@ -75,6 +79,30 @@ export async function requireAuthenticatedUser() {
     role: parseUserRole(session.user.role),
     userId: sessionToUserId(session),
   };
+}
+
+export async function requireCredentialReader() {
+  const session = await getSession();
+  if (!session) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { ok: false, error: { code: "UNAUTHORIZED", message: "Sign in required" } },
+        { status: 401 },
+      ),
+    };
+  }
+  const role = parseUserRole(session.user.role);
+  if (!canReadCredential(role)) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { ok: false, error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
+        { status: 403 },
+      ),
+    };
+  }
+  return { ok: true as const, session, role, userId: sessionToUserId(session) };
 }
 
 export async function requireAuditReader() {

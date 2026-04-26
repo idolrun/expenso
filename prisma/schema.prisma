@@ -64,8 +64,10 @@ enum AuditAction {
   MERCHANDISE_ITEM_UPDATED
   SALARY_RECORD_CREATED
   SALARY_RECORD_UPDATED
-  SECTION_BUDGET_CREATED
-  SECTION_BUDGET_UPDATED
+  CREDENTIAL_ENTRY_CREATED
+  CREDENTIAL_ENTRY_UPDATED
+  CREDENTIAL_ENTRY_DISABLED
+  CREDENTIAL_ENTRY_REENABLED
   OTHER
 }
 
@@ -74,20 +76,26 @@ enum CurrencyCode {
   NPR
 }
 
+enum CredentialAuthMethod {
+  EMAIL_PASSWORD
+  OAUTH_GOOGLE
+  OAUTH_GITHUB
+  OAUTH_MICROSOFT
+  OAUTH_OTHER
+  MAGIC_LINK
+  PASSKEY
+  TWO_FACTOR_EMAIL_PASSWORD
+  TWO_FACTOR_EMAIL_APP
+  SSO
+  OTHER
+}
+
 /// Which cloud storage provider holds the raw file bytes for an attachment.
 enum AttachmentProvider {
   /// Cloudinary — delivery/transform via signed API; never expose permanent public URLs.
   CLOUDINARY
   /// Local filesystem or S3-compatible bucket (dev/self-hosted).
   LOCAL
-}
-
-/// Controls the window length a section budget covers.
-enum BudgetPeriod {
-  MONTHLY
-  QUARTERLY
-  SEMI_ANNUAL
-  ANNUAL
 }
 
 // ---------------------------------------------------------------------------
@@ -121,10 +129,11 @@ model User {
   salaryRecordsUpdated     SalaryRecord[]     @relation("SalaryRecordUpdatedBy")
   categoriesCreated        Category[]         @relation("CategoryCreatedBy")
   categoriesUpdated        Category[]         @relation("CategoryUpdatedBy")
-  sectionBudgetsCreated    SectionBudget[]    @relation("SectionBudgetCreatedBy")
-  sectionBudgetsUpdated    SectionBudget[]    @relation("SectionBudgetUpdatedBy")
   allowedEmailsCreated     AllowedEmail[]     @relation("AllowedEmailCreatedBy")
   allowedEmailsUpdated     AllowedEmail[]     @relation("AllowedEmailUpdatedBy")
+  credentialEntriesCreated CredentialEntry[]  @relation("CredentialEntryCreatedBy")
+  credentialEntriesUpdated CredentialEntry[]  @relation("CredentialEntryUpdatedBy")
+  credentialHistoryChanges CredentialHistory[] @relation("CredentialHistoryChangedBy")
 
   @@index([role])
   @@map("user")
@@ -379,54 +388,6 @@ model Attachment {
 }
 
 // ---------------------------------------------------------------------------
-// Domain: section budgets
-// ---------------------------------------------------------------------------
-
-/// A planned spending limit for one section over a fixed calendar window.
-/// Each row covers exactly one (section, period, periodStart) combination.
-model SectionBudget {
-  id      String         @id @default(uuid()) @db.Uuid
-  section ExpenseSection
-  period  BudgetPeriod
-
-  /// Budget amount in the currency it was entered.
-  budgetAmount   Decimal      @db.Decimal(19, 4)
-  budgetCurrency CurrencyCode @default(USD)
-
-  /// USD snapshot at time of budget creation (null until FX rate is captured).
-  budgetAmountUsd Decimal? @db.Decimal(19, 4)
-  /// NPR snapshot at time of budget creation (null until FX rate is captured).
-  budgetAmountNpr Decimal? @db.Decimal(19, 4)
-  /// 1 USD = fxRateUsdNpr NPR at the moment the budget was saved.
-  fxRateUsdNpr     Decimal?  @db.Decimal(14, 6)
-  fxRateSnapshotAt DateTime?
-
-  /// Inclusive start of the budget window (UTC date, no time component).
-  periodStart DateTime @db.Date
-  /// Inclusive end of the budget window (UTC date, no time component).
-  periodEnd   DateTime @db.Date
-
-  isActive Boolean @default(true)
-  notes    String?
-
-  createdById String?  @db.Uuid
-  createdBy   User?    @relation("SectionBudgetCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById String?  @db.Uuid
-  updatedBy   User?    @relation("SectionBudgetUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  /// One budget per section+period — each period is an independent budget.
-  @@unique([section, period])
-  @@index([section, isActive, periodStart])
-  @@index([periodStart, periodEnd])
-  @@index([createdById])
-  @@index([updatedById])
-  @@map("section_budget")
-}
-
-// ---------------------------------------------------------------------------
 // Domain: satellite ledgers (normalized; optional link to originating expense)
 // ---------------------------------------------------------------------------
 
@@ -548,4 +509,54 @@ model AuditLog {
   @@index([actorId])
   @@index([createdAt])
   @@map("audit_log")
+}
+
+// ---------------------------------------------------------------------------
+// Domain: credential vault
+// ---------------------------------------------------------------------------
+
+model CredentialEntry {
+  id              String               @id @default(cuid())
+  appName         String
+  appUrl          String?
+  loginEmail      String
+  password        String?
+  authMethod      CredentialAuthMethod
+  twoFactorSecret String?
+  notes           String?
+  isActive        Boolean              @default(true)
+
+  createdById     String               @db.Uuid
+  createdBy       User                 @relation("CredentialEntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  updatedById     String?              @db.Uuid
+  updatedBy       User?                @relation("CredentialEntryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  history         CredentialHistory[]
+
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([isActive])
+  @@index([authMethod])
+  @@index([appName])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("credential_entry")
+}
+
+model CredentialHistory {
+  id          String          @id @default(cuid())
+  entryId     String
+  entry       CredentialEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  fieldKey    String
+  oldValue    Json?
+  newValue    Json?
+  changedById String          @db.Uuid
+  changedBy   User            @relation("CredentialHistoryChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+  changedAt   DateTime        @default(now())
+
+  @@index([entryId, changedAt])
+  @@index([changedById])
+  @@map("credential_history")
 }

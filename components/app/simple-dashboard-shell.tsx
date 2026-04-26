@@ -14,15 +14,43 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { AppUserRole } from "@/src/lib/app-user-role";
-import { EXPENSE_SECTION_NAV } from "@/src/lib/expense-sections";
+import { EXPENSE_SECTION_NAV, type ExpenseSectionId } from "@/src/lib/expense-sections";
 import { useDisplayCurrency } from "@/src/features/display-currency/display-currency-context";
-import { ListIcon, XIcon } from "@phosphor-icons/react";
-
+import {
+  AirplaneIcon,
+  CoinsIcon,
+  CpuIcon,
+  EyeIcon,
+  KeyIcon,
+  ListIcon,
+  MegaphoneIcon,
+  MoneyIcon,
+  PackageIcon,
+  ReceiptIcon,
+  ScrollIcon,
+  ShoppingBagIcon,
+  SquaresFourIcon,
+  UserGearIcon,
+  UsersIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 
 const mainLinks = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/dashboard/expenses", label: "All expenses" },
+  { href: "/dashboard", label: "Dashboard", icon: SquaresFourIcon },
+  { href: "/dashboard/expenses", label: "All expenses", icon: ReceiptIcon },
 ] as const;
+
+const sectionIconMap: Record<ExpenseSectionId, React.ComponentType<{ className?: string }>> = {
+  OVERVIEW: EyeIcon,
+  TECH: CpuIcon,
+  MARKETING: MegaphoneIcon,
+  SOCIAL_MEDIA: UsersIcon,
+  PETTY_CASH: CoinsIcon,
+  SALARY: MoneyIcon,
+  TRAVEL: AirplaneIcon,
+  INVENTORY: PackageIcon,
+  MERCHANDISE: ShoppingBagIcon,
+};
 
 function NavItems({
   onNavigate,
@@ -36,18 +64,20 @@ function NavItems({
     <nav className={cn("flex flex-col gap-1", className)}>
       {mainLinks.map((l) => {
         const active = pathname === l.href || pathname.startsWith(`${l.href}/`);
+        const Icon = l.icon;
         return (
           <Link
             key={l.href}
             href={l.href}
             onClick={onNavigate}
             className={cn(
-              "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-sidebar-foreground hover:bg-sidebar-accent/60",
             )}
           >
+            <Icon className="size-4" />
             {l.label}
           </Link>
         );
@@ -58,23 +88,76 @@ function NavItems({
       {EXPENSE_SECTION_NAV.map((s) => {
         const href = `/dashboard/sections/${s.slug}`;
         const active = pathname === href || pathname.startsWith(`${href}/`);
+        const Icon = sectionIconMap[s.section];
         return (
           <Link
             key={s.section}
             href={href}
             onClick={onNavigate}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm transition-colors",
+              "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
               active
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-sidebar-foreground/90 hover:bg-sidebar-accent/60",
             )}
           >
+            <Icon className="size-4" />
             {s.label}
           </Link>
         );
       })}
+      <p className="nav-group-label px-3 pt-4 pb-1 text-xs uppercase">Tools</p>
+      <Link
+        href="/dashboard/credentials"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          pathname === "/dashboard/credentials" || pathname.startsWith("/dashboard/credentials/")
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+        )}
+      >
+        <KeyIcon className="size-4" />
+        Credentials
+      </Link>
     </nav>
+  );
+}
+
+function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
+  const pathname = usePathname();
+  return (
+    <>
+      <p className="nav-group-label px-3 pt-4 pb-1 text-xs uppercase">
+        Admin
+      </p>
+      <Link
+        href="/dashboard/admin/audit"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          pathname === "/dashboard/admin/audit" || pathname.startsWith("/dashboard/admin/audit/")
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+        )}
+      >
+        <ScrollIcon className="size-4" />
+        Audit log
+      </Link>
+      <Link
+        href="/dashboard/admin/users"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          pathname === "/dashboard/admin/users" || pathname.startsWith("/dashboard/admin/users/")
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+        )}
+      >
+        <UserGearIcon className="size-4" />
+        Users & roles
+      </Link>
+    </>
   );
 }
 
@@ -122,25 +205,7 @@ export function SimpleDashboardShell({
         </div>
         <ScrollArea className="flex-1 px-2 py-3">
           <NavItems />
-          {isAdmin ? (
-            <>
-              <p className="nav-group-label px-3 pt-4 pb-1 text-xs uppercase">
-                Admin
-              </p>
-              <Link
-                href="/dashboard/admin/audit"
-                className="text-sidebar-foreground hover:bg-sidebar-accent/60 block rounded-md px-3 py-2 text-sm"
-              >
-                Audit log
-              </Link>
-              <Link
-                href="/dashboard/admin/users"
-                className="text-sidebar-foreground hover:bg-sidebar-accent/60 block rounded-md px-3 py-2 text-sm"
-              >
-                Users & roles
-              </Link>
-            </>
-          ) : null}
+          {isAdmin ? <AdminNav /> : null}
         </ScrollArea>
         <div className="text-muted-foreground border-t border-sidebar-border p-3 text-xs">
           {userEmail ?? "Signed in"}
@@ -167,27 +232,7 @@ export function SimpleDashboardShell({
               </SheetHeader>
               <ScrollArea className="h-[calc(100dvh-5rem)] px-2 py-3">
                 <NavItems onNavigate={() => setOpen(false)} />
-                {isAdmin ? (
-                  <>
-                    <p className="nav-group-label px-3 pt-4 pb-1 text-xs uppercase">
-                      Admin
-                    </p>
-                    <Link
-                      href="/dashboard/admin/audit"
-                      className="block rounded-md px-3 py-2 text-sm"
-                      onClick={() => setOpen(false)}
-                    >
-                      Audit log
-                    </Link>
-                    <Link
-                      href="/dashboard/admin/users"
-                      className="block rounded-md px-3 py-2 text-sm"
-                      onClick={() => setOpen(false)}
-                    >
-                      Users & roles
-                    </Link>
-                  </>
-                ) : null}
+                {isAdmin ? <AdminNav onNavigate={() => setOpen(false)} /> : null}
               </ScrollArea>
             </SheetContent>
           </Sheet>

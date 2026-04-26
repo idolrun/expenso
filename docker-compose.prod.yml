@@ -9,10 +9,13 @@ services:
   # NOTE: The database (expenso-db-1) is a STANDALONE container managed
   # outside this compose file. It must already be running and attached to
   # the expenso-net network before these services start.
+  #
+  # There is intentionally no db service and no depends_on. CI/CD uses
+  # --no-deps so Compose never creates, recreates, or waits on the database.
   # ═══════════════════════════════════════════════════════════════════════════════
 
   app-blue:
-    image: ${BLUE_IMAGE:-${REGISTRY:-docker.io}/${IMAGE_NAME:-devidolrun/expenso}:latest}
+    image: ${BLUE_IMAGE:-docker.io/devidolrun/expenso:latest}
     container_name: expenso-blue
     restart: unless-stopped
     env_file:
@@ -21,11 +24,11 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
+      # .env.production uses db, which only resolves inside Compose-managed DNS.
+      # The production database is the standalone container on expenso-net.
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@expenso-db-1:5432/${POSTGRES_DB}"
     ports:
       - "127.0.0.1:3000:3000"
-    # NO depends_on — the standalone DB is not managed by this compose file.
-    # The CI/CD workflow uses --no-deps on docker compose up to guarantee
-    # compose never tries to create or wait for a db service.
     networks:
       - expenso-net
     healthcheck:
@@ -34,20 +37,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
-    read_only: true
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    user: "1001:1001"
     tmpfs:
       - /tmp:noexec,nosuid,size=100m
     logging:
@@ -57,7 +50,7 @@ services:
         max-file: "3"
 
   app-green:
-    image: ${GREEN_IMAGE:-${REGISTRY:-docker.io}/${IMAGE_NAME:-devidolrun/expenso}:latest}
+    image: ${GREEN_IMAGE:-docker.io/devidolrun/expenso:latest}
     container_name: expenso-green
     restart: unless-stopped
     env_file:
@@ -66,9 +59,11 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
+      # .env.production uses db, which only resolves inside Compose-managed DNS.
+      # The production database is the standalone container on expenso-net.
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@expenso-db-1:5432/${POSTGRES_DB}"
     ports:
       - "127.0.0.1:3001:3000"
-    # NO depends_on — see app-blue comment above.
     networks:
       - expenso-net
     healthcheck:
@@ -77,20 +72,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
-    read_only: true
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    user: "1001:1001"
     tmpfs:
       - /tmp:noexec,nosuid,size=100m
     logging:
@@ -101,4 +86,6 @@ services:
 
 networks:
   expenso-net:
-    driver: bridge
+    # This bridge already exists on the VPS and contains expenso-db-1.
+    # Mark it external so Compose never creates or destroys an isolated network.
+    external: true

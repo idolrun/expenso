@@ -25,3 +25,38 @@ export function expenseCrudPermissions(role: UserRole) {
     canDelete: canDeleteExpense(role),
   } as const;
 }
+
+/** Credential vault: any authenticated user may read. */
+export function canReadCredential(role: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.USER;
+}
+
+/** Credential vault: any authenticated user may create. */
+export function canCreateCredential(role: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.USER;
+}
+
+/** Credential vault: any authenticated user may update. */
+export function canUpdateCredential(role: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.USER;
+}
+
+/** Credential vault: any authenticated user may disable. */
+export function canDisableCredential(role: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.USER;
+}
+
+/** Credential vault: only ADMIN may re-enable. */
+export function canReEnableCredential(role: UserRole): boolean {
+  return role === UserRole.ADMIN;
+}
+
+export function credentialCrudPermissions(role: UserRole) {
+  return {
+    canCreate: canCreateCredential(role),
+    canRead: canReadCredential(role),
+    canUpdate: canUpdateCredential(role),
+    canDisable: canDisableCredential(role),
+    canReEnable: canReEnableCredential(role),
+  } as const;
+}

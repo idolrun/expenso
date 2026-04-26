@@ -201,7 +201,6 @@ describe("GET /api/dashboard", () => {
         recentExpenses: [],
         recentHistory: [],
         recentActivity: [],
-        sectionBudgetSummaries: [],
       },
     });
     const res = await getDashboard();

@@ -7,7 +7,6 @@ import type { DashboardActivityItemDto, DashboardSummaryDto } from "@/features/d
 import type { ServiceResult } from "@/features/expenses/domain/dto";
 import { serializeExpense, serializeExpenseHistoryRow } from "@/features/expenses/domain/serialize";
 import { expenseRepository } from "@/features/expenses/infrastructure/expense.repository";
-import { getAllActiveBudgetSummariesService } from "@/features/budgets/application/budget.service";
 import { prisma } from "@/lib/prisma";
 
 const activeUsdWhere = { deletedAt: null, originalCurrency: "USD" } as const;
@@ -78,8 +77,6 @@ export async function getDashboardSummary(): Promise<
       { key: "2m" as const, start: startOfMonth(subMonths(now, 1)), end: monthEnd },
       { key: "3m" as const, start: startOfMonth(subMonths(now, 2)), end: monthEnd },
     ];
-
-    const budgetSummariesPromise = getAllActiveBudgetSummariesService(now, "USD");
 
     const [
       totalCount,
@@ -182,8 +179,6 @@ export async function getDashboardSummary(): Promise<
         }),
       ),
     ]);
-
-    const budgetSummariesResult = await budgetSummariesPromise;
 
     // Compute combined NPR totals
     const totalNprDec = (nprTotalDirectAgg._sum.originalAmount ?? new Prisma.Decimal(0)).add(
@@ -292,7 +287,6 @@ export async function getDashboardSummary(): Promise<
         recentExpenses: recentRows.map(serializeExpense),
         recentHistory,
         recentActivity: activityCandidates.slice(0, 20),
-        sectionBudgetSummaries: budgetSummariesResult.ok ? budgetSummariesResult.data : [],
       },
     };
   } catch (e) {
