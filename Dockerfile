@@ -123,7 +123,11 @@ ENV NODE_ENV=production
 
 # Install prisma locally (NOT globally) so Node module resolution works
 # for imports like: import { defineConfig } from "prisma/config"
-RUN npm install prisma@7.7.0 --no-package-lock --no-audit --no-fund && \
+#
+# CRITICAL: prisma.config.ts imports "dotenv/config", so dotenv MUST be
+# installed alongside prisma. Without it, migrate deploy crashes with:
+#   Error: Cannot find module 'dotenv/config'
+RUN npm install prisma@7.7.0 dotenv --no-package-lock --no-audit --no-fund && \
     npm cache clean --force
 
 # Copy only what the Prisma CLI needs to run migrations.

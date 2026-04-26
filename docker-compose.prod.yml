@@ -1,45 +1,14 @@
 services:
-  db:
-    image: postgres:16.8-alpine
-    restart: unless-stopped
-    container_name: expenso-db
-    env_file:
-      - .env.production
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    expose:
-      - "5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    networks:
-      - expenso-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
-        reservations:
-          cpus: '0.25'
-          memory: 256M
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-
   # ═══════════════════════════════════════════════════════════════════════════════
   # Blue / Green Application Containers
   # ═══════════════════════════════════════════════════════════════════════════════
   # Only ONE receives live traffic at a time (controlled by system nginx).
   # Blue binds host port 3000; Green binds host port 3001.
   # System nginx proxies to whichever port is active.
+  #
+  # NOTE: The database (expenso-db-1) is a STANDALONE container managed
+  # outside this compose file. It must already be running and attached to
+  # the expenso-net network before these services start.
   # ═══════════════════════════════════════════════════════════════════════════════
 
   app-blue:
@@ -54,9 +23,9 @@ services:
       HOSTNAME: 0.0.0.0
     ports:
       - "127.0.0.1:3000:3000"
-    depends_on:
-      db:
-        condition: service_healthy
+    # NO depends_on — the standalone DB is not managed by this compose file.
+    # The CI/CD workflow uses --no-deps on docker compose up to guarantee
+    # compose never tries to create or wait for a db service.
     networks:
       - expenso-net
     healthcheck:
@@ -99,9 +68,7 @@ services:
       HOSTNAME: 0.0.0.0
     ports:
       - "127.0.0.1:3001:3000"
-    depends_on:
-      db:
-        condition: service_healthy
+    # NO depends_on — see app-blue comment above.
     networks:
       - expenso-net
     healthcheck:
@@ -135,6 +102,3 @@ services:
 networks:
   expenso-net:
     driver: bridge
-
-volumes:
-  db_data:
