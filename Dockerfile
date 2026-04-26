@@ -42,24 +42,27 @@ COPY . .
 
 # Generate Prisma client for the target platform binary.
 # binaryTargets in schema.prisma already includes "linux-musl-openssl-3.0.x".
+# Prisma 7 breaking change: prisma.config.ts configures the datasource URL via
+# env("DATABASE_URL"), so the CLI loads the config and requires the variable.
+# We pass a dummy DATABASE_URL as an inline shell variable scoped to this RUN
+# command only — it is NOT persisted as an image layer.
 ENV PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x"
-RUN pnpm run db:generate
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm run db:generate
 
-# Dummy build-time values ONLY — real secrets are injected at runtime.
-# Using ARG prevents accidental leakage into the final image layers
-# because ARGs are scoped to the build stage they are defined in.
-ARG BETTER_AUTH_SECRET="build-time-dummy-secret-must-be-at-least-32-chars-long"
-ARG DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+# NEXT_PUBLIC_APP_URL is the ONLY build-time var that must be inlined into the
+# Next.js client bundle. All secrets (BETTER_AUTH_SECRET, DATABASE_URL) are
+# injected at runtime via --env-file and must NOT appear as ARG or ENV.
 ARG NEXT_PUBLIC_APP_URL="https://example.com"
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production \
-    DATABASE_URL=${DATABASE_URL} \
-    BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET} \
     NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 
 # Build Next.js production app (requires output: 'standalone' in next.config.ts).
-RUN pnpm run build
+# BETTER_AUTH_SECRET is passed as a transient inline env var — it exists only
+# for the duration of this RUN command and is NOT persisted in any image layer.
+# The real secret is injected at container runtime via --env-file.
+RUN BETTER_AUTH_SECRET="build-time-dummy-not-used-at-runtime" pnpm run build
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Stage 3 — App (production runtime)

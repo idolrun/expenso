@@ -1,10 +1,16 @@
 
+// Prisma 7 breaking change: provider changed from prisma-client-js to prisma-client.
+// The older provider will be removed in a future release.
 generator client {
-  provider      = "prisma-client-js"
+  provider      = "prisma-client"
+  // Prisma 7 breaking change: output is now REQUIRED.
+  // Prisma Client will no longer be generated in node_modules by default.
   output        = "../src/app/generated/prisma"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
+// Prisma 7 breaking change: url, directUrl, shadowDatabaseUrl in datasource are DEPRECATED.
+// The database URL is configured in prisma.config.ts instead.
 datasource db {
   provider = "postgresql"
 }

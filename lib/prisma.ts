@@ -1,4 +1,6 @@
+import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
+// Prisma 7 breaking change: imports must use the custom output path, NOT @prisma/client.
 import { PrismaClient } from "@/app/generated/prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
@@ -10,8 +12,11 @@ function createPrismaClient(): PrismaClient {
   if (!connectionString) {
     throw new Error("DATABASE_URL is not set");
   }
+  // Prisma 7 breaking change: driver adapters are REQUIRED.
+  // PrismaPg now requires a pg.Pool instance, not just a connection string.
+  const pool = new Pool({ connectionString });
   return new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    adapter: new PrismaPg(pool),
   });
 }
 
