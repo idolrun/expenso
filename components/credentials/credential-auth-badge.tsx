@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import type { CredentialAuthMethod } from "@/features/credentials/domain/types";
+import { cn } from "@/lib/utils";
 
 const AUTH_METHOD_LABELS: Record<CredentialAuthMethod, string> = {
   EMAIL_PASSWORD: "Email + Password",
@@ -29,9 +30,18 @@ const AUTH_METHOD_TONE: Record<CredentialAuthMethod, string> = {
   OTHER: "badge-tone-slate",
 };
 
-export function CredentialAuthBadge({ method }: { method: CredentialAuthMethod }) {
+export function CredentialAuthBadge({
+  method,
+  className,
+}: {
+  method: CredentialAuthMethod;
+  className?: string;
+}) {
   return (
-    <Badge variant="outline" className={AUTH_METHOD_TONE[method]}>
+    <Badge
+      variant="outline"
+      className={cn(AUTH_METHOD_TONE[method], className)}
+    >
       {AUTH_METHOD_LABELS[method]}
     </Badge>
   );

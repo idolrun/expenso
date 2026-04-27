@@ -406,8 +406,11 @@ jobs:
           command_timeout: 10m
           script: |
             set -euo pipefail
+            cd "${{ secrets.SERVER_DEPLOY_PATH }}"
 
-            # ── Config ──────────────────────────────────────────────────────
+            echo ">>> Syncing latest deploy artifacts from git..."
+            git pull origin main
+
             COMPOSE_FILE="docker-compose.prod.yml"
             STATE_FILE=".bluegreen.state"
             NGINX_SITE="${NGINX_SITE_PATH:-/etc/nginx/sites-available/expenso}"
@@ -416,24 +419,18 @@ jobs:
             IMAGE_NAME="${IMAGE_NAME:-devidolrun/expenso}"
             FULL_IMAGE="${REGISTRY}/${IMAGE_NAME}@${NEW_DIGEST}"
 
-            cd "${{ secrets.SERVER_DEPLOY_PATH }}"
             echo ">>> Working directory: $(pwd)"
             echo ">>> Disk: $(df -h . | tail -1)"
 
-            # ── Load prior state ────────────────────────────────────────────
-            if [ -f "$STATE_FILE" ]; then
-              source "$STATE_FILE"
-            fi
-            BLUE_DIGEST="${BLUE_DIGEST:-}"
-            GREEN_DIGEST="${GREEN_DIGEST:-}"
+            echo ">>> Authenticating to Docker Hub on VPS..."
+            printf '%s' "${{ secrets.DOCKER_PASSWORD }}" | \
+              docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-            # ── Detect active color ─────────────────────────────────────────
             ACTIVE_COLOR=$(grep -oP 'set\s+\$active_upstream\s+\K\w+' "$NGINX_SITE" 2>/dev/null || true)
             if [ -z "$ACTIVE_COLOR" ] || { [ "$ACTIVE_COLOR" != "blue" ] && [ "$ACTIVE_COLOR" != "green" ]; }; then
               ACTIVE_COLOR="blue"
             fi
 
-            # ── Determine target ────────────────────────────────────────────
             if [ "$ACTIVE_COLOR" = "blue" ]; then
               TARGET_COLOR="green"
               TARGET_PORT=3001
@@ -442,6 +439,15 @@ jobs:
               TARGET_PORT=3000
             fi
 
+            echo ">>> Loading production environment variables..."
+            set -a
+            source .env.production
+            set +a
+
+            [ -f "$STATE_FILE" ] && source "$STATE_FILE" || true
+            BLUE_DIGEST="${BLUE_DIGEST:-}"
+            GREEN_DIGEST="${GREEN_DIGEST:-}"
+
             echo ""
             echo "════════════════════════════════════════════════════════════════"
             echo "  BLUE/GREEN DEPLOY"
@@ -449,23 +455,23 @@ jobs:
             echo "  Image:  $FULL_IMAGE"
             echo "════════════════════════════════════════════════════════════════"
 
-            # ── Docker Hub auth (required before compose pull on VPS) ─────────
-            echo ">>> Authenticating to Docker Hub on VPS..."
-            printf '%s' "${{ secrets.DOCKER_PASSWORD }}" | \
-              docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-
-            # ── Step 1: Clean up & deploy target ────────────────────────────
             echo ">>> [1/5] Cleaning up existing $TARGET_COLOR container..."
-            docker compose -f "$COMPOSE_FILE" rm -sf "app-$TARGET_COLOR" 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" rm -sf --no-deps "app-$TARGET_COLOR" 2>/dev/null || \
+              docker compose -f "$COMPOSE_FILE" rm -sf "app-$TARGET_COLOR" 2>/dev/null || true
+            docker rm -f "expenso-$TARGET_COLOR" 2>/dev/null || true
 
             echo ">>> [2/5] Pulling image for $TARGET_COLOR..."
-            export "${TARGET_COLOR^^}_IMAGE=$FULL_IMAGE"
-            docker compose -f "$COMPOSE_FILE" pull "app-$TARGET_COLOR"
+            docker pull "$FULL_IMAGE"
+
+            if [ "$TARGET_COLOR" = "green" ]; then
+              export GREEN_IMAGE="$FULL_IMAGE"
+            else
+              export BLUE_IMAGE="$FULL_IMAGE"
+            fi
 
             echo ">>> [3/5] Starting $TARGET_COLOR container..."
             docker compose -f "$COMPOSE_FILE" up -d --no-deps "app-$TARGET_COLOR"
 
-            # ── Step 2: Health check ────────────────────────────────────────
             echo ">>> [4/5] Health check on $TARGET_COLOR (localhost:$TARGET_PORT)..."
             HEALTHY=false
             for i in $(seq 1 10); do
@@ -484,8 +490,11 @@ jobs:
             if [ "$HEALTHY" != "true" ]; then
               echo ""
               echo "ERROR: $TARGET_COLOR failed health checks."
+              docker logs --tail=100 "expenso-$TARGET_COLOR" || true
               echo ">>> Destroying $TARGET_COLOR container..."
-              docker compose -f "$COMPOSE_FILE" rm -sf "app-$TARGET_COLOR" 2>/dev/null || true
+              docker compose -f "$COMPOSE_FILE" rm -sf --no-deps "app-$TARGET_COLOR" 2>/dev/null || \
+                docker compose -f "$COMPOSE_FILE" rm -sf "app-$TARGET_COLOR" 2>/dev/null || true
+              docker rm -f "expenso-$TARGET_COLOR" 2>/dev/null || true
               echo ">>> Kept $ACTIVE_COLOR running. Users unaffected."
               echo "════════════════════════════════════════════════════════════════"
               echo "  DEPLOY FAILED — No traffic was switched"
@@ -493,9 +502,8 @@ jobs:
               exit 1
             fi
 
-            # ── Step 3: Switch traffic ──────────────────────────────────────
             echo ">>> [5/5] Switching nginx from $ACTIVE_COLOR → $TARGET_COLOR..."
-            sudo sed -i "s/set\s*\\\$active_upstream\s\+\w\+;/set \$active_upstream $TARGET_COLOR;/g" "$NGINX_SITE"
+            sudo sed -i "s/set \$active_upstream [a-z]*;/set \$active_upstream $TARGET_COLOR;/g" "$NGINX_SITE"
 
             echo ">>> Testing nginx config..."
             sudo nginx -t
@@ -509,17 +517,18 @@ jobs:
 
             echo ">>> Stopping previous $ACTIVE_COLOR container..."
             docker compose -f "$COMPOSE_FILE" stop "app-$ACTIVE_COLOR" 2>/dev/null || true
-            docker compose -f "$COMPOSE_FILE" rm -sf "app-$ACTIVE_COLOR" 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" rm -sf --no-deps "app-$ACTIVE_COLOR" 2>/dev/null || \
+              docker compose -f "$COMPOSE_FILE" rm -sf "app-$ACTIVE_COLOR" 2>/dev/null || true
+            docker rm -f "expenso-$ACTIVE_COLOR" 2>/dev/null || true
 
-            # ── Save state ──────────────────────────────────────────────────
             {
               echo "ACTIVE_COLOR=$TARGET_COLOR"
               if [ "$TARGET_COLOR" = "blue" ]; then
-                echo "BLUE_DIGEST=$NEW_DIGEST"
-                echo "GREEN_DIGEST=$GREEN_DIGEST"
+                echo "BLUE_DIGEST=${NEW_DIGEST:-}"
+                echo "GREEN_DIGEST=${GREEN_DIGEST:-}"
               else
-                echo "BLUE_DIGEST=$BLUE_DIGEST"
-                echo "GREEN_DIGEST=$NEW_DIGEST"
+                echo "BLUE_DIGEST=${BLUE_DIGEST:-}"
+                echo "GREEN_DIGEST=${NEW_DIGEST:-}"
               fi
             } > "$STATE_FILE"
 

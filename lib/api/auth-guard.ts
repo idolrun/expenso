@@ -33,6 +33,22 @@ export async function requireExpenseReader() {
   return { ok: true as const, session, role, userId: sessionToUserId(session) };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function requireFundReader(_request?: Request) {
+  const session = await getSession();
+  if (!session) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { ok: false, error: { code: "UNAUTHORIZED", message: "Sign in required" } },
+        { status: 401 },
+      ),
+    };
+  }
+  const role = parseUserRole(session.user.role);
+  return { ok: true as const, session, role, userId: sessionToUserId(session) };
+}
+
 export async function requireExpenseWriter() {
   const session = await getSession();
   if (!session) {

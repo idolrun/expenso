@@ -6,17 +6,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CredentialCopyButton } from "@/components/credentials/credential-copy-button";
 import { CredentialPasswordField } from "@/components/credentials/credential-password-field";
+import { cn } from "@/lib/utils";
 import { useCredentialList } from "@/src/features/credentials/hooks/use-credential-list";
 import { KeyIcon, ArrowRightIcon } from "@phosphor-icons/react";
 
-export function CredentialVaultWidget() {
+type CredentialVaultWidgetProps = {
+  className?: string;
+};
+
+export function CredentialVaultWidget({
+  className,
+}: CredentialVaultWidgetProps) {
   const { data, isLoading } = useCredentialList({ isActive: true });
 
-  const recent = data?.slice(0, 5) ?? [];
-  const totalActive = data?.length ?? 0;
+  const entries = data ?? [];
+  const totalActive = entries.length;
 
   return (
-    <Card>
+    <Card className={cn(className)}>
       <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
         <div className="space-y-1">
           <CardTitle className="text-base flex items-center gap-2">
@@ -37,7 +44,7 @@ export function CredentialVaultWidget() {
           </Link>
         </div>
       </CardHeader>
-      <CardContent className="space-y-0">
+      <CardContent className="flex min-h-0 flex-1 flex-col space-y-0">
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -48,18 +55,18 @@ export function CredentialVaultWidget() {
               </div>
             ))}
           </div>
-        ) : recent.length === 0 ? (
-          <p className="text-muted-foreground py-4 text-sm">No active credentials.</p>
+        ) : entries.length === 0 ? (
+          <p className="text-muted-foreground py-4 text-sm">
+            No active credentials.
+          </p>
         ) : (
-          <ul className="divide-y">
-            {recent.map((entry) => (
+          <ul className="divide-y overflow-y-auto pr-1">
+            {entries.map((entry) => (
               <li key={entry.id}>
                 <div className="flex items-center justify-between gap-3 rounded-md py-2.5 transition-colors hover:bg-muted/20">
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 space-y-1">
                     <p className="truncate text-sm font-medium">
-                      {entry.appName.length > 20
-                        ? `${entry.appName.slice(0, 20)}…`
-                        : entry.appName}
+                      {entry.appName}
                     </p>
                   </div>
                   <div className="group flex items-center gap-1">
@@ -68,10 +75,16 @@ export function CredentialVaultWidget() {
                         ? `${entry.loginEmail.slice(0, 18)}…`
                         : entry.loginEmail}
                     </span>
-                    <CredentialCopyButton value={entry.loginEmail} label="Email" />
+                    <CredentialCopyButton
+                      value={entry.loginEmail}
+                      label="Email"
+                    />
                   </div>
                   {entry.password ? (
-                    <CredentialPasswordField password={entry.password} showCopy />
+                    <CredentialPasswordField
+                      password={entry.password}
+                      showCopy
+                    />
                   ) : (
                     <span className="text-muted-foreground text-xs">—</span>
                   )}

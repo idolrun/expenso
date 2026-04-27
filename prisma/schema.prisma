@@ -68,12 +68,24 @@ enum AuditAction {
   CREDENTIAL_ENTRY_UPDATED
   CREDENTIAL_ENTRY_DISABLED
   CREDENTIAL_ENTRY_REENABLED
+  FUNDENTRYCREATED
   OTHER
 }
 
 enum CurrencyCode {
   USD
   NPR
+}
+
+enum FundSource {
+  BANK_TRANSFER
+  WALLET
+  CASH
+  CLIENT_PAYMENT
+  LOAN
+  INVESTMENT
+  GRANT
+  OTHER
 }
 
 enum CredentialAuthMethod {
@@ -134,6 +146,7 @@ model User {
   credentialEntriesCreated CredentialEntry[]  @relation("CredentialEntryCreatedBy")
   credentialEntriesUpdated CredentialEntry[]  @relation("CredentialEntryUpdatedBy")
   credentialHistoryChanges CredentialHistory[] @relation("CredentialHistoryChangedBy")
+  fundEntriesCreated       FundEntry[]        @relation("FundEntryCreatedBy")
 
   @@index([role])
   @@map("user")
@@ -468,6 +481,29 @@ model SalaryRecord {
   @@index([createdById])
   @@index([updatedById])
   @@map("salary_record")
+}
+
+model FundEntry {
+  id          String       @id @default(cuid())
+  amount      Decimal      @db.Decimal(19, 4)
+  currency    CurrencyCode @default(USD)
+  source      FundSource
+  sourceLabel String?
+  note        String?
+  receivedAt  DateTime     @db.Date
+
+  createdById String @db.Uuid
+  createdBy   User   @relation("FundEntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([receivedAt])
+  @@index([source])
+  @@index([currency])
+  @@index([createdById])
+  @@index([amount])
+  @@map("fund_entry")
 }
 
 // ---------------------------------------------------------------------------

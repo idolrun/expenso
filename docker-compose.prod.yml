@@ -1,19 +1,6 @@
 services:
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # Blue / Green Application Containers
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # Only ONE receives live traffic at a time (controlled by system nginx).
-  # Blue binds host port 3000; Green binds host port 3001.
-  # System nginx proxies to whichever port is active.
-  #
-  # NOTE: The database (expenso-db-1) is a STANDALONE container managed
-  # outside this compose file. It must already be running and attached to
-  # the expenso-net network before these services start.
-  #
-  # There is intentionally no db service and no depends_on. CI/CD uses
-  # --no-deps so Compose never creates, recreates, or waits on the database.
-  # ═══════════════════════════════════════════════════════════════════════════════
-
+  # Blue/green application services only.
+  # The database is a standalone container named expenso-db-1 and is never managed by Compose.
   app-blue:
     image: ${BLUE_IMAGE:-docker.io/devidolrun/expenso:latest}
     container_name: expenso-blue
@@ -24,10 +11,10 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
-      # .env.production uses db, which only resolves inside Compose-managed DNS.
-      # The production database is the standalone container on expenso-net.
-      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@expenso-db-1:5432/${POSTGRES_DB}"
+      # Override DATABASE_URL from .env.production because "db" DNS is not valid for standalone DB container.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@expenso-db-1:5432/${POSTGRES_DB}
     ports:
+      # Bind to loopback only. Nginx is the only public ingress.
       - "127.0.0.1:3000:3000"
     networks:
       - expenso-net
@@ -37,6 +24,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+    # Swarm-only deploy config intentionally omitted because this stack runs with docker compose up.
+    # read_only intentionally omitted because Next.js standalone writes runtime files outside /tmp.
+    # user intentionally omitted because image does not guarantee UID/GID 1001 exists.
     cap_drop:
       - ALL
     security_opt:
@@ -59,10 +49,10 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
-      # .env.production uses db, which only resolves inside Compose-managed DNS.
-      # The production database is the standalone container on expenso-net.
-      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@expenso-db-1:5432/${POSTGRES_DB}"
+      # Override DATABASE_URL from .env.production because "db" DNS is not valid for standalone DB container.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@expenso-db-1:5432/${POSTGRES_DB}
     ports:
+      # Bind to loopback only. Nginx is the only public ingress.
       - "127.0.0.1:3001:3000"
     networks:
       - expenso-net
@@ -72,6 +62,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+    # Swarm-only deploy config intentionally omitted because this stack runs with docker compose up.
+    # read_only intentionally omitted because Next.js standalone writes runtime files outside /tmp.
+    # user intentionally omitted because image does not guarantee UID/GID 1001 exists.
     cap_drop:
       - ALL
     security_opt:
@@ -86,6 +79,6 @@ services:
 
 networks:
   expenso-net:
-    # This bridge already exists on the VPS and contains expenso-db-1.
-    # Mark it external so Compose never creates or destroys an isolated network.
+    # This network already exists on the VPS and includes expenso-db-1.
+    # external: true prevents Compose from creating a separate isolated network.
     external: true

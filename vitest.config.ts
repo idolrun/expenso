@@ -20,6 +20,10 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: "@/app/generated/prisma",
+        replacement: `${path.resolve(__dirname, "src/generated/prisma/client")}`,
+      },
+      {
         find: /^@\/generated\//,
         replacement: `${path.resolve(__dirname, "src/generated")}/`,
       },

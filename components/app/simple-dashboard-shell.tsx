@@ -38,6 +38,7 @@ import {
 const mainLinks = [
   { href: "/dashboard", label: "Dashboard", icon: SquaresFourIcon },
   { href: "/dashboard/expenses", label: "All expenses", icon: ReceiptIcon },
+  { href: "/dashboard/funds", label: "Funds", icon: MoneyIcon },
 ] as const;
 
 const sectionIconMap: Record<ExpenseSectionId, React.ComponentType<{ className?: string }>> = {
@@ -82,7 +83,7 @@ function NavItems({
           </Link>
         );
       })}
-      <p className="nav-group-label px-3 pt-3 pb-1 text-xs uppercase">
+      <p className="font-semibold text-muted-foreground px-3 pt-3 pb-1 text-xs uppercase">
         Sections
       </p>
       {EXPENSE_SECTION_NAV.map((s) => {
@@ -106,7 +107,7 @@ function NavItems({
           </Link>
         );
       })}
-      <p className="nav-group-label px-3 pt-4 pb-1 text-xs uppercase">Tools</p>
+      <p className="font-semibold text-muted-foreground px-3 pt-4 pb-1 text-xs uppercase">Tools</p>
       <Link
         href="/dashboard/credentials"
         onClick={onNavigate}
@@ -128,9 +129,9 @@ function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
     <>
-      <p className="nav-group-label px-3 pt-4 pb-1 text-xs uppercase">
+      {/* <p className="nav-group-label px-3 pt-4 pb-1 text-xs uppercase">
         Admin
-      </p>
+      </p> */}
       <Link
         href="/dashboard/admin/audit"
         onClick={onNavigate}
