@@ -8,7 +8,7 @@ import { CredentialCopyButton } from "@/components/credentials/credential-copy-b
 import { CredentialPasswordField } from "@/components/credentials/credential-password-field";
 import { cn } from "@/lib/utils";
 import { useCredentialList } from "@/src/features/credentials/hooks/use-credential-list";
-import { KeyIcon, ArrowRightIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon } from "@phosphor-icons/react";
 
 type CredentialVaultWidgetProps = {
   className?: string;
@@ -26,10 +26,7 @@ export function CredentialVaultWidget({
     <Card className={cn(className)}>
       <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
         <div className="space-y-1">
-          <CardTitle className="text-base flex items-center gap-2">
-            <KeyIcon className="size-4" />
-            Credential Vault
-          </CardTitle>
+          <CardTitle className="text-base">Credential Vault</CardTitle>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-muted px-1.5 text-xs font-medium tabular-nums">

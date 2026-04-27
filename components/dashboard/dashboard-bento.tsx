@@ -34,6 +34,7 @@ import {
   TotalSpendSparkline,
 } from "@/components/dashboard/dashboard-charts";
 import { CredentialVaultWidget } from "@/components/credentials/credential-vault-widget";
+import { AddFundButton } from "@/components/funds/fund-add-dialog";
 import { FundVaultWidget } from "@/components/funds/fund-vault-widget";
 
 const ACTIVITY_BADGE_TONES: Record<string, string> = {
@@ -319,6 +320,7 @@ export function DashboardBento({
             onChange={setDisplayCurrency}
             className="sm:hidden"
           />
+          <AddFundButton size="sm" />
           <Link
             href="/dashboard/expenses/new"
             className={cn(
@@ -498,6 +500,11 @@ export function DashboardBento({
           </CardContent>
         </Card>
 
+        <FundVaultWidget className="md:col-span-3" />
+
+        {/* Credential Vault */}
+        <CredentialVaultWidget className="md:col-span-3" />
+
         {/* Status mix */}
         <Card className="md:col-span-3">
           <CardHeader className="pb-2">
@@ -513,11 +520,6 @@ export function DashboardBento({
             />
           </CardContent>
         </Card>
-
-        <FundVaultWidget className="md:col-span-3" />
-
-        {/* Credential Vault */}
-        <CredentialVaultWidget className="md:col-span-3" />
 
         {/* Last transactions */}
         <Card className="md:col-span-3">

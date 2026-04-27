@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FundSourceBadge } from "@/components/funds/fund-source-badge";
-import { AddFundButton } from "@/components/funds/fund-add-dialog";
 
 export function FundVaultWidget({ className }: { className?: string }) {
   const { summary, isLoading, error } = useFundSummary();
@@ -20,9 +19,7 @@ export function FundVaultWidget({ className }: { className?: string }) {
     <Card className={cn("flex flex-col", className)}>
       <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
         <div className="flex items-center gap-2">
-          <CardTitle className="text-base font-semibold">
-            💰 Fund Tracker
-          </CardTitle>
+          <CardTitle className="text-base font-semibold">Fund Tracker</CardTitle>
         </div>
         <div className="flex items-center gap-2">
           {!isLoading && summary ? (
@@ -108,9 +105,6 @@ export function FundVaultWidget({ className }: { className?: string }) {
               </div>
             )}
 
-            <div className="mt-2 flex justify-center">
-              <AddFundButton />
-            </div>
           </div>
         ) : null}
       </CardContent>

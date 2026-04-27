@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentProps } from "react";
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
 import { Controller, useForm } from "react-hook-form";
@@ -260,12 +261,14 @@ export function FundAddDialog({
   );
 }
 
-export function AddFundButton() {
+type AddFundButtonProps = Omit<ComponentProps<typeof Button>, "onClick">;
+
+export function AddFundButton(props: AddFundButtonProps) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
+      <Button onClick={() => setOpen(true)} {...props}>
         <PlusIcon data-icon="inline-start" />
         Add Fund
       </Button>
