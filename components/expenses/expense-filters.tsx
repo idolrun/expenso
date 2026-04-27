@@ -13,7 +13,11 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   expenseSectionValues,
@@ -24,7 +28,13 @@ import type { ListExpensesQuery } from "@/features/expenses/validation/expense";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
-const sortFields = ["createdAt", "updatedAt", "amount", "incurredOn", "title"] as const;
+const sortFields = [
+  "createdAt",
+  "updatedAt",
+  "amount",
+  "incurredOn",
+  "title",
+] as const;
 
 type TagOption = { id: string; name: string; slug: string };
 
@@ -69,7 +79,7 @@ export function ExpenseFilters({
 
   return (
     <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-        <div
+      <div
         className={cn(
           "rounded-lg border border-border px-5 py-5",
           "bg-muted/40 text-foreground",
@@ -83,7 +93,10 @@ export function ExpenseFilters({
             aria-label="Search expenses"
             value={searchInput}
             onChange={(e) => setSearch(e.target.value)}
-            className={cn("main-search min-h-9 min-w-[min(100%,12rem)] flex-2", controlSurface)}
+            className={cn(
+              "main-search min-h-9 min-w-[min(100%,12rem)] flex-2",
+              controlSurface,
+            )}
           />
           {!hideSectionFilter ? (
             <NativeSelect
@@ -112,7 +125,9 @@ export function ExpenseFilters({
             value={query.status ?? ""}
             onChange={(e) =>
               setQuery({
-                status: e.target.value ? (e.target.value as ListExpensesQuery["status"]) : undefined,
+                status: e.target.value
+                  ? (e.target.value as ListExpensesQuery["status"])
+                  : undefined,
               })
             }
           >
@@ -129,7 +144,9 @@ export function ExpenseFilters({
               className="min-w-0 flex-1"
               value={query.sortField}
               onChange={(e) =>
-                setQuery({ sortField: e.target.value as ListExpensesQuery["sortField"] })
+                setQuery({
+                  sortField: e.target.value as ListExpensesQuery["sortField"],
+                })
               }
             >
               {sortFields.map((f) => (
@@ -203,7 +220,9 @@ export function ExpenseFilters({
                 placeholder="Min Amount"
                 aria-label="Minimum amount"
                 value={query.amountMin ?? ""}
-                onChange={(e) => setQuery({ amountMin: e.target.value || undefined })}
+                onChange={(e) =>
+                  setQuery({ amountMin: e.target.value || undefined })
+                }
                 className={cn("min-h-9 min-w-0 flex-1", controlSurface)}
               />
               <Input
@@ -212,7 +231,9 @@ export function ExpenseFilters({
                 placeholder="Max Amount"
                 aria-label="Maximum amount"
                 value={query.amountMax ?? ""}
-                onChange={(e) => setQuery({ amountMax: e.target.value || undefined })}
+                onChange={(e) =>
+                  setQuery({ amountMax: e.target.value || undefined })
+                }
                 className={cn("min-h-9 min-w-0 flex-1", controlSurface)}
               />
             </div>
@@ -236,7 +257,10 @@ export function ExpenseFilters({
                   setCreatedByDraft(query.createdById ?? "");
                 }
               }}
-              className={cn("min-h-9 min-w-[min(100%,16rem)] flex-1", controlSurface)}
+              className={cn(
+                "min-h-9 min-w-[min(100%,16rem)] flex-1",
+                controlSurface,
+              )}
             />
             <Input
               id="ub"
@@ -258,7 +282,10 @@ export function ExpenseFilters({
                   setUpdatedByDraft(query.updatedById ?? "");
                 }
               }}
-              className={cn("min-h-9 min-w-[min(100%,16rem)] flex-1", controlSurface)}
+              className={cn(
+                "min-h-9 min-w-[min(100%,16rem)] flex-1",
+                controlSurface,
+              )}
             />
             <Popover>
               <PopoverTrigger asChild>
@@ -270,14 +297,18 @@ export function ExpenseFilters({
                     controlSurface,
                   )}
                 >
-                  {query.tagIds.length ? `${query.tagIds.length} selected` : "Select tags"}
+                  {query.tagIds.length
+                    ? `${query.tagIds.length} selected`
+                    : "Select tags"}
                   <CaretDownIcon className="size-4 opacity-70" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-72 p-2" align="start">
                 <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
                   {tags.length === 0 ? (
-                    <p className="text-muted-foreground px-2 py-3 text-sm">No tags.</p>
+                    <p className="text-muted-foreground px-2 py-3 text-sm">
+                      No tags.
+                    </p>
                   ) : (
                     tags.map((t) => (
                       <label

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon, FunnelIcon, TrashIcon } from "@phosphor-icons/react";
 
@@ -45,6 +45,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { FundExportButton } from "@/src/features/funds/components/FundExportButton";
+import type { FundExportRow } from "@/src/features/funds/types/export.types";
 
 interface FundListClientProps {
   initialData: { entries: FundEntryRecord[]; total: number };
@@ -62,6 +64,47 @@ const SOURCE_OPTIONS: Record<string, string> = {
   OTHER: "Other",
 };
 
+const fundExportColumns: (keyof FundExportRow)[] = [
+  "date",
+  "source",
+  "note",
+  "addedBy",
+  "amount",
+  "currency",
+];
+
+const fundPageSize = 20;
+
+function getFundActiveFilters({
+  amountMax,
+  amountMin,
+  createdById,
+  currency,
+  dateFrom,
+  dateTo,
+  source,
+}: {
+  amountMax: string;
+  amountMin: string;
+  createdById: string;
+  currency: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+  source: string;
+}): Record<string, string> {
+  const filters: Record<string, string> = {};
+
+  if (amountMin.trim()) filters.amountMin = amountMin.trim();
+  if (amountMax.trim()) filters.amountMax = amountMax.trim();
+  if (createdById !== "ALL") filters.createdById = createdById;
+  if (source !== "ALL") filters.source = source;
+  if (currency !== "ALL") filters.currency = currency;
+  if (dateFrom) filters.dateFrom = dateFrom.toISOString();
+  if (dateTo) filters.dateTo = dateTo.toISOString();
+
+  return filters;
+}
+
 export function FundListClient({ initialData }: FundListClientProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [amountMin, setAmountMin] = useState<string>("");
@@ -71,6 +114,7 @@ export function FundListClient({ initialData }: FundListClientProps) {
   const [currency, setCurrency] = useState<string>("ALL");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [page, setPage] = useState(1);
   const [fromMonth, setFromMonth] = useState<number>(new Date().getMonth());
   const [fromYear, setFromYear] = useState<number>(new Date().getFullYear());
   const [toMonth, setToMonth] = useState<number>(new Date().getMonth());
@@ -109,8 +153,15 @@ export function FundListClient({ initialData }: FundListClientProps) {
     dateFrom ||
     dateTo;
 
+  useEffect(() => {
+    setPage(1);
+  }, [amountMax, amountMin, createdById, currency, dateFrom, dateTo, source]);
+
   const filters = useMemo<Partial<FundListQueryDTO>>(() => {
-    const next: Partial<FundListQueryDTO> = {};
+    const next: Partial<FundListQueryDTO> = {
+      page,
+      limit: fundPageSize,
+    };
     if (amountMin) next.amountMin = parseFloat(amountMin);
     if (amountMax) next.amountMax = parseFloat(amountMax);
     if (createdById !== "ALL") next.createdById = createdById;
@@ -119,7 +170,7 @@ export function FundListClient({ initialData }: FundListClientProps) {
     if (dateFrom) next.dateFrom = dateFrom;
     if (dateTo) next.dateTo = dateTo;
     return next;
-  }, [amountMax, amountMin, createdById, currency, dateFrom, dateTo, source]);
+  }, [amountMax, amountMin, createdById, currency, dateFrom, dateTo, page, source]);
 
   const { entries, total, isLoading, isValidating } = useFundList(filters);
 
@@ -132,6 +183,33 @@ export function FundListClient({ initialData }: FundListClientProps) {
           entries,
           total,
         };
+
+  const activeFilters = useMemo(
+    () =>
+      getFundActiveFilters({
+        amountMax,
+        amountMin,
+        createdById,
+        currency,
+        dateFrom,
+        dateTo,
+        source,
+      }),
+    [amountMax, amountMin, createdById, currency, dateFrom, dateTo, source],
+  );
+
+  const exportRows = useMemo<FundExportRow[]>(
+    () =>
+      displayData.entries.map((entry) => ({
+        date: format(new Date(entry.receivedAt), "MMM d, yyyy"),
+        source: SOURCE_OPTIONS[entry.source] ?? entry.source,
+        note: entry.note ?? "",
+        addedBy: entry.createdBy.name ?? entry.createdBy.email,
+        amount: entry.amount,
+        currency: entry.currency,
+      })),
+    [displayData.entries],
+  );
 
   return (
     <div className="space-y-6">
@@ -392,6 +470,37 @@ export function FundListClient({ initialData }: FundListClientProps) {
           </div>
         ) : (
           <>
+            <div className="text-muted-foreground mb-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span>
+                Page {page} · {displayData.entries.length} of {displayData.total} results
+              </span>
+              <div className="flex gap-2">
+                <FundExportButton
+                  rows={exportRows}
+                  activeFilters={activeFilters}
+                  allColumns={fundExportColumns}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={page * fundPageSize >= displayData.total}
+                  onClick={() => setPage((currentPage) => currentPage + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+
             {/* DESKTOP TABLE */}
             <div className="hidden sm:block overflow-x-auto rounded-lg border">
               <TooltipProvider>
@@ -466,13 +575,6 @@ export function FundListClient({ initialData }: FundListClientProps) {
                 <FundEntryCard key={entry.id} entry={entry} />
               ))}
             </div>
-            {/* Pagination hint */}
-            {displayData.total > ((filters.limit as number) || 20) && (
-              <div className="mt-4 pt-4 border-t text-center text-sm text-muted-foreground">
-                Showing initial {displayData.entries.length} out of{" "}
-                {displayData.total} entries.
-              </div>
-            )}
           </>
         )}
       </div>

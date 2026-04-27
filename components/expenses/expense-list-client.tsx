@@ -34,12 +34,24 @@ import {
 } from "@/components/ui/table";
 import type { ExpenseDto } from "@/features/expenses/domain/dto";
 import type { ListExpensesQuery } from "@/features/expenses/validation/expense";
+import { ExportButton } from "@/src/features/expenses/components/ExportButton";
 import { useExpenseList } from "@/src/features/expenses/hooks/use-expense-list";
+import type { ExportRow } from "@/src/features/expenses/types/export.types";
 import { useDisplayCurrency } from "@/src/features/display-currency/display-currency-context";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { sectionLabel, type ExpenseSectionId } from "@/src/lib/expense-sections";
 
 type TagOption = { id: string; name: string; slug: string };
+
+const expenseExportColumns: (keyof ExportRow)[] = [
+  "title",
+  "date",
+  "amount",
+  "currency",
+  "status",
+  "category",
+  "section",
+];
 
 /**
  * Pick the best amount to display for `displayCurrency`.
@@ -85,6 +97,26 @@ function AmountCell({ expense }: { expense: ExpenseDto }) {
   );
 }
 
+function getActiveFilters(
+  query: ListExpensesQuery,
+  lockedSection?: ExpenseSectionId,
+): Record<string, string> {
+  const filters: Record<string, string> = {};
+
+  if (!lockedSection && query.section) filters.section = query.section;
+  if (query.status) filters.status = query.status;
+  if (query.tagIds.length > 0) filters.tagIds = query.tagIds.join(",");
+  if (query.amountMin?.trim()) filters.amountMin = query.amountMin.trim();
+  if (query.amountMax?.trim()) filters.amountMax = query.amountMax.trim();
+  if (query.incurredOnFrom) filters.incurredOnFrom = query.incurredOnFrom;
+  if (query.incurredOnTo) filters.incurredOnTo = query.incurredOnTo;
+  if (query.createdById !== undefined) filters.createdById = String(query.createdById);
+  if (query.updatedById !== undefined) filters.updatedById = String(query.updatedById);
+  if (query.search?.trim()) filters.search = query.search.trim();
+
+  return filters;
+}
+
 export function ExpenseListClient({
   tags,
   initialQuery,
@@ -123,6 +155,30 @@ export function ExpenseListClient({
     syncUrl: true,
     initialQuery: mergedInitialQuery,
   });
+  const { displayCurrency } = useDisplayCurrency();
+
+  const exportRows = useMemo<ExportRow[]>(
+    () =>
+      data?.items.map((expense) => {
+        const { amount, currency } = resolveDisplayAmount(expense, displayCurrency);
+
+        return {
+          title: expense.title,
+          date: expense.incurredOn,
+          amount,
+          currency,
+          status: expense.status,
+          category: expense.category?.name ?? "",
+          section: expense.section,
+        };
+      }) ?? [],
+    [data?.items, displayCurrency],
+  );
+
+  const activeFilters = useMemo(
+    () => getActiveFilters(query, section),
+    [query, section],
+  );
 
   return (
     <div className="space-y-6">
@@ -192,6 +248,12 @@ export function ExpenseListClient({
               Page {data.page} · {data.items.length} of {data.total} results
             </span>
             <div className="flex gap-2">
+              <ExportButton
+                rows={exportRows}
+                section={section ?? query.section ?? "all"}
+                activeFilters={activeFilters}
+                allColumns={expenseExportColumns}
+              />
               <Button
                 type="button"
                 variant="outline"
