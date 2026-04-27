@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon, FunnelIcon, TrashIcon } from "@phosphor-icons/react";
 
@@ -142,6 +142,7 @@ export function FundListClient({ initialData }: FundListClientProps) {
     setCurrency("ALL");
     setDateFrom(undefined);
     setDateTo(undefined);
+    setPage(1);
   };
 
   const hasFilters =
@@ -152,10 +153,6 @@ export function FundListClient({ initialData }: FundListClientProps) {
     currency !== "ALL" ||
     dateFrom ||
     dateTo;
-
-  useEffect(() => {
-    setPage(1);
-  }, [amountMax, amountMin, createdById, currency, dateFrom, dateTo, source]);
 
   const filters = useMemo<Partial<FundListQueryDTO>>(() => {
     const next: Partial<FundListQueryDTO> = {
@@ -223,7 +220,13 @@ export function FundListClient({ initialData }: FundListClientProps) {
       >
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-3">
-          <Select value={source} onValueChange={setSource}>
+          <Select
+            value={source}
+            onValueChange={(value) => {
+              setSource(value);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Source Type" />
             </SelectTrigger>
@@ -236,7 +239,13 @@ export function FundListClient({ initialData }: FundListClientProps) {
             </SelectContent>
           </Select>
 
-          <Select value={currency} onValueChange={setCurrency}>
+          <Select
+            value={currency}
+            onValueChange={(value) => {
+              setCurrency(value);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-full sm:w-32">
               <SelectValue placeholder="Currency" />
             </SelectTrigger>
@@ -307,7 +316,10 @@ export function FundListClient({ initialData }: FundListClientProps) {
                     setFromYear(date.getFullYear());
                   }}
                   selected={dateFrom}
-                  onSelect={setDateFrom}
+                  onSelect={(date) => {
+                    setDateFrom(date);
+                    setPage(1);
+                  }}
                   initialFocus
                 />
               </div>
@@ -374,7 +386,10 @@ export function FundListClient({ initialData }: FundListClientProps) {
                     setToYear(date.getFullYear());
                   }}
                   selected={dateTo}
-                  onSelect={setDateTo}
+                  onSelect={(date) => {
+                    setDateTo(date);
+                    setPage(1);
+                  }}
                   initialFocus
                 />
               </div>
@@ -406,18 +421,30 @@ export function FundListClient({ initialData }: FundListClientProps) {
                 placeholder="Min Amount"
                 type="number"
                 value={amountMin}
-                onChange={(e) => setAmountMin(e.target.value)}
+                onChange={(e) => {
+                  setAmountMin(e.target.value);
+                  setPage(1);
+                }}
                 className="min-w-0 flex-1 sm:w-32 sm:flex-none"
               />
               <Input
                 placeholder="Max Amount"
                 type="number"
                 value={amountMax}
-                onChange={(e) => setAmountMax(e.target.value)}
+                onChange={(e) => {
+                  setAmountMax(e.target.value);
+                  setPage(1);
+                }}
                 className="min-w-0 flex-1 sm:w-32 sm:flex-none"
               />
             </div>
-            <Select value={createdById} onValueChange={setCreatedById}>
+            <Select
+              value={createdById}
+              onValueChange={(value) => {
+                setCreatedById(value);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-full sm:w-56">
                 <SelectValue placeholder="Added By" />
               </SelectTrigger>

@@ -22,6 +22,18 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Expenso",
   description: "Expense management for your organization",
+  openGraph: {
+    title: "Expenso",
+    description: "Expense management for your organization",
+    images: [
+      {
+        url: "/expenso-og.png",
+        width: 1024,
+        height: 1024,
+        alt: "Expenso",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({
