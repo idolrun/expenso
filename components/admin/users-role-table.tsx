@@ -24,11 +24,11 @@ type RoleValue = "USER" | "ADMIN";
 export function UsersRoleTable({
   users,
   currentUserId,
-  currentUserRole,
+  canManageRoles,
 }: {
   users: UserSummaryDto[];
   currentUserId: string;
-  currentUserRole: string;
+  canManageRoles: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -58,7 +58,9 @@ export function UsersRoleTable({
           <TableRow>
             <TableHead>Email</TableHead>
             <TableHead>Name</TableHead>
-            <TableHead className="w-[200px]">Role</TableHead>
+            {canManageRoles ? (
+              <TableHead className="w-[200px]">Role</TableHead>
+            ) : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -71,25 +73,30 @@ export function UsersRoleTable({
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {u.name ?? "—"}
-                </TableCell>
-                <TableCell>
-                  <NativeSelect
-                    className="w-full min-w-0"
-                    disabled={pending || currentUserRole !== "ADMIN"}
-                    value={u.role}
-                    onChange={(e) =>
-                      onRoleChange(u.id, e.target.value as RoleValue, previous)
-                    }
-                  >
-                    <NativeSelectOption value="USER">USER</NativeSelectOption>
-                    <NativeSelectOption value="ADMIN">ADMIN</NativeSelectOption>
-                  </NativeSelect>
-                  {u.id === currentUserId ? (
-                    <p className="text-muted-foreground mt-1 text-[11px]">
-                      This is you
-                    </p>
+                  {!canManageRoles && u.id === currentUserId ? (
+                    <p className="mt-1 text-[11px]">This is you</p>
                   ) : null}
                 </TableCell>
+                {canManageRoles ? (
+                  <TableCell>
+                    <NativeSelect
+                      className="w-full min-w-0"
+                      disabled={pending}
+                      value={u.role}
+                      onChange={(e) =>
+                        onRoleChange(u.id, e.target.value as RoleValue, previous)
+                      }
+                    >
+                      <NativeSelectOption value="USER">USER</NativeSelectOption>
+                      <NativeSelectOption value="ADMIN">ADMIN</NativeSelectOption>
+                    </NativeSelect>
+                    {u.id === currentUserId ? (
+                      <p className="text-muted-foreground mt-1 text-[11px]">
+                        This is you
+                      </p>
+                    ) : null}
+                  </TableCell>
+                ) : null}
               </TableRow>
             );
           })}

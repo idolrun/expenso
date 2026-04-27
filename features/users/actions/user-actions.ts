@@ -1,7 +1,5 @@
 "use server";
 
-import { UserRole } from "@/generated/prisma/client";
-
 import { sessionToUserId } from "@/lib/auth/actor";
 import { getSession, parseUserRole } from "@/lib/auth/session";
 import type { ServiceResult } from "@/features/expenses/domain/dto";
@@ -29,7 +27,8 @@ export async function listUsersAction(): Promise<
   if (!auth.ok) {
     return { ok: false, error: auth.error };
   }
-  return adminListUsers();
+  const role = parseUserRole(auth.session.user.role);
+  return adminListUsers(role);
 }
 
 export async function updateUserRoleAction(

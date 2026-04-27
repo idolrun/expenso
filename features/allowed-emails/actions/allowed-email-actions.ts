@@ -13,7 +13,7 @@ import {
   deleteAllowedEmail,
 } from "@/features/allowed-emails/application/allowed-email.service";
 
-async function requireAdmin() {
+async function requireSessionUser() {
   const session = await getSession();
   if (!session) {
     return {
@@ -21,20 +21,43 @@ async function requireAdmin() {
       error: { code: "UNAUTHORIZED", message: "Sign in required" },
     };
   }
-  const role = parseUserRole(session.user.role);
+  return { ok: true as const, session, userId: sessionToUserId(session) };
+}
+
+async function requireAdmin() {
+  const auth = await requireSessionUser();
+  if (!auth.ok) {
+    return auth;
+  }
+  const role = parseUserRole(auth.session.user.role);
   if (role !== UserRole.ADMIN) {
     return {
       ok: false as const,
       error: { code: "FORBIDDEN", message: "Admin only" },
     };
   }
-  return { ok: true as const, session, userId: sessionToUserId(session) };
+  return auth;
+}
+
+async function requireAllowedEmailCreator() {
+  const auth = await requireSessionUser();
+  if (!auth.ok) {
+    return auth;
+  }
+  const role = parseUserRole(auth.session.user.role);
+  if (role !== UserRole.ADMIN && role !== UserRole.USER) {
+    return {
+      ok: false as const,
+      error: { code: "FORBIDDEN", message: "Insufficient permissions" },
+    };
+  }
+  return auth;
 }
 
 export async function listAllowedEmailsAction(): Promise<
   ServiceResult<AllowedEmailDto[]>
 > {
-  const auth = await requireAdmin();
+  const auth = await requireSessionUser();
   if (!auth.ok) {
     return { ok: false, error: auth.error };
   }
@@ -44,7 +67,7 @@ export async function listAllowedEmailsAction(): Promise<
 export async function createAllowedEmailAction(
   raw: unknown,
 ): Promise<ServiceResult<AllowedEmailDto>> {
-  const auth = await requireAdmin();
+  const auth = await requireAllowedEmailCreator();
   if (!auth.ok) {
     return { ok: false, error: auth.error };
   }
@@ -68,5 +91,5 @@ export async function deleteAllowedEmailAction(
   if (!auth.ok) {
     return { ok: false, error: auth.error };
   }
-  return deleteAllowedEmail(raw);
+  return deleteAllowedEmail(auth.userId, raw);
 }

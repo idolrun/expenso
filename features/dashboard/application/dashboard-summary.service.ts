@@ -245,7 +245,10 @@ export async function getDashboardSummary(): Promise<
         expenseId: r.expenseId,
         expenseTitle: r.expense.title,
         section: r.expense.section,
+        batchId: r.batchId,
         fieldKey: r.fieldKey,
+        oldValue: r.oldValue ?? null,
+        newValue: r.newValue ?? null,
         changedById: r.changedById,
         changedByLabel: userLabel(r.changedBy, r.changedById) ?? undefined,
       })),
@@ -258,6 +261,7 @@ export async function getDashboardSummary(): Promise<
         entityId: r.entityId,
         actorId: r.actorId,
         actorLabel: userLabel(r.actor, r.actorId),
+        metadata: r.metadata ?? null,
       })),
     ];
 

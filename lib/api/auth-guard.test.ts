@@ -29,7 +29,7 @@ describe("requireExpenseReader", () => {
 });
 
 describe("requireAuditReader", () => {
-  it("allows non-admin USER", async () => {
+  it("allows authenticated USER", async () => {
     vi.mocked(getSession).mockResolvedValueOnce({
       user: { id: "00000000-0000-4000-8000-000000000001", role: "USER" },
       session: {},

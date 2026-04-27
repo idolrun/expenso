@@ -50,7 +50,11 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-export function AllowedEmailsTable() {
+export function AllowedEmailsTable({
+  canManageEntries,
+}: {
+  canManageEntries: boolean;
+}) {
   const router = useRouter();
   const [emails, setEmails] = useState<AllowedEmailDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -248,7 +252,9 @@ export function AllowedEmailsTable() {
                 <TableHead>Email</TableHead>
                 <TableHead>Note</TableHead>
                 <TableHead className="w-[100px]">Active</TableHead>
-                <TableHead className="w-[120px] text-right">Actions</TableHead>
+                {canManageEntries ? (
+                  <TableHead className="w-[120px] text-right">Actions</TableHead>
+                ) : null}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -271,27 +277,29 @@ export function AllowedEmailsTable() {
                       {item.isActive ? "Active" : "Inactive"}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="inline-flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => setEditItem(item)}
-                      >
-                        <PencilSimple className="size-4" />
-                        <span className="sr-only">Edit</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => setDeleteItem(item)}
-                      >
-                        <Trash className="size-4" />
-                        <span className="sr-only">Delete</span>
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {canManageEntries ? (
+                    <TableCell className="text-right">
+                      <div className="inline-flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => setEditItem(item)}
+                        >
+                          <PencilSimple className="size-4" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setDeleteItem(item)}
+                        >
+                          <Trash className="size-4" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  ) : null}
                 </TableRow>
               ))}
             </TableBody>

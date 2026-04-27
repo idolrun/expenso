@@ -9,7 +9,7 @@ export async function GET() {
     return auth.response;
   }
 
-  const result = await adminListUsers();
+  const result = await adminListUsers(auth.role);
   if (!result.ok) {
     return NextResponse.json(
       { ok: false, error: result.error },

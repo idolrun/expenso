@@ -5,6 +5,27 @@ import { prisma } from "@/lib/prisma";
 import { serializeAuditLogRow } from "@/features/expenses/domain/serialize";
 import type { Prisma } from "@/generated/prisma/client";
 
+function formatAuditMetadataValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function formatFundEntryLabel(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const data = metadata as Record<string, unknown>;
+  const amount = formatAuditMetadataValue(data.amount);
+  const currency = formatAuditMetadataValue(data.currency);
+  const source = formatAuditMetadataValue(data.source)
+    ?.toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+  if (amount && currency) {
+    return source ? `${amount} ${currency} from ${source}` : `${amount} ${currency}`;
+  }
+  return source ? `Fund entry from ${source}` : null;
+}
+
 export async function listAuditLogs(
   query: AuditLogQuery,
 ): Promise<ServiceResult<PaginatedDto<AuditLogEntryDto>>> {
@@ -29,10 +50,35 @@ export async function listAuditLogs(
       }),
     ]);
 
+    const expenseIds = rows
+      .filter((row) => row.entityType === "Expense")
+      .map((row) => row.entityId);
+    const expenses = expenseIds.length
+      ? await prisma.expense.findMany({
+          where: { id: { in: expenseIds } },
+          select: { id: true, title: true },
+        })
+      : [];
+    const expenseTitleById = new Map(
+      expenses.map((expense) => [expense.id, expense.title]),
+    );
+
+    const items = rows.map((row) =>
+      serializeAuditLogRow({
+        ...row,
+        entityLabel:
+          row.entityType === "Expense"
+            ? expenseTitleById.get(row.entityId)
+            : row.entityType === "FundEntry"
+              ? formatFundEntryLabel(row.metadata)
+              : null,
+      }),
+    );
+
     return {
       ok: true,
       data: {
-        items: rows.map(serializeAuditLogRow),
+        items,
         total,
         page: query.page,
         pageSize: query.pageSize,

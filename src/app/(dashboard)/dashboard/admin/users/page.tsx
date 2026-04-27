@@ -7,7 +7,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { UserRole } from "@/generated/prisma/client";
 
 export default async function AdminUsersPage() {
-  const { session } = await requireRole([UserRole.ADMIN, UserRole.USER]);
+  const { session, role } = await requireRole([UserRole.ADMIN, UserRole.USER]);
   const res = await listUsersAction();
 
   if (!res.ok) {
@@ -27,17 +27,17 @@ export default async function AdminUsersPage() {
             Users & roles
           </h1>
           <p className="text-muted-foreground text-sm">
-            Application roles are enforced server-side; this UI is admin-only.
+            View team access and manage the magic-link allowlist. Role changes are admin-only.
           </p>
         </div>
         <UsersRoleTable
           users={res.data}
           currentUserId={sessionToUserId(session)}
-          currentUserRole={session.user.role ?? "USER"}
+          canManageRoles={role === UserRole.ADMIN}
         />
       </div>
 
-      <AllowedEmailsTable />
+      <AllowedEmailsTable canManageEntries={role === UserRole.ADMIN} />
     </div>
   );
 }

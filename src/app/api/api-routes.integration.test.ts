@@ -136,11 +136,11 @@ describe("GET /api/audit-log", () => {
     vi.mocked(listAuditLogs).mockReset();
   });
 
-  it("returns 403 for non-admin before validation", async () => {
+  it("returns 400 for invalid query when authenticated user", async () => {
     vi.mocked(getSession).mockResolvedValueOnce(sessionUser("USER"));
     const req = new NextRequest("http://localhost/api/audit-log?page=not-a-number");
     const res = await getAuditLog(req);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(400);
     expect(listAuditLogs).not.toHaveBeenCalled();
   });
 
@@ -154,6 +154,18 @@ describe("GET /api/audit-log", () => {
 
   it("returns 200 when admin and query is valid", async () => {
     vi.mocked(getSession).mockResolvedValueOnce(sessionUser("ADMIN"));
+    vi.mocked(listAuditLogs).mockResolvedValueOnce({
+      ok: true,
+      data: { items: [], total: 0, page: 1, pageSize: 20 },
+    });
+    const req = new NextRequest("http://localhost/api/audit-log");
+    const res = await getAuditLog(req);
+    expect(res.status).toBe(200);
+    expect(listAuditLogs).toHaveBeenCalled();
+  });
+
+  it("returns 200 when user and query is valid", async () => {
+    vi.mocked(getSession).mockResolvedValueOnce(sessionUser("USER"));
     vi.mocked(listAuditLogs).mockResolvedValueOnce({
       ok: true,
       data: { items: [], total: 0, page: 1, pageSize: 20 },

@@ -84,6 +84,7 @@ export function CredentialVaultWidget({
                     <CredentialPasswordField
                       password={entry.password}
                       showCopy
+                      defaultVisible
                     />
                   ) : (
                     <span className="text-muted-foreground text-xs">—</span>

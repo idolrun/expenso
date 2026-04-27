@@ -6,9 +6,13 @@ import { userRepository } from "@/features/users/infrastructure/user.repository"
 import { updateUserRoleSchema } from "@/features/users/validation/role";
 import { prisma } from "@/lib/prisma";
 
-export async function adminListUsers(): Promise<ServiceResult<UserSummaryDto[]>> {
+export async function adminListUsers(
+  actorRole: UserRole,
+): Promise<ServiceResult<UserSummaryDto[]>> {
   try {
-    const rows = await userRepository.listSummaries(prisma);
+    const rows = await userRepository.listSummaries(prisma, {
+      includeAdmins: actorRole === UserRole.ADMIN,
+    });
     return { ok: true, data: rows };
   } catch (e) {
     const message = e instanceof Error ? e.message : "User list failed";

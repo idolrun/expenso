@@ -1,5 +1,8 @@
+import { AuditAction } from "@/generated/prisma/client";
+
 import type { ServiceResult } from "@/features/expenses/domain/dto";
 import type { AllowedEmailDto } from "@/features/allowed-emails/domain/allowed-email";
+import { auditLogRepository } from "@/features/audit/infrastructure/audit-log.repository";
 import { allowedEmailRepository } from "@/features/allowed-emails/infrastructure/allowed-email.repository";
 import {
   createAllowedEmailSchema,
@@ -68,11 +71,21 @@ export async function createAllowedEmail(
       };
     }
 
-    const row = await allowedEmailRepository.create(prisma, {
-      email,
-      note: note || null,
-      isActive,
-      createdById: actorUserId,
+    const row = await prisma.$transaction(async (tx) => {
+      const created = await allowedEmailRepository.create(tx, {
+        email,
+        note: note || null,
+        isActive,
+        createdById: actorUserId,
+      });
+      await auditLogRepository.create(tx, {
+        action: AuditAction.ALLOWED_EMAIL_CREATED,
+        entityType: "AllowedEmail",
+        entityId: created.id,
+        actor: { connect: { id: actorUserId } },
+        metadata: { email: created.email, isActive: created.isActive },
+      });
+      return created;
     });
     return { ok: true, data: toDto(row) };
   } catch (e) {
@@ -117,11 +130,25 @@ export async function updateAllowedEmail(
       }
     }
 
-    const row = await allowedEmailRepository.update(prisma, id, {
-      email,
-      note: note || null,
-      isActive,
-      updatedById: actorUserId,
+    const row = await prisma.$transaction(async (tx) => {
+      const updated = await allowedEmailRepository.update(tx, id, {
+        email,
+        note: note || null,
+        isActive,
+        updatedById: actorUserId,
+      });
+      await auditLogRepository.create(tx, {
+        action: AuditAction.ALLOWED_EMAIL_UPDATED,
+        entityType: "AllowedEmail",
+        entityId: updated.id,
+        actor: { connect: { id: actorUserId } },
+        metadata: {
+          previousEmail: existing.email,
+          email: updated.email,
+          isActive: updated.isActive,
+        },
+      });
+      return updated;
     });
     return { ok: true, data: toDto(row) };
   } catch (e) {
@@ -131,6 +158,7 @@ export async function updateAllowedEmail(
 }
 
 export async function deleteAllowedEmail(
+  actorUserId: string,
   raw: unknown,
 ): Promise<ServiceResult<{ id: string }>> {
   const parsed = deleteAllowedEmailSchema.safeParse(raw);
@@ -147,7 +175,24 @@ export async function deleteAllowedEmail(
   const { id } = parsed.data;
 
   try {
-    await allowedEmailRepository.delete(prisma, id);
+    const existing = await allowedEmailRepository.getById(prisma, id);
+    if (!existing) {
+      return {
+        ok: false,
+        error: { code: "NOT_FOUND", message: "Allowed email not found." },
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await allowedEmailRepository.delete(tx, id);
+      await auditLogRepository.create(tx, {
+        action: AuditAction.ALLOWED_EMAIL_DELETED,
+        entityType: "AllowedEmail",
+        entityId: id,
+        actor: { connect: { id: actorUserId } },
+        metadata: { email: existing.email, wasActive: existing.isActive },
+      });
+    });
     return { ok: true, data: { id } };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to delete allowed email";

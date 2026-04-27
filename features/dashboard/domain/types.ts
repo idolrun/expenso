@@ -10,7 +10,10 @@ export type DashboardActivityItemDto =
       expenseId: string;
       expenseTitle: string;
       section: ExpenseSection;
+      batchId: string | null;
       fieldKey: string;
+      oldValue: unknown;
+      newValue: unknown;
       changedById: string;
       changedByLabel?: string;
     }
@@ -23,6 +26,7 @@ export type DashboardActivityItemDto =
       entityId: string;
       actorId: string | null;
       actorLabel?: string | null;
+      metadata?: unknown;
     };
 
 export type DashboardMonthSpendUsd = {

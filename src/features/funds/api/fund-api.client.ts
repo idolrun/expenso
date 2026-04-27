@@ -38,8 +38,12 @@ function toSearchParams(filters: Partial<FundListQueryDTO>): URLSearchParams {
     params.set("amountMin", String(filters.amountMin));
   if (filters.amountMax !== undefined)
     params.set("amountMax", String(filters.amountMax));
-  if (filters.dateFrom) params.set("dateFrom", filters.dateFrom.toISOString());
-  if (filters.dateTo) params.set("dateTo", filters.dateTo.toISOString());
+  if (filters.dateFrom) {
+    params.set("dateFrom", new Date(filters.dateFrom).toISOString());
+  }
+  if (filters.dateTo) {
+    params.set("dateTo", new Date(filters.dateTo).toISOString());
+  }
   if (filters.page !== undefined) params.set("page", String(filters.page));
   if (filters.limit !== undefined) params.set("limit", String(filters.limit));
 

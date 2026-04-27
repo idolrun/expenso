@@ -10,6 +10,7 @@ import {
   FundSource,
   CurrencyCode,
 } from "@/features/funds/domain/types";
+import type { FundListQueryDTO } from "@/features/funds/validation/fund";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 
 import { FundSourceBadge } from "@/components/funds/fund-source-badge";
@@ -29,7 +30,6 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -63,6 +63,7 @@ const SOURCE_OPTIONS: Record<string, string> = {
 };
 
 export function FundListClient({ initialData }: FundListClientProps) {
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [amountMin, setAmountMin] = useState<string>("");
   const [amountMax, setAmountMax] = useState<string>("");
   const [createdById, setCreatedById] = useState<string>("ALL");
@@ -89,25 +90,6 @@ export function FundListClient({ initialData }: FundListClientProps) {
     return Array.from(usersMap.values());
   }, [initialData]);
 
-  // Construct filters
-  const filters: Record<string, unknown> = {};
-  if (amountMin) filters.amountMin = parseFloat(amountMin);
-  if (amountMax) filters.amountMax = parseFloat(amountMax);
-  if (createdById !== "ALL") filters.createdById = createdById;
-  if (source !== "ALL") filters.source = source as FundSource;
-  if (currency !== "ALL") filters.currency = currency as CurrencyCode;
-  if (dateFrom) filters.dateFrom = dateFrom;
-  if (dateTo) filters.dateTo = dateTo;
-
-  const { entries, total, isValidating } = useFundList(filters);
-
-  // Use initial data as fallback if current hook data hasn't loaded yet
-  // SWR automatically handles keepPreviousData, but initial server render uses initialData
-  const displayData = {
-    entries: entries.length > 0 ? entries : initialData.entries,
-    total: total > 0 ? total : initialData.total,
-  };
-
   const clearFilters = () => {
     setAmountMin("");
     setAmountMax("");
@@ -127,88 +109,72 @@ export function FundListClient({ initialData }: FundListClientProps) {
     dateFrom ||
     dateTo;
 
+  const filters = useMemo<Partial<FundListQueryDTO>>(() => {
+    const next: Partial<FundListQueryDTO> = {};
+    if (amountMin) next.amountMin = parseFloat(amountMin);
+    if (amountMax) next.amountMax = parseFloat(amountMax);
+    if (createdById !== "ALL") next.createdById = createdById;
+    if (source !== "ALL") next.source = source as FundSource;
+    if (currency !== "ALL") next.currency = currency as CurrencyCode;
+    if (dateFrom) next.dateFrom = dateFrom;
+    if (dateTo) next.dateTo = dateTo;
+    return next;
+  }, [amountMax, amountMin, createdById, currency, dateFrom, dateTo, source]);
+
+  const { entries, total, isLoading, isValidating } = useFundList(filters);
+
+  // Use server data only for the initial unfiltered load. Once filters are active,
+  // an empty API result must stay empty instead of falling back to all entries.
+  const displayData =
+    isLoading && !hasFilters
+      ? initialData
+      : {
+          entries,
+          total,
+        };
+
   return (
     <div className="space-y-6">
       {/* FILTER BAR */}
-      <Card className="p-4 flex flex-col md:flex-row flex-wrap items-center gap-4 bg-muted/20">
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <Input
-            placeholder="Min Amount"
-            type="number"
-            value={amountMin}
-            onChange={(e) => setAmountMin(e.target.value)}
-            className="flex-1 md:w-28"
-          />
-          <Input
-            placeholder="Max Amount"
-            type="number"
-            value={amountMax}
-            onChange={(e) => setAmountMax(e.target.value)}
-            className="flex-1 md:w-28"
-          />
-        </div>
+      <div
+        className={cn(
+          "rounded-lg border border-border px-5 py-5",
+          "bg-muted/40 text-foreground",
+          "dark:border-zinc-800 dark:bg-zinc-950/80 dark:text-zinc-50",
+        )}
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+          <Select value={source} onValueChange={setSource}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="Source Type" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(SOURCE_OPTIONS).map(([val, label]) => (
+                <SelectItem key={val} value={val}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={createdById} onValueChange={setCreatedById}>
-          <SelectTrigger className="w-full md:w-40">
-            <SelectValue placeholder="Added By" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Users</SelectItem>
-            {uniqueUsers.map((u) => (
-              <SelectItem key={u.id} value={u.id}>
-                {u.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={currency} onValueChange={setCurrency}>
+            <SelectTrigger className="w-full sm:w-32">
+              <SelectValue placeholder="Currency" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All</SelectItem>
+              <SelectItem value="NPR">NPR</SelectItem>
+              <SelectItem value="USD">USD</SelectItem>
+            </SelectContent>
+          </Select>
 
-        <Select value={source} onValueChange={setSource}>
-          <SelectTrigger className="w-full md:w-40">
-            <SelectValue placeholder="Source Type" />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(SOURCE_OPTIONS).map(([val, label]) => (
-              <SelectItem key={val} value={val}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <div className="flex items-center gap-1 bg-background border rounded-md p-1 w-full md:w-auto">
-          <Button
-            variant={currency === "ALL" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setCurrency("ALL")}
-            className="flex-1 md:flex-none h-7 text-xs"
-          >
-            All
-          </Button>
-          <Button
-            variant={currency === "NPR" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setCurrency("NPR")}
-            className="flex-1 md:flex-none h-7 text-xs"
-          >
-            NPR
-          </Button>
-          <Button
-            variant={currency === "USD" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setCurrency("USD")}
-            className="flex-1 md:flex-none h-7 text-xs"
-          >
-            USD
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-2 w-full md:w-auto">
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
-                  "w-40 justify-start text-xs font-normal",
+                  "w-full justify-start text-xs font-normal sm:w-36",
                   !dateFrom && "text-muted-foreground",
                 )}
               >
@@ -275,7 +241,7 @@ export function FundListClient({ initialData }: FundListClientProps) {
               <Button
                 variant="outline"
                 className={cn(
-                  "w-40 justify-start text-xs font-normal",
+                  "w-full justify-start text-xs font-normal sm:w-36",
                   !dateTo && "text-muted-foreground",
                 )}
               >
@@ -336,20 +302,72 @@ export function FundListClient({ initialData }: FundListClientProps) {
               </div>
             </PopoverContent>
           </Popover>
+          <Button
+            type="button"
+            variant="secondary"
+            className="shrink-0 border border-border bg-muted px-4 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            Advanced {advancedOpen ? "−" : "+"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={clearFilters}
+          >
+            Reset filters
+          </Button>
+          </div>
 
+          {advancedOpen ? (
+            <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4 dark:border-zinc-800">
+            <div className="flex w-full items-center gap-2 sm:w-auto">
+              <Input
+                placeholder="Min Amount"
+                type="number"
+                value={amountMin}
+                onChange={(e) => setAmountMin(e.target.value)}
+                className="min-w-0 flex-1 sm:w-32 sm:flex-none"
+              />
+              <Input
+                placeholder="Max Amount"
+                type="number"
+                value={amountMax}
+                onChange={(e) => setAmountMax(e.target.value)}
+                className="min-w-0 flex-1 sm:w-32 sm:flex-none"
+              />
+            </div>
+            <Select value={createdById} onValueChange={setCreatedById}>
+              <SelectTrigger className="w-full sm:w-56">
+                <SelectValue placeholder="Added By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Users</SelectItem>
+                {uniqueUsers.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           {hasFilters && (
             <Button
               variant="ghost"
-              size="icon"
+              size="sm"
               onClick={clearFilters}
               aria-label="Clear filters"
-              className="shrink-0"
+              className="shrink-0 text-muted-foreground hover:text-foreground"
             >
-              <TrashIcon className="size-4" />
+              <TrashIcon data-icon="inline-start" />
+              Clear
             </Button>
           )}
+            </div>
+          ) : null}
         </div>
-      </Card>
+      </div>
 
       {/* LOADING OVERLAY OR NO RESULTS */}
       <div className="relative min-h-[300px]">

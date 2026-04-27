@@ -9,11 +9,13 @@ import { CredentialCopyButton } from "@/components/credentials/credential-copy-b
 export function CredentialPasswordField({
   password,
   showCopy = true,
+  defaultVisible = false,
 }: {
   password: string | null;
   showCopy?: boolean;
+  defaultVisible?: boolean;
 }) {
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(defaultVisible);
 
   if (!password) {
     return <span className="text-muted-foreground text-sm">—</span>;
@@ -32,7 +34,7 @@ export function CredentialPasswordField({
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? "Hide password" : "Show password"}
       >
-        {visible ? <EyeSlash className="size-4" /> : <Eye className="size-4" />}
+        {visible ? <EyeSlash /> : <Eye />}
       </Button>
       {showCopy && <CredentialCopyButton value={password} label="Password" />}
     </div>

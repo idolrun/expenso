@@ -96,6 +96,7 @@ export type AuditLogEntryDto = {
   action: string;
   entityType: string;
   entityId: string;
+  entityLabel?: string | null;
   actorId: string | null;
   actorLabel?: string | null;
   metadata: unknown;

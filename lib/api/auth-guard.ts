@@ -7,7 +7,6 @@ import {
   canReadCredential,
 } from "@/lib/auth/permissions";
 import { sessionToUserId } from "@/lib/auth/actor";
-import { UserRole } from "@/generated/prisma/client";
 
 export async function requireExpenseReader() {
   const session = await getSession();
@@ -160,17 +159,5 @@ export async function requireAuditReader() {
     };
   }
   const role = parseUserRole(session.user.role);
-  if (role !== UserRole.ADMIN && role !== UserRole.USER) {
-    return {
-      ok: false as const,
-      response: NextResponse.json(
-        {
-          ok: false,
-          error: { code: "FORBIDDEN", message: "Admin or User only" },
-        },
-        { status: 403 },
-      ),
-    };
-  }
   return { ok: true as const, session, role, userId: sessionToUserId(session) };
 }

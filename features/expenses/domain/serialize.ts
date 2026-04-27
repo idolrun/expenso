@@ -123,6 +123,7 @@ export function serializeAuditLogRow(row: {
   action: string;
   entityType: string;
   entityId: string;
+  entityLabel?: string | null;
   actorId: string | null;
   actor?: { name: string | null; email: string } | null;
   metadata: Prisma.JsonValue | null;
@@ -133,6 +134,7 @@ export function serializeAuditLogRow(row: {
     action: row.action,
     entityType: row.entityType,
     entityId: row.entityId,
+    entityLabel: row.entityLabel ?? null,
     actorId: row.actorId,
     actorLabel: row.actor?.name?.trim() || row.actor?.email || row.actorId,
     metadata: row.metadata ?? null,

@@ -28,7 +28,7 @@ export function AuditLogPanel() {
         <div className="space-y-1">
           <label className="text-muted-foreground text-xs font-medium">Action</label>
           <NativeSelect
-            className="w-full min-w-[12rem] sm:w-56"
+            className="w-full min-w-48 sm:w-56"
             value={query.action ?? ""}
             onChange={(e) =>
               setQuery({
@@ -129,8 +129,13 @@ export function AuditLogPanel() {
                     </TableCell>
                     <TableCell className="font-mono text-xs">{row.action}</TableCell>
                     <TableCell className="text-sm">
-                      {row.entityType}{" "}
-                      <span className="text-muted-foreground">#{row.entityId}</span>
+                      <span>{row.entityType}</span>
+                      {row.entityLabel ? (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          {row.entityLabel}
+                        </span>
+                      ) : null}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">
                       {row.actorLabel ?? row.actorId ?? "—"}
