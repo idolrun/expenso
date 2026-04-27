@@ -72,9 +72,6 @@ export const auth = betterAuth({
         requireSession: true,
         extensions: { credProps: true },
       },
-      authentication: {
-        extensions: { credProps: true },
-      },
     }),
     magicLink({
       sendMagicLink: async ({ email, url }) => {
