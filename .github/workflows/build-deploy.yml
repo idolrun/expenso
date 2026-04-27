@@ -509,7 +509,7 @@ jobs:
             sudo nginx -t
 
             echo ">>> Reloading nginx gracefully..."
-            sudo nginx -s reload
+            sudo systemctl reload nginx
 
             # ── Step 4: Grace period & cleanup ──────────────────────────────
             echo ">>> Waiting 10s for connection drain..."
