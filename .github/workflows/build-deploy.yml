@@ -47,8 +47,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4.4.0
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -111,8 +111,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4.4.0
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -232,11 +232,11 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
-          format: 'sarif'
-          output: 'trivy-container-results.sarif'
-          severity: 'HIGH,CRITICAL'
-          exit-code: '0'
-          scanners: 'vuln'
+          format: "sarif"
+          output: "trivy-container-results.sarif"
+          severity: "HIGH,CRITICAL"
+          exit-code: "0"
+          scanners: "vuln"
           ignore-unfixed: true
 
       - name: Gate on CRITICAL
@@ -263,7 +263,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3.28.16
         if: always()
         with:
-          sarif_file: 'trivy-container-results.sarif'
+          sarif_file: "trivy-container-results.sarif"
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.1.1

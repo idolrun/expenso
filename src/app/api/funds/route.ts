@@ -95,7 +95,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const entry = await fundService.create(validated.data, auth.session.user.id);
+    const entry = await fundService.create(
+      validated.data,
+      auth.session.user.id,
+    );
     return NextResponse.json({ ok: true, data: entry }, { status: 201 });
   } catch {
     return NextResponse.json(

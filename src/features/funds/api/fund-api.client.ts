@@ -34,8 +34,10 @@ function toSearchParams(filters: Partial<FundListQueryDTO>): URLSearchParams {
   if (filters.createdById) params.set("createdById", filters.createdById);
   if (filters.source) params.set("source", filters.source);
   if (filters.currency) params.set("currency", filters.currency);
-  if (filters.amountMin !== undefined) params.set("amountMin", String(filters.amountMin));
-  if (filters.amountMax !== undefined) params.set("amountMax", String(filters.amountMax));
+  if (filters.amountMin !== undefined)
+    params.set("amountMin", String(filters.amountMin));
+  if (filters.amountMax !== undefined)
+    params.set("amountMax", String(filters.amountMax));
   if (filters.dateFrom) params.set("dateFrom", filters.dateFrom.toISOString());
   if (filters.dateTo) params.set("dateTo", filters.dateTo.toISOString());
   if (filters.page !== undefined) params.set("page", String(filters.page));
@@ -44,7 +46,10 @@ function toSearchParams(filters: Partial<FundListQueryDTO>): URLSearchParams {
   return params;
 }
 
-function assertFundListApiOk(status: number, data: unknown): {
+function assertFundListApiOk(
+  status: number,
+  data: unknown,
+): {
   entries: FundEntryRecord[];
   total: number;
   page: number;
@@ -52,7 +57,11 @@ function assertFundListApiOk(status: number, data: unknown): {
 } {
   const body = data as FundListResponseBody;
   if (!body || typeof body !== "object" || !("ok" in body)) {
-    throw new ApiHttpError(status, "INVALID_RESPONSE", "Malformed API response");
+    throw new ApiHttpError(
+      status,
+      "INVALID_RESPONSE",
+      "Malformed API response",
+    );
   }
   if (!body.ok) {
     throw ApiHttpError.fromAxiosData(status, body);
@@ -68,7 +77,12 @@ function assertFundListApiOk(status: number, data: unknown): {
 
 export async function getFundEntries(
   filters: Partial<FundListQueryDTO> = {},
-): Promise<{ entries: FundEntryRecord[]; total: number; page: number; limit: number }> {
+): Promise<{
+  entries: FundEntryRecord[];
+  total: number;
+  page: number;
+  limit: number;
+}> {
   try {
     const res = await apiAxios.get<unknown>("/funds", {
       params: toSearchParams(filters),

@@ -19,7 +19,8 @@ export async function createFundEntry(formData: unknown) {
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to add fund entry",
+      error:
+        error instanceof Error ? error.message : "Failed to add fund entry",
     };
   }
 }

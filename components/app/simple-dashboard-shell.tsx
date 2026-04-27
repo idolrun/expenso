@@ -11,10 +11,19 @@ import { GlobalSearchCommand } from "@/components/app/global-search-command";
 import { Button } from "@/components/ui/button";
 import { CurrencyToggle } from "@/components/ui/currency-toggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { AppUserRole } from "@/src/lib/app-user-role";
-import { EXPENSE_SECTION_NAV, type ExpenseSectionId } from "@/src/lib/expense-sections";
+import {
+  EXPENSE_SECTION_NAV,
+  type ExpenseSectionId,
+} from "@/src/lib/expense-sections";
 import { useDisplayCurrency } from "@/src/features/display-currency/display-currency-context";
 import {
   AirplaneIcon,
@@ -41,7 +50,10 @@ const mainLinks = [
   { href: "/dashboard/funds", label: "Funds", icon: MoneyIcon },
 ] as const;
 
-const sectionIconMap: Record<ExpenseSectionId, React.ComponentType<{ className?: string }>> = {
+const sectionIconMap: Record<
+  ExpenseSectionId,
+  React.ComponentType<{ className?: string }>
+> = {
   OVERVIEW: EyeIcon,
   TECH: CpuIcon,
   MARKETING: MegaphoneIcon,
@@ -107,13 +119,16 @@ function NavItems({
           </Link>
         );
       })}
-      <p className="font-semibold text-muted-foreground px-3 pt-4 pb-1 text-xs uppercase">Tools</p>
+      <p className="font-semibold text-muted-foreground px-3 pt-4 pb-1 text-xs uppercase">
+        Tools
+      </p>
       <Link
         href="/dashboard/credentials"
         onClick={onNavigate}
         className={cn(
           "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-          pathname === "/dashboard/credentials" || pathname.startsWith("/dashboard/credentials/")
+          pathname === "/dashboard/credentials" ||
+            pathname.startsWith("/dashboard/credentials/")
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-sidebar-foreground hover:bg-sidebar-accent/60",
         )}
@@ -137,7 +152,8 @@ function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
         onClick={onNavigate}
         className={cn(
           "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-          pathname === "/dashboard/admin/audit" || pathname.startsWith("/dashboard/admin/audit/")
+          pathname === "/dashboard/admin/audit" ||
+            pathname.startsWith("/dashboard/admin/audit/")
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-sidebar-foreground hover:bg-sidebar-accent/60",
         )}
@@ -150,7 +166,8 @@ function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
         onClick={onNavigate}
         className={cn(
           "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-          pathname === "/dashboard/admin/users" || pathname.startsWith("/dashboard/admin/users/")
+          pathname === "/dashboard/admin/users" ||
+            pathname.startsWith("/dashboard/admin/users/")
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-sidebar-foreground hover:bg-sidebar-accent/60",
         )}
@@ -179,10 +196,7 @@ export function SimpleDashboardShell({
     <div className="bg-background flex  min-h-full flex-1">
       <aside className="bg-sidebar text-sidebar-foreground border-sidebar-border sticky top-0 hidden h-svh w-60 shrink-0 flex-col border-r lg:flex">
         <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2"
-          >
+          <Link href="/dashboard" className="flex items-center gap-2">
             <Image
               src="/logos/logo-dark.png"
               alt="Expenso"
@@ -217,7 +231,12 @@ export function SimpleDashboardShell({
         <header className="bg-background/80 sticky top-0 z-20 flex h-14 items-center gap-2 border-b px-3 backdrop-blur-md md:px-4">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button type="button" variant="outline" size="icon" className="lg:hidden">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="lg:hidden"
+              >
                 <ListIcon className="size-5" />
                 <span className="sr-only">Open navigation</span>
               </Button>
@@ -226,14 +245,21 @@ export function SimpleDashboardShell({
               <SheetHeader className="border-b p-4 text-left">
                 <SheetTitle className="font-heading flex items-center justify-between gap-2">
                   Menu
-                  <Button type="button" variant="ghost" size="icon" onClick={() => setOpen(false)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setOpen(false)}
+                  >
                     <XIcon className="size-4" />
                   </Button>
                 </SheetTitle>
               </SheetHeader>
               <ScrollArea className="h-[calc(100dvh-5rem)] px-2 py-3">
                 <NavItems onNavigate={() => setOpen(false)} />
-                {isAdmin ? <AdminNav onNavigate={() => setOpen(false)} /> : null}
+                {isAdmin ? (
+                  <AdminNav onNavigate={() => setOpen(false)} />
+                ) : null}
               </ScrollArea>
             </SheetContent>
           </Sheet>

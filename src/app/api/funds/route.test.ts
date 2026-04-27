@@ -24,7 +24,10 @@ function unauthorizedAuthResult() {
   return {
     ok: false as const,
     response: NextResponse.json(
-      { ok: false, error: { code: "UNAUTHORIZED", message: "Sign in required" } },
+      {
+        ok: false,
+        error: { code: "UNAUTHORIZED", message: "Sign in required" },
+      },
       { status: 401 },
     ),
   };
@@ -65,7 +68,9 @@ describe("fund route handlers", () => {
   });
 
   it("GET /api/funds without auth -> 401", async () => {
-    vi.mocked(requireFundReader).mockResolvedValueOnce(unauthorizedAuthResult());
+    vi.mocked(requireFundReader).mockResolvedValueOnce(
+      unauthorizedAuthResult(),
+    );
 
     const req = new NextRequest("http://localhost/api/funds");
     const res = await getFunds(req);
@@ -76,7 +81,10 @@ describe("fund route handlers", () => {
 
   it("GET /api/funds with auth -> 200 and empty list payload", async () => {
     vi.mocked(requireFundReader).mockResolvedValueOnce(authorizedAuthResult());
-    vi.mocked(fundService.list).mockResolvedValueOnce({ entries: [], total: 0 });
+    vi.mocked(fundService.list).mockResolvedValueOnce({
+      entries: [],
+      total: 0,
+    });
 
     const req = new NextRequest("http://localhost/api/funds?page=1&limit=20");
     const res = await getFunds(req);
@@ -191,7 +199,9 @@ describe("fund route handlers", () => {
 
   it("GET /api/funds/nonexistent-id -> 404", async () => {
     vi.mocked(requireFundReader).mockResolvedValueOnce(authorizedAuthResult());
-    vi.mocked(fundService.getById).mockRejectedValueOnce(new Error("Fund entry not found"));
+    vi.mocked(fundService.getById).mockRejectedValueOnce(
+      new Error("Fund entry not found"),
+    );
 
     const req = new NextRequest("http://localhost/api/funds/nonexistent-id");
     const res = await getFundById(req, {

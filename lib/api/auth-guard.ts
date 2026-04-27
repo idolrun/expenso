@@ -15,7 +15,10 @@ export async function requireExpenseReader() {
     return {
       ok: false as const,
       response: NextResponse.json(
-        { ok: false, error: { code: "UNAUTHORIZED", message: "Sign in required" } },
+        {
+          ok: false,
+          error: { code: "UNAUTHORIZED", message: "Sign in required" },
+        },
         { status: 401 },
       ),
     };
@@ -25,7 +28,10 @@ export async function requireExpenseReader() {
     return {
       ok: false as const,
       response: NextResponse.json(
-        { ok: false, error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
+        {
+          ok: false,
+          error: { code: "FORBIDDEN", message: "Insufficient permissions" },
+        },
         { status: 403 },
       ),
     };
@@ -40,7 +46,10 @@ export async function requireFundReader(_request?: Request) {
     return {
       ok: false as const,
       response: NextResponse.json(
-        { ok: false, error: { code: "UNAUTHORIZED", message: "Sign in required" } },
+        {
+          ok: false,
+          error: { code: "UNAUTHORIZED", message: "Sign in required" },
+        },
         { status: 401 },
       ),
     };
@@ -55,7 +64,10 @@ export async function requireExpenseWriter() {
     return {
       ok: false as const,
       response: NextResponse.json(
-        { ok: false, error: { code: "UNAUTHORIZED", message: "Sign in required" } },
+        {
+          ok: false,
+          error: { code: "UNAUTHORIZED", message: "Sign in required" },
+        },
         { status: 401 },
       ),
     };
@@ -65,7 +77,10 @@ export async function requireExpenseWriter() {
     return {
       ok: false as const,
       response: NextResponse.json(
-        { ok: false, error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
+        {
+          ok: false,
+          error: { code: "FORBIDDEN", message: "Insufficient permissions" },
+        },
         { status: 403 },
       ),
     };
@@ -84,7 +99,10 @@ export async function requireAuthenticatedUser() {
     return {
       ok: false as const,
       response: NextResponse.json(
-        { ok: false, error: { code: "UNAUTHORIZED", message: "Sign in required" } },
+        {
+          ok: false,
+          error: { code: "UNAUTHORIZED", message: "Sign in required" },
+        },
         { status: 401 },
       ),
     };
@@ -103,7 +121,10 @@ export async function requireCredentialReader() {
     return {
       ok: false as const,
       response: NextResponse.json(
-        { ok: false, error: { code: "UNAUTHORIZED", message: "Sign in required" } },
+        {
+          ok: false,
+          error: { code: "UNAUTHORIZED", message: "Sign in required" },
+        },
         { status: 401 },
       ),
     };
@@ -113,7 +134,10 @@ export async function requireCredentialReader() {
     return {
       ok: false as const,
       response: NextResponse.json(
-        { ok: false, error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
+        {
+          ok: false,
+          error: { code: "FORBIDDEN", message: "Insufficient permissions" },
+        },
         { status: 403 },
       ),
     };
@@ -127,7 +151,10 @@ export async function requireAuditReader() {
     return {
       ok: false as const,
       response: NextResponse.json(
-        { ok: false, error: { code: "UNAUTHORIZED", message: "Sign in required" } },
+        {
+          ok: false,
+          error: { code: "UNAUTHORIZED", message: "Sign in required" },
+        },
         { status: 401 },
       ),
     };

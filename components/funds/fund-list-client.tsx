@@ -2,11 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import {
-  CalendarIcon,
-  FunnelIcon,
-  TrashIcon,
-} from "@phosphor-icons/react";
+import { CalendarIcon, FunnelIcon, TrashIcon } from "@phosphor-icons/react";
 
 import { useFundList } from "@/src/features/funds/hooks/use-fund-list";
 import {
@@ -277,7 +273,9 @@ export function FundListClient({ initialData }: FundListClientProps) {
         {displayData.entries.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <FunnelIcon className="size-10 text-muted-foreground/30 mb-4" />
-            <p className="text-lg font-medium">No fund entries match your filters.</p>
+            <p className="text-lg font-medium">
+              No fund entries match your filters.
+            </p>
             <p className="text-sm text-muted-foreground mt-1">
               Try adjusting or clearing your filters.
             </p>
@@ -337,7 +335,8 @@ export function FundListClient({ initialData }: FundListClientProps) {
                                 entry.createdBy.email.charAt(0).toUpperCase()}
                             </div>
                             <span className="text-sm">
-                              {entry.createdBy.name || entry.createdBy.email.split("@")[0]}
+                              {entry.createdBy.name ||
+                                entry.createdBy.email.split("@")[0]}
                             </span>
                           </div>
                         </TableCell>
@@ -357,11 +356,12 @@ export function FundListClient({ initialData }: FundListClientProps) {
                 <FundEntryCard key={entry.id} entry={entry} />
               ))}
             </div>
-            {/* Pagination hint */ }
+            {/* Pagination hint */}
             {displayData.total > ((filters.limit as number) || 20) && (
-             <div className="mt-4 pt-4 border-t text-center text-sm text-muted-foreground">
-               Showing initial {displayData.entries.length} out of {displayData.total} entries.
-             </div>
+              <div className="mt-4 pt-4 border-t text-center text-sm text-muted-foreground">
+                Showing initial {displayData.entries.length} out of{" "}
+                {displayData.total} entries.
+              </div>
             )}
           </>
         )}

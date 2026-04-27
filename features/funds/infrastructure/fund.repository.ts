@@ -6,14 +6,19 @@ import type {
   FundSource,
   FundSummary,
 } from "@/features/funds/domain/types";
-import type { CreateFundEntryDTO, FundListQueryDTO } from "@/features/funds/validation/fund";
+import type {
+  CreateFundEntryDTO,
+  FundListQueryDTO,
+} from "@/features/funds/validation/fund";
 import { prisma } from "@/lib/prisma";
 
 const fundEntryInclude = {
   createdBy: { select: { id: true, name: true, email: true } },
 } satisfies Prisma.FundEntryInclude;
 
-type FundEntryRow = Prisma.FundEntryGetPayload<{ include: typeof fundEntryInclude }>;
+type FundEntryRow = Prisma.FundEntryGetPayload<{
+  include: typeof fundEntryInclude;
+}>;
 
 function toFundEntryRecord(row: FundEntryRow): FundEntryRecord {
   return {

@@ -9,12 +9,7 @@ import { formatMoneyAmount } from "@/src/lib/format-money";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FundSourceBadge } from "@/components/funds/fund-source-badge";
 import { AddFundButton } from "@/components/funds/fund-add-dialog";

@@ -10,7 +10,7 @@ export const metadata = {
 
 export default async function FundsPage() {
   await requireAuth();
-  
+
   // Phase 1 API already defaults to page 1 limit 20
   const { entries, total } = await fundService.list({ page: 1, limit: 20 });
 
@@ -27,7 +27,7 @@ export default async function FundsPage() {
         </div>
         <AddFundButton />
       </div>
-      
+
       <FundListClient initialData={{ entries, total }} />
     </div>
   );

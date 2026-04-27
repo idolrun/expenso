@@ -8,9 +8,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: isIntegration
-      ? ["**/*.integration.test.ts"]
-      : ["**/*.test.ts"],
+    include: isIntegration ? ["**/*.integration.test.ts"] : ["**/*.test.ts"],
     exclude: isIntegration
       ? baseExclude
       : [...baseExclude, "**/*.integration.test.ts"],
