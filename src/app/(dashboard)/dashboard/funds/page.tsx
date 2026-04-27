@@ -15,8 +15,8 @@ export default async function FundsPage() {
   const { entries, total } = await fundService.list({ page: 1, limit: 20 });
 
   return (
-    <div className="space-y-6 flex-1 w-full p-2 md:px-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">
             Fund Tracker

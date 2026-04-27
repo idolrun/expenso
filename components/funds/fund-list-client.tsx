@@ -70,6 +70,10 @@ export function FundListClient({ initialData }: FundListClientProps) {
   const [currency, setCurrency] = useState<string>("ALL");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [fromMonth, setFromMonth] = useState<number>(new Date().getMonth());
+  const [fromYear, setFromYear] = useState<number>(new Date().getFullYear());
+  const [toMonth, setToMonth] = useState<number>(new Date().getMonth());
+  const [toYear, setToYear] = useState<number>(new Date().getFullYear());
 
   // Extract unique users for filtering
   const uniqueUsers = useMemo(() => {
@@ -198,13 +202,13 @@ export function FundListClient({ initialData }: FundListClientProps) {
           </Button>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto basis-full sm:basis-auto">
+        <div className="flex items-center gap-2 w-full md:w-auto">
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
-                  "w-full sm:w-[130px] justify-start text-xs font-normal",
+                  "w-40 justify-start text-xs font-normal",
                   !dateFrom && "text-muted-foreground",
                 )}
               >
@@ -212,13 +216,57 @@ export function FundListClient({ initialData }: FundListClientProps) {
                 {dateFrom ? format(dateFrom, "MMM d, yyyy") : "From Date"}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={dateFrom}
-                onSelect={setDateFrom}
-                initialFocus
-              />
+            <PopoverContent className="w-auto p-3" align="start">
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Select
+                    value={fromMonth.toString()}
+                    onValueChange={(v) => setFromMonth(parseInt(v))}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 12 }).map((_, i) => (
+                        <SelectItem key={i} value={i.toString()}>
+                          {new Date(2024, i).toLocaleString("default", {
+                            month: "short",
+                          })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={fromYear.toString()}
+                    onValueChange={(v) => setFromYear(parseInt(v))}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 10 }).map((_, i) => {
+                        const year = new Date().getFullYear() - 5 + i;
+                        return (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Calendar
+                  mode="single"
+                  month={new Date(fromYear, fromMonth)}
+                  onMonthChange={(date) => {
+                    setFromMonth(date.getMonth());
+                    setFromYear(date.getFullYear());
+                  }}
+                  selected={dateFrom}
+                  onSelect={setDateFrom}
+                  initialFocus
+                />
+              </div>
             </PopoverContent>
           </Popover>
 
@@ -227,7 +275,7 @@ export function FundListClient({ initialData }: FundListClientProps) {
               <Button
                 variant="outline"
                 className={cn(
-                  "w-full sm:w-[130px] justify-start text-xs font-normal",
+                  "w-40 justify-start text-xs font-normal",
                   !dateTo && "text-muted-foreground",
                 )}
               >
@@ -235,13 +283,57 @@ export function FundListClient({ initialData }: FundListClientProps) {
                 {dateTo ? format(dateTo, "MMM d, yyyy") : "To Date"}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={dateTo}
-                onSelect={setDateTo}
-                initialFocus
-              />
+            <PopoverContent className="w-auto p-3" align="start">
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Select
+                    value={toMonth.toString()}
+                    onValueChange={(v) => setToMonth(parseInt(v))}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 12 }).map((_, i) => (
+                        <SelectItem key={i} value={i.toString()}>
+                          {new Date(2024, i).toLocaleString("default", {
+                            month: "short",
+                          })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={toYear.toString()}
+                    onValueChange={(v) => setToYear(parseInt(v))}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 10 }).map((_, i) => {
+                        const year = new Date().getFullYear() - 5 + i;
+                        return (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Calendar
+                  mode="single"
+                  month={new Date(toYear, toMonth)}
+                  onMonthChange={(date) => {
+                    setToMonth(date.getMonth());
+                    setToYear(date.getFullYear());
+                  }}
+                  selected={dateTo}
+                  onSelect={setDateTo}
+                  initialFocus
+                />
+              </div>
             </PopoverContent>
           </Popover>
 

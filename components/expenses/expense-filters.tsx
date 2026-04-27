@@ -83,7 +83,7 @@ export function ExpenseFilters({
             aria-label="Search expenses"
             value={searchInput}
             onChange={(e) => setSearch(e.target.value)}
-            className={cn("main-search min-h-9 min-w-[min(100%,12rem)] flex-[2]", controlSurface)}
+            className={cn("main-search min-h-9 min-w-[min(100%,12rem)] flex-2", controlSurface)}
           />
           {!hideSectionFilter ? (
             <NativeSelect
@@ -196,7 +196,7 @@ export function ExpenseFilters({
               "dark:border-zinc-800",
             )}
           >
-            <div className="input-group flex min-w-[min(100%,12rem)] gap-1">
+            <div className="input-group flex min-w-[min(100%,12rem)] gap-1.5">
               <Input
                 id="amt-min"
                 inputMode="decimal"
