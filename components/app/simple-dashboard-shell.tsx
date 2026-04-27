@@ -173,7 +173,7 @@ function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
         )}
       >
         <UserGearIcon className="size-4" />
-        Users & roles
+        Users
       </Link>
     </>
   );

@@ -10,7 +10,13 @@ export const allowedEmailRepository = {
         note: true,
         isActive: true,
         createdById: true,
+        createdBy: {
+          select: { name: true, email: true },
+        },
         updatedById: true,
+        updatedBy: {
+          select: { name: true, email: true },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -26,7 +32,13 @@ export const allowedEmailRepository = {
         note: true,
         isActive: true,
         createdById: true,
+        createdBy: {
+          select: { name: true, email: true },
+        },
         updatedById: true,
+        updatedBy: {
+          select: { name: true, email: true },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -62,7 +74,13 @@ export const allowedEmailRepository = {
         note: true,
         isActive: true,
         createdById: true,
+        createdBy: {
+          select: { name: true, email: true },
+        },
         updatedById: true,
+        updatedBy: {
+          select: { name: true, email: true },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -93,7 +111,13 @@ export const allowedEmailRepository = {
         note: true,
         isActive: true,
         createdById: true,
+        createdBy: {
+          select: { name: true, email: true },
+        },
         updatedById: true,
+        updatedBy: {
+          select: { name: true, email: true },
+        },
         createdAt: true,
         updatedAt: true,
       },

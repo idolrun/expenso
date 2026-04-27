@@ -74,8 +74,12 @@ describe("allowed email actions", () => {
     );
   });
 
-  it("blocks USER from updating allowed emails", async () => {
+  it("allows USER to update allowed emails", async () => {
     mockGetSession.mockResolvedValueOnce(sessionUser("USER"));
+    mockUpdateAllowedEmail.mockResolvedValueOnce({
+      ok: true,
+      data: { id: "00000000-0000-4000-8000-000000000002" },
+    });
 
     const result = await updateAllowedEmailAction({
       id: "00000000-0000-4000-8000-000000000002",
@@ -83,11 +87,15 @@ describe("allowed email actions", () => {
       isActive: false,
     });
 
-    expect(result).toEqual({
-      ok: false,
-      error: { code: "FORBIDDEN", message: "Admin only" },
-    });
-    expect(mockUpdateAllowedEmail).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+    expect(mockUpdateAllowedEmail).toHaveBeenCalledWith(
+      "00000000-0000-4000-8000-000000000001",
+      {
+        id: "00000000-0000-4000-8000-000000000002",
+        email: "person@example.com",
+        isActive: false,
+      },
+    );
   });
 
   it("blocks USER from deleting allowed emails", async () => {

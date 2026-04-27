@@ -61,7 +61,9 @@ function baseAllowedEmailRow() {
     note: null,
     isActive: true,
     createdById: actorUserId,
+    createdBy: { name: "Admin", email: "admin@example.com" },
     updatedById: null,
+    updatedBy: null,
     createdAt: new Date("2026-04-27T00:00:00.000Z"),
     updatedAt: new Date("2026-04-27T00:00:00.000Z"),
   };

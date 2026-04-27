@@ -50,10 +50,26 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+function actorLabel(actor: AllowedEmailDto["createdBy"]): string {
+  if (!actor) {
+    return "-";
+  }
+  return actor.name ? `${actor.name} (${actor.email})` : actor.email;
+}
+
+function formatHistoryDate(value: string): string {
+  return new Date(value).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 export function AllowedEmailsTable({
   canManageEntries,
+  hiddenEmail,
 }: {
   canManageEntries: boolean;
+  hiddenEmail?: string | null;
 }) {
   const router = useRouter();
   const [emails, setEmails] = useState<AllowedEmailDto[]>([]);
@@ -64,6 +80,11 @@ export function AllowedEmailsTable({
   const [editItem, setEditItem] = useState<AllowedEmailDto | null>(null);
   const [deleteItem, setDeleteItem] = useState<AllowedEmailDto | null>(null);
   const [saving, setSaving] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const normalizedHiddenEmail = hiddenEmail ? normalizeEmail(hiddenEmail) : null;
+  const visibleEmails = normalizedHiddenEmail
+    ? emails.filter((item) => normalizeEmail(item.email) !== normalizedHiddenEmail)
+    : emails;
 
   const fetchEmails = useCallback(async () => {
     const res = await listAllowedEmailsAction();
@@ -135,6 +156,26 @@ export function AllowedEmailsTable({
 
     toast.success("Allowed email updated");
     setEditItem(null);
+    await fetchEmails();
+    router.refresh();
+  }
+
+  async function handleToggleActive(item: AllowedEmailDto, isActive: boolean) {
+    setTogglingId(item.id);
+    const res = await updateAllowedEmailAction({
+      id: item.id,
+      email: item.email,
+      note: item.note ?? "",
+      isActive,
+    });
+    setTogglingId(null);
+
+    if (!res.ok) {
+      toast.error(res.error.message);
+      return;
+    }
+
+    toast.success(isActive ? "Email enabled" : "Email disabled");
     await fetchEmails();
     router.refresh();
   }
@@ -240,7 +281,7 @@ export function AllowedEmailsTable({
         <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-8 text-center text-sm text-destructive">
           {error}
         </div>
-      ) : emails.length === 0 ? (
+      ) : visibleEmails.length === 0 ? (
         <div className="rounded-xl border px-4 py-8 text-center text-sm text-muted-foreground">
           No allowed emails yet. Add one to enable magic-link access.
         </div>
@@ -251,14 +292,16 @@ export function AllowedEmailsTable({
               <TableRow>
                 <TableHead>Email</TableHead>
                 <TableHead>Note</TableHead>
-                <TableHead className="w-[100px]">Active</TableHead>
+                <TableHead className="w-[120px]">Active</TableHead>
+                <TableHead>Added by</TableHead>
+                <TableHead>Last updated</TableHead>
                 {canManageEntries ? (
                   <TableHead className="w-[120px] text-right">Actions</TableHead>
                 ) : null}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {emails.map((item) => (
+              {visibleEmails.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="max-w-[240px] truncate text-sm font-medium">
                     {item.email}
@@ -267,15 +310,35 @@ export function AllowedEmailsTable({
                     {item.note ?? "—"}
                   </TableCell>
                   <TableCell>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        item.isActive
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-                      }`}
-                    >
-                      {item.isActive ? "Active" : "Inactive"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        aria-label={`${item.isActive ? "Disable" : "Enable"} ${item.email}`}
+                        checked={item.isActive}
+                        disabled={togglingId === item.id}
+                        onCheckedChange={(checked) =>
+                          handleToggleActive(item, checked)
+                        }
+                      />
+                      <span className="text-muted-foreground text-xs">
+                        {item.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    <div className="max-w-[180px] space-y-0.5">
+                      <p className="truncate text-foreground">
+                        {actorLabel(item.createdBy)}
+                      </p>
+                      <p>{formatHistoryDate(item.createdAt)}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    <div className="max-w-[180px] space-y-0.5">
+                      <p className="truncate text-foreground">
+                        {actorLabel(item.updatedBy)}
+                      </p>
+                      <p>{formatHistoryDate(item.updatedAt)}</p>
+                    </div>
                   </TableCell>
                   {canManageEntries ? (
                     <TableCell className="text-right">

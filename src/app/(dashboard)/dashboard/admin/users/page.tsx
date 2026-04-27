@@ -21,23 +21,29 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="space-y-10">
-      <div className="space-y-6">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight md:text-3xl">
-            Users & roles
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            View team access and manage the magic-link allowlist. Role changes are admin-only.
-          </p>
+      {role === UserRole.ADMIN ? (
+        <div className="space-y-6">
+          <div>
+            <h1 className="font-heading text-2xl font-semibold tracking-tight md:text-3xl">
+              Users
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              View team access and manage the magic-link allowlist. Role changes
+              are admin-only.
+            </p>
+          </div>
+          <UsersRoleTable
+            users={res.data}
+            currentUserId={sessionToUserId(session)}
+            canManageRoles
+          />
         </div>
-        <UsersRoleTable
-          users={res.data}
-          currentUserId={sessionToUserId(session)}
-          canManageRoles={role === UserRole.ADMIN}
-        />
-      </div>
+      ) : null}
 
-      <AllowedEmailsTable canManageEntries={role === UserRole.ADMIN} />
+      <AllowedEmailsTable
+        canManageEntries={role === UserRole.ADMIN}
+        hiddenEmail={session.user.email}
+      />
     </div>
   );
 }

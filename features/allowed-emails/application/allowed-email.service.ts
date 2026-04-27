@@ -17,7 +17,15 @@ function toDto(row: {
   note: string | null;
   isActive: boolean;
   createdById: string | null;
+  createdBy: {
+    name: string | null;
+    email: string;
+  } | null;
   updatedById: string | null;
+  updatedBy: {
+    name: string | null;
+    email: string;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }): AllowedEmailDto {
@@ -27,7 +35,9 @@ function toDto(row: {
     note: row.note,
     isActive: row.isActive,
     createdById: row.createdById,
+    createdBy: row.createdBy,
     updatedById: row.updatedById,
+    updatedBy: row.updatedBy,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -137,6 +147,15 @@ export async function updateAllowedEmail(
         isActive,
         updatedById: actorUserId,
       });
+      if (!updated.isActive) {
+        await tx.session.deleteMany({
+          where: {
+            user: {
+              email: updated.email,
+            },
+          },
+        });
+      }
       await auditLogRepository.create(tx, {
         action: AuditAction.ALLOWED_EMAIL_UPDATED,
         entityType: "AllowedEmail",
@@ -144,6 +163,7 @@ export async function updateAllowedEmail(
         actor: { connect: { id: actorUserId } },
         metadata: {
           previousEmail: existing.email,
+          previousIsActive: existing.isActive,
           email: updated.email,
           isActive: updated.isActive,
         },

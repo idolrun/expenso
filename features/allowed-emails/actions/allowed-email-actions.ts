@@ -39,7 +39,7 @@ async function requireAdmin() {
   return auth;
 }
 
-async function requireAllowedEmailCreator() {
+async function requireAllowedEmailManager() {
   const auth = await requireSessionUser();
   if (!auth.ok) {
     return auth;
@@ -67,7 +67,7 @@ export async function listAllowedEmailsAction(): Promise<
 export async function createAllowedEmailAction(
   raw: unknown,
 ): Promise<ServiceResult<AllowedEmailDto>> {
-  const auth = await requireAllowedEmailCreator();
+  const auth = await requireAllowedEmailManager();
   if (!auth.ok) {
     return { ok: false, error: auth.error };
   }
@@ -77,7 +77,7 @@ export async function createAllowedEmailAction(
 export async function updateAllowedEmailAction(
   raw: unknown,
 ): Promise<ServiceResult<AllowedEmailDto>> {
-  const auth = await requireAdmin();
+  const auth = await requireAllowedEmailManager();
   if (!auth.ok) {
     return { ok: false, error: auth.error };
   }
