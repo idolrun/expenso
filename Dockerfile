@@ -50,9 +50,10 @@ ENV PRISMA_CLI_BINARY_TARGETS="linux-musl-openssl-3.0.x"
 RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm run db:generate
 
 # NEXT_PUBLIC_APP_URL is the ONLY build-time var that must be inlined into the
-# Next.js client bundle. All secrets (BETTER_AUTH_SECRET, DATABASE_URL) are
-# injected at runtime via --env-file and must NOT appear as ARG or ENV.
-ARG NEXT_PUBLIC_APP_URL="https://example.com"
+# Next.js client bundle. The workflow passes it with --build-arg from GitHub
+# secrets. All secrets (BETTER_AUTH_SECRET, DATABASE_URL) are injected at
+# runtime via --env-file and must NOT appear as ARG or ENV.
+ARG NEXT_PUBLIC_APP_URL
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production \

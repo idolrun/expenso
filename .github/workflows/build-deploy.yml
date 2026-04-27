@@ -168,6 +168,32 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Validate production URL and email secrets
+        env:
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+          BETTER_AUTH_TRUSTED_ORIGINS: ${{ secrets.BETTER_AUTH_TRUSTED_ORIGINS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+        run: |
+          set -euo pipefail
+
+          [ "$NEXT_PUBLIC_APP_URL" = "https://expenso.idolrun.com" ] || {
+            echo "::error::NEXT_PUBLIC_APP_URL must be https://expenso.idolrun.com"
+            exit 1
+          }
+          [ "$BETTER_AUTH_URL" = "https://expenso.idolrun.com" ] || {
+            echo "::error::BETTER_AUTH_URL must be https://expenso.idolrun.com"
+            exit 1
+          }
+          [ "$BETTER_AUTH_TRUSTED_ORIGINS" = "https://expenso.idolrun.com" ] || {
+            echo "::error::BETTER_AUTH_TRUSTED_ORIGINS must be https://expenso.idolrun.com"
+            exit 1
+          }
+          [ "$MAIL_FROM" = "noreply@idolrun.com" ] || {
+            echo "::error::MAIL_FROM must be noreply@idolrun.com"
+            exit 1
+          }
+
       # ═══════════════════════════════════════════════════════════════════════
       # Build & Push App Image (production runtime — minimal, no Prisma CLI)
       # ═══════════════════════════════════════════════════════════════════════
@@ -195,6 +221,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             NEXT_TELEMETRY_DISABLED=1
+            NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}
           provenance: true
           sbom: true
 
@@ -218,6 +245,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             NEXT_TELEMETRY_DISABLED=1
+            NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}
 
       - name: Cache Trivy DB
         uses: actions/cache@v4.2.3
@@ -325,6 +353,40 @@ jobs:
 
             echo ">>> Pulling migration image..."
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-scan-sign.outputs.migrate-digest }}
+
+            echo ">>> Syncing required production environment values..."
+            set_env_var() {
+              key="$1"
+              value="$2"
+              tmp_file="$(mktemp)"
+
+              if [ -f .env.production ]; then
+                awk -v key="$key" -v value="$value" '
+                  BEGIN { found = 0 }
+                  $0 ~ "^" key "=" {
+                    print key "=" value
+                    found = 1
+                    next
+                  }
+                  { print }
+                  END {
+                    if (!found) {
+                      print key "=" value
+                    }
+                  }
+                ' .env.production > "$tmp_file"
+              else
+                printf '%s=%s\n' "$key" "$value" > "$tmp_file"
+              fi
+
+              mv "$tmp_file" .env.production
+              chmod 600 .env.production
+            }
+
+            set_env_var "NEXT_PUBLIC_APP_URL" "${{ secrets.NEXT_PUBLIC_APP_URL }}"
+            set_env_var "BETTER_AUTH_URL" "${{ secrets.BETTER_AUTH_URL }}"
+            set_env_var "BETTER_AUTH_TRUSTED_ORIGINS" "${{ secrets.BETTER_AUTH_TRUSTED_ORIGINS }}"
+            set_env_var "MAIL_FROM" "${{ secrets.MAIL_FROM }}"
 
             echo ">>> Loading environment..."
             set -a
@@ -438,6 +500,40 @@ jobs:
               TARGET_COLOR="blue"
               TARGET_PORT=3000
             fi
+
+            echo ">>> Syncing required production environment values..."
+            set_env_var() {
+              key="$1"
+              value="$2"
+              tmp_file="$(mktemp)"
+
+              if [ -f .env.production ]; then
+                awk -v key="$key" -v value="$value" '
+                  BEGIN { found = 0 }
+                  $0 ~ "^" key "=" {
+                    print key "=" value
+                    found = 1
+                    next
+                  }
+                  { print }
+                  END {
+                    if (!found) {
+                      print key "=" value
+                    }
+                  }
+                ' .env.production > "$tmp_file"
+              else
+                printf '%s=%s\n' "$key" "$value" > "$tmp_file"
+              fi
+
+              mv "$tmp_file" .env.production
+              chmod 600 .env.production
+            }
+
+            set_env_var "NEXT_PUBLIC_APP_URL" "${{ secrets.NEXT_PUBLIC_APP_URL }}"
+            set_env_var "BETTER_AUTH_URL" "${{ secrets.BETTER_AUTH_URL }}"
+            set_env_var "BETTER_AUTH_TRUSTED_ORIGINS" "${{ secrets.BETTER_AUTH_TRUSTED_ORIGINS }}"
+            set_env_var "MAIL_FROM" "${{ secrets.MAIL_FROM }}"
 
             echo ">>> Loading production environment variables..."
             set -a
