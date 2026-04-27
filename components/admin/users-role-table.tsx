@@ -24,14 +24,20 @@ type RoleValue = "USER" | "ADMIN";
 export function UsersRoleTable({
   users,
   currentUserId,
+  currentUserRole,
 }: {
   users: UserSummaryDto[];
   currentUserId: string;
+  currentUserRole: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
 
-  const onRoleChange = (userId: string, next: RoleValue, previous: RoleValue) => {
+  const onRoleChange = (
+    userId: string,
+    next: RoleValue,
+    previous: RoleValue,
+  ) => {
     if (next === previous) return;
     start(async () => {
       const res = await updateUserRoleAction({ userId, role: next });
@@ -60,20 +66,28 @@ export function UsersRoleTable({
             const previous = u.role as RoleValue;
             return (
               <TableRow key={u.id}>
-                <TableCell className="max-w-[240px] truncate text-sm">{u.email}</TableCell>
-                <TableCell className="text-muted-foreground text-sm">{u.name ?? "—"}</TableCell>
+                <TableCell className="max-w-[240px] truncate text-sm">
+                  {u.email}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {u.name ?? "—"}
+                </TableCell>
                 <TableCell>
                   <NativeSelect
                     className="w-full min-w-0"
-                    disabled={pending}
+                    disabled={pending || currentUserRole !== "ADMIN"}
                     value={u.role}
-                    onChange={(e) => onRoleChange(u.id, e.target.value as RoleValue, previous)}
+                    onChange={(e) =>
+                      onRoleChange(u.id, e.target.value as RoleValue, previous)
+                    }
                   >
                     <NativeSelectOption value="USER">USER</NativeSelectOption>
                     <NativeSelectOption value="ADMIN">ADMIN</NativeSelectOption>
                   </NativeSelect>
                   {u.id === currentUserId ? (
-                    <p className="text-muted-foreground mt-1 text-[11px]">This is you</p>
+                    <p className="text-muted-foreground mt-1 text-[11px]">
+                      This is you
+                    </p>
                   ) : null}
                 </TableCell>
               </TableRow>

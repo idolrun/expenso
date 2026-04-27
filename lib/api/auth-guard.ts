@@ -160,11 +160,14 @@ export async function requireAuditReader() {
     };
   }
   const role = parseUserRole(session.user.role);
-  if (role !== UserRole.ADMIN) {
+  if (role !== UserRole.ADMIN && role !== UserRole.USER) {
     return {
       ok: false as const,
       response: NextResponse.json(
-        { ok: false, error: { code: "FORBIDDEN", message: "Admin only" } },
+        {
+          ok: false,
+          error: { code: "FORBIDDEN", message: "Admin or User only" },
+        },
         { status: 403 },
       ),
     };

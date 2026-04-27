@@ -180,6 +180,7 @@ function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function SimpleDashboardShell({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   role,
   userEmail,
   children,
@@ -188,7 +189,6 @@ export function SimpleDashboardShell({
   userEmail: string | null;
   children: React.ReactNode;
 }) {
-  const isAdmin = role === "ADMIN";
   const [open, setOpen] = useState(false);
   const { displayCurrency, setDisplayCurrency } = useDisplayCurrency();
 
@@ -220,7 +220,7 @@ export function SimpleDashboardShell({
         </div>
         <ScrollArea className="flex-1 px-2 py-3">
           <NavItems />
-          {isAdmin ? <AdminNav /> : null}
+          <AdminNav />
         </ScrollArea>
         <div className="text-muted-foreground border-t border-sidebar-border p-3 text-xs">
           {userEmail ?? "Signed in"}
@@ -257,9 +257,7 @@ export function SimpleDashboardShell({
               </SheetHeader>
               <ScrollArea className="h-[calc(100dvh-5rem)] px-2 py-3">
                 <NavItems onNavigate={() => setOpen(false)} />
-                {isAdmin ? (
-                  <AdminNav onNavigate={() => setOpen(false)} />
-                ) : null}
+                <AdminNav onNavigate={() => setOpen(false)} />
               </ScrollArea>
             </SheetContent>
           </Sheet>

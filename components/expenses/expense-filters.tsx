@@ -196,7 +196,7 @@ export function ExpenseFilters({
               "dark:border-zinc-800",
             )}
           >
-            <div className="input-group flex min-w-[min(100%,12rem)] gap-1.5">
+            <div className="input-group flex min-w-[min(100%,12rem)] gap-1">
               <Input
                 id="amt-min"
                 inputMode="decimal"

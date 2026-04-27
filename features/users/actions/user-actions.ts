@@ -22,14 +22,12 @@ async function requireSessionUser() {
   return { ok: true as const, session, userId: sessionToUserId(session) };
 }
 
-export async function listUsersAction(): Promise<ServiceResult<UserSummaryDto[]>> {
+export async function listUsersAction(): Promise<
+  ServiceResult<UserSummaryDto[]>
+> {
   const auth = await requireSessionUser();
   if (!auth.ok) {
     return { ok: false, error: auth.error };
-  }
-  const role = parseUserRole(auth.session.user.role);
-  if (role !== UserRole.ADMIN) {
-    return { ok: false, error: { code: "FORBIDDEN", message: "Admin only" } };
   }
   return adminListUsers();
 }

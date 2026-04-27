@@ -29,16 +29,13 @@ describe("requireExpenseReader", () => {
 });
 
 describe("requireAuditReader", () => {
-  it("returns 403 for non-admin", async () => {
+  it("allows non-admin USER", async () => {
     vi.mocked(getSession).mockResolvedValueOnce({
       user: { id: "00000000-0000-4000-8000-000000000001", role: "USER" },
       session: {},
     } as never);
     const res = await requireAuditReader();
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.response.status).toBe(403);
-    }
+    expect(res.ok).toBe(true);
   });
 
   it("allows ADMIN", async () => {
