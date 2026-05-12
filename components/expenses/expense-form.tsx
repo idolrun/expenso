@@ -12,18 +12,35 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
-import { createExpenseAction, updateExpenseAction } from "@/features/expenses/actions/expense-actions";
+import {
+  createExpenseAction,
+  updateExpenseAction,
+} from "@/features/expenses/actions/expense-actions";
 import {
   defaultExpenseCurrency,
   expenseCurrencyValues,
   type ExpenseCurrencyCode,
 } from "@/features/expenses/domain/currency";
-import type { ExpenseDto, SafeAttachmentDto } from "@/features/expenses/domain/dto";
-import { expenseSectionValues, expenseStatusValues } from "@/features/expenses/validation/primitives";
+import type {
+  ExpenseDto,
+  SafeAttachmentDto,
+} from "@/features/expenses/domain/dto";
+import {
+  expenseSectionValues,
+  expenseStatusValues,
+} from "@/features/expenses/validation/primitives";
 import { apiAxios } from "@/src/lib/axios";
-import { slugForSection, type ExpenseSectionId } from "@/src/lib/expense-sections";
+import {
+  slugForSection,
+  type ExpenseSectionId,
+} from "@/src/lib/expense-sections";
 import { formatMoneyAmount } from "@/src/lib/format-money";
-import { PaperclipIcon, TrashIcon, UploadIcon, FileIcon } from "@phosphor-icons/react";
+import {
+  PaperclipIcon,
+  TrashIcon,
+  UploadIcon,
+  FileIcon,
+} from "@phosphor-icons/react";
 
 type TagOption = { id: string; name: string; slug: string };
 
@@ -80,9 +97,14 @@ function toEditableAmount(value: number): string {
   return rounded.toFixed(4).replace(/\.?0+$/, "");
 }
 
-function toFormattedPreview(value: string, currency: ExpenseCurrencyCode): string | null {
+function toFormattedPreview(
+  value: string,
+  currency: ExpenseCurrencyCode,
+): string | null {
   const amount = parseAmountInput(value);
-  return amount === null ? null : formatMoneyAmount(amount.toString(), currency);
+  return amount === null
+    ? null
+    : formatMoneyAmount(amount.toString(), currency);
 }
 
 function isExchangeRatePayload(value: unknown): value is ExchangeRatePayload {
@@ -121,11 +143,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-const ALLOWED_FILE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "application/pdf",
-];
+const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
 
 const MAX_FILE_BYTES = 3 * 1024 * 1024;
 
@@ -151,7 +169,8 @@ export function ExpenseForm({
       mode === "edit" && expense
         ? normalizeCurrency(expense.originalCurrency)
         : defaultExpenseCurrency;
-    const initialAmount = mode === "edit" && expense ? expense.originalAmount : "";
+    const initialAmount =
+      mode === "edit" && expense ? expense.originalAmount : "";
 
     return {
       section:
@@ -159,21 +178,38 @@ export function ExpenseForm({
           ? expense.section
           : ((defaultSection ?? "") as SectionInputValue),
       status:
-        mode === "edit" && expense
-          ? expense.status
-          : ("" as StatusInputValue),
+        mode === "edit" && expense ? expense.status : ("" as StatusInputValue),
       title: mode === "edit" && expense ? expense.title : "",
-      notes: mode === "edit" && expense ? expense.notes ?? "" : "",
+      notes: mode === "edit" && expense ? (expense.notes ?? "") : "",
       usdAmount: initialCurrency === "USD" ? initialAmount : "",
       nprAmount: initialCurrency === "NPR" ? initialAmount : "",
       currency: initialCurrency,
       lastEditedCurrency: initialCurrency,
-      incurredOn:
+      fromDate:
         mode === "edit" && expense
-          ? expense.incurredOn
+          ? expense.fromDate
           : new Date().toISOString().slice(0, 10),
-      categoryId: mode === "edit" && expense ? expense.categoryId ?? "" : "",
-      tagIds: mode === "edit" && expense ? expense.tags.map((t) => t.id) : ([] as string[]),
+      toDate:
+        mode === "edit" && expense
+          ? expense.toDate
+          : new Date().toISOString().slice(0, 10),
+      categoryId: mode === "edit" && expense ? (expense.categoryId ?? "") : "",
+      tagIds:
+        mode === "edit" && expense
+          ? expense.tags.map((t) => t.id)
+          : ([] as string[]),
+      employeeName:
+        mode === "edit" && expense?.salaryRecord
+          ? expense.salaryRecord.employeeName
+          : "",
+      payPeriodStart:
+        mode === "edit" && expense?.salaryRecord
+          ? expense.salaryRecord.payPeriodStart
+          : new Date().toISOString().slice(0, 10),
+      payPeriodEnd:
+        mode === "edit" && expense?.salaryRecord
+          ? expense.salaryRecord.payPeriodEnd
+          : new Date().toISOString().slice(0, 10),
     };
   }, [defaultSection, expense, mode]);
 
@@ -183,18 +219,24 @@ export function ExpenseForm({
   const [notes, setNotes] = useState(initial.notes);
   const [usdAmount, setUsdAmount] = useState(initial.usdAmount);
   const [nprAmount, setNprAmount] = useState(initial.nprAmount);
-  const [currency, setCurrency] = useState<ExpenseCurrencyCode>(initial.currency);
-  const [lastEditedCurrency, setLastEditedCurrency] = useState<ExpenseCurrencyCode>(
-    initial.lastEditedCurrency,
+  const [currency, setCurrency] = useState<ExpenseCurrencyCode>(
+    initial.currency,
   );
-  const [incurredOn, setIncurredOn] = useState(initial.incurredOn);
+  const [lastEditedCurrency, setLastEditedCurrency] =
+    useState<ExpenseCurrencyCode>(initial.lastEditedCurrency);
+  const [fromDate, setFromDate] = useState(initial.fromDate);
+  const [toDate, setToDate] = useState(initial.toDate);
   const [categoryId, setCategoryId] = useState(initial.categoryId);
   const [tagIds, setTagIds] = useState<string[]>(initial.tagIds);
+  const [employeeName, setEmployeeName] = useState(initial.employeeName);
+  const [payPeriodStart, setPayPeriodStart] = useState(initial.payPeriodStart);
+  const [payPeriodEnd, setPayPeriodEnd] = useState(initial.payPeriodEnd);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
 
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [existingAttachments, setExistingAttachments] = useState<SafeAttachmentDto[]>(initialAttachments);
+  const [existingAttachments, setExistingAttachments] =
+    useState<SafeAttachmentDto[]>(initialAttachments);
   const [uploadingFiles, setUploadingFiles] = useState(false);
 
   // Conversion syncs immediately as the user types; no debounce needed.
@@ -256,7 +298,10 @@ export function ExpenseForm({
 
         setExchangeRate(body.rate);
       } catch (error) {
-        if (cancelled || (error instanceof DOMException && error.name === "AbortError")) {
+        if (
+          cancelled ||
+          (error instanceof DOMException && error.name === "AbortError")
+        ) {
           return;
         }
         setExchangeRate(null);
@@ -278,15 +323,23 @@ export function ExpenseForm({
       if (lastEditedCurrency === "USD") {
         const parsedUsdAmount = parseAmountInput(usdAmount);
         const nextNprAmount =
-          parsedUsdAmount === null ? "" : toEditableAmount(parsedUsdAmount * exchangeRate);
+          parsedUsdAmount === null
+            ? ""
+            : toEditableAmount(parsedUsdAmount * exchangeRate);
 
-        setNprAmount((current) => (current === nextNprAmount ? current : nextNprAmount));
+        setNprAmount((current) =>
+          current === nextNprAmount ? current : nextNprAmount,
+        );
       } else {
         const parsedNprAmount = parseAmountInput(nprAmount);
         const nextUsdAmount =
-          parsedNprAmount === null ? "" : toEditableAmount(parsedNprAmount / exchangeRate);
+          parsedNprAmount === null
+            ? ""
+            : toEditableAmount(parsedNprAmount / exchangeRate);
 
-        setUsdAmount((current) => (current === nextUsdAmount ? current : nextUsdAmount));
+        setUsdAmount((current) =>
+          current === nextUsdAmount ? current : nextUsdAmount,
+        );
       }
     }, 0);
 
@@ -296,10 +349,15 @@ export function ExpenseForm({
   }, [usdAmount, nprAmount, exchangeRate, lastEditedCurrency]);
 
   const toggleTag = (id: string) => {
-    setTagIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setTagIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
   };
 
-  const handleAmountChange = (targetCurrency: ExpenseCurrencyCode, value: string) => {
+  const handleAmountChange = (
+    targetCurrency: ExpenseCurrencyCode,
+    value: string,
+  ) => {
     if (targetCurrency === "USD") {
       setUsdAmount(value);
     } else {
@@ -315,7 +373,9 @@ export function ExpenseForm({
   };
 
   const resolveSubmissionAmount = (targetCurrency: ExpenseCurrencyCode) => {
-    const directValue = (targetCurrency === "USD" ? usdAmount : nprAmount).trim();
+    const directValue = (
+      targetCurrency === "USD" ? usdAmount : nprAmount
+    ).trim();
 
     if (lastEditedCurrency === targetCurrency) {
       return directValue;
@@ -341,11 +401,15 @@ export function ExpenseForm({
 
     for (const file of files) {
       if (file.size > MAX_FILE_BYTES) {
-        errors.push(`${file.name} exceeds the 3 MB limit (${formatBytes(file.size)})`);
+        errors.push(
+          `${file.name} exceeds the 3 MB limit (${formatBytes(file.size)})`,
+        );
         continue;
       }
       if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-        errors.push(`${file.name}: unsupported type (${file.type || "unknown"})`);
+        errors.push(
+          `${file.name}: unsupported type (${file.type || "unknown"})`,
+        );
         continue;
       }
       validFiles.push(file);
@@ -367,17 +431,25 @@ export function ExpenseForm({
     if (!expense) return;
     if (!confirm("Remove this attachment?")) return;
     try {
-      const res = await fetch(`/api/expenses/${expense.id}/attachments/${attachmentId}`, {
-        method: "DELETE",
-        credentials: "same-origin",
-      });
-      const body = await res.json() as { ok: boolean; error?: { message: string } };
+      const res = await fetch(
+        `/api/expenses/${expense.id}/attachments/${attachmentId}`,
+        {
+          method: "DELETE",
+          credentials: "same-origin",
+        },
+      );
+      const body = (await res.json()) as {
+        ok: boolean;
+        error?: { message: string };
+      };
       if (!res.ok || !body.ok) {
         toast.error(body.error?.message ?? "Failed to remove attachment");
         return;
       }
       toast.success("Attachment removed");
-      setExistingAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+      setExistingAttachments((prev) =>
+        prev.filter((a) => a.id !== attachmentId),
+      );
     } catch {
       toast.error("Network error while removing attachment");
     }
@@ -390,12 +462,15 @@ export function ExpenseForm({
       for (const file of pendingFiles) {
         const formData = new FormData();
         formData.append("file", file);
-        const uploadRes = await fetch(`/api/expenses/${expenseId}/attachments`, {
-          method: "POST",
-          body: formData,
-          credentials: "same-origin",
-        });
-        const body = await uploadRes.json() as {
+        const uploadRes = await fetch(
+          `/api/expenses/${expenseId}/attachments`,
+          {
+            method: "POST",
+            body: formData,
+            credentials: "same-origin",
+          },
+        );
+        const body = (await uploadRes.json()) as {
           ok: boolean;
           data?: SafeAttachmentDto;
           error?: { message: string };
@@ -427,13 +502,24 @@ export function ExpenseForm({
       const payload = {
         section,
         ...(status ? { status } : {}),
-        title: title.trim(),
+        title:
+          section === "SALARY"
+            ? `Salary for ${employeeName.trim() || "Employee"}`
+            : title.trim(),
         notes: notes.trim() || null,
         amount,
         currency,
-        incurredOn: incurredOn.trim(),
+        fromDate: fromDate.trim(),
+        toDate: toDate.trim(),
         categoryId: categoryId.trim() || null,
         tagIds,
+        ...(section === "SALARY"
+          ? {
+              employeeName: employeeName.trim(),
+              payPeriodStart,
+              payPeriodEnd,
+            }
+          : {}),
       };
 
       if (mode === "create") {
@@ -444,7 +530,9 @@ export function ExpenseForm({
         }
         await uploadPendingFiles(res.data.id);
         toast.success("Expense created");
-        router.push(`/dashboard/sections/${slugForSection(section as ExpenseSectionId)}`);
+        router.push(
+          `/dashboard/sections/${slugForSection(section as ExpenseSectionId)}`,
+        );
         router.refresh();
         return;
       }
@@ -465,10 +553,12 @@ export function ExpenseForm({
     });
   };
 
-  const savedAmountPreview = toFormattedPreview(resolveSubmissionAmount(currency), currency);
+  const savedAmountPreview = toFormattedPreview(
+    resolveSubmissionAmount(currency),
+    currency,
+  );
   const usdPreview = toFormattedPreview(usdAmount, "USD");
   const nprPreview = toFormattedPreview(nprAmount, "NPR");
-
 
   return (
     <div className="bg-card space-y-6 rounded-xl border p-4 shadow-xs sm:p-6">
@@ -478,7 +568,9 @@ export function ExpenseForm({
           <NativeSelect
             className="w-full min-w-0"
             value={section}
-            onChange={(e) => handleSectionChange(e.target.value as SectionInputValue)}
+            onChange={(e) =>
+              handleSectionChange(e.target.value as SectionInputValue)
+            }
             required
           >
             <NativeSelectOption value="">Select section</NativeSelectOption>
@@ -506,43 +598,108 @@ export function ExpenseForm({
           </NativeSelect>
         </div>
 
-        <div className="space-y-2 sm:col-span-2">
-          <RequiredLabel htmlFor="title">Title</RequiredLabel>
-          <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} />
-        </div>
+        {section !== "SALARY" && (
+          <div className="space-y-2 sm:col-span-2">
+            <RequiredLabel htmlFor="title">Title</RequiredLabel>
+            <Input
+              id="title"
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+        )}
+
+        {section === "SALARY" && (
+          <div className="space-y-4 sm:col-span-2 bg-muted/50 p-4 rounded-xl border border-dashed">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <RequiredLabel htmlFor="employeeName">
+                  Employee Name
+                </RequiredLabel>
+                <Input
+                  id="employeeName"
+                  required
+                  value={employeeName}
+                  onChange={(e) => setEmployeeName(e.target.value)}
+                  placeholder="e.g. Jane Doe"
+                />
+              </div>
+              <div className="space-y-2">
+                <RequiredLabel htmlFor="payPeriodStart">
+                  From Date
+                </RequiredLabel>
+                <Input
+                  id="payPeriodStart"
+                  type="date"
+                  required
+                  value={payPeriodStart}
+                  onChange={(e) => setPayPeriodStart(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <RequiredLabel htmlFor="payPeriodEnd">To Date</RequiredLabel>
+                <Input
+                  id="payPeriodEnd"
+                  type="date"
+                  required
+                  value={payPeriodEnd}
+                  onChange={(e) => setPayPeriodEnd(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="notes">Notes</Label>
-          <Textarea id="notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <Textarea
+            id="notes"
+            rows={3}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
         </div>
 
-        <div className="space-y-2">
-          <CurrencyFieldLabel htmlFor="amount-usd" code="USD" savedCurrency={currency} />
-          <Input
-            id="amount-usd"
-            inputMode="decimal"
-            placeholder="0.00"
-            value={usdAmount}
-            onChange={(e) => handleAmountChange("USD", e.target.value)}
-          />
-          <p className="text-muted-foreground text-xs">
-            {usdPreview ?? "Type in USD to calculate NPR automatically."}
-          </p>
-        </div>
+        {currency === "USD" && (
+          <div className="space-y-2">
+            <CurrencyFieldLabel
+              htmlFor="amount-usd"
+              code="USD"
+              savedCurrency={currency}
+            />
+            <Input
+              id="amount-usd"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={usdAmount}
+              onChange={(e) => handleAmountChange("USD", e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              {usdPreview ?? "Type in USD to calculate NPR automatically."}
+            </p>
+          </div>
+        )}
 
-        <div className="space-y-2">
-          <CurrencyFieldLabel htmlFor="amount-npr" code="NPR" savedCurrency={currency} />
-          <Input
-            id="amount-npr"
-            inputMode="decimal"
-            placeholder="0.00"
-            value={nprAmount}
-            onChange={(e) => handleAmountChange("NPR", e.target.value)}
-          />
-          <p className="text-muted-foreground text-xs">
-            {nprPreview ?? "Type in NPR to calculate USD automatically."}
-          </p>
-        </div>
+        {currency === "NPR" && (
+          <div className="space-y-2">
+            <CurrencyFieldLabel
+              htmlFor="amount-npr"
+              code="NPR"
+              savedCurrency={currency}
+            />
+            <Input
+              id="amount-npr"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={nprAmount}
+              onChange={(e) => handleAmountChange("NPR", e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              {nprPreview ?? "Type in NPR to calculate USD automatically."}
+            </p>
+          </div>
+        )}
 
         <div className="space-y-2">
           <RequiredLabel htmlFor="currency">Saved currency</RequiredLabel>
@@ -560,13 +717,24 @@ export function ExpenseForm({
         </div>
 
         <div className="space-y-2">
-          <RequiredLabel htmlFor="incurred">Incurred on</RequiredLabel>
+          <RequiredLabel htmlFor="fromDate">From Date</RequiredLabel>
           <Input
-            id="incurred"
+            id="fromDate"
             type="date"
             required
-            value={incurredOn}
-            onChange={(e) => setIncurredOn(e.target.value)}
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <RequiredLabel htmlFor="toDate">To Date</RequiredLabel>
+          <Input
+            id="toDate"
+            type="date"
+            required
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
           />
         </div>
 
@@ -654,7 +822,9 @@ export function ExpenseForm({
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{a.fileName}</p>
                   {a.sizeBytes ? (
-                    <p className="text-muted-foreground text-xs">{formatBytes(a.sizeBytes)}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {formatBytes(a.sizeBytes)}
+                    </p>
                   ) : null}
                 </div>
                 <Button
@@ -703,7 +873,11 @@ export function ExpenseForm({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={pending || uploadingFiles} onClick={submit}>
+        <Button
+          type="button"
+          disabled={pending || uploadingFiles}
+          onClick={submit}
+        >
           {mode === "create" ? "Create expense" : "Save changes"}
         </Button>
         <Button type="button" variant="outline" onClick={() => router.back()}>

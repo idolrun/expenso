@@ -1,4 +1,8 @@
-import type { AttachmentProvider, ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
+import type {
+  AttachmentProvider,
+  ExpenseSection,
+  ExpenseStatus,
+} from "@/generated/prisma/client";
 
 import type { ExpenseCurrencyCode } from "@/features/expenses/domain/currency";
 
@@ -40,7 +44,8 @@ export type ExpenseDto = {
   /** ISO-8601 datetime when the FX snapshot was taken. Null if not yet captured. */
   fxRateSnapshotAt: string | null;
 
-  incurredOn: string;
+  fromDate: string;
+  toDate: string;
   categoryId: string | null;
   category: ExpenseCategoryDto;
   tags: ExpenseTagDto[];
@@ -49,6 +54,12 @@ export type ExpenseDto = {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+
+  salaryRecord?: {
+    employeeName: string;
+    payPeriodStart: string;
+    payPeriodEnd: string;
+  } | null;
 };
 
 /** Serializable receipt / document attachment. Never includes a delivery URL — generate signed URLs server-side. */
@@ -71,7 +82,10 @@ export type AttachmentDto = {
 };
 
 /** Client-safe attachment shape — strips storageKey and cloudinaryPublicId so they never reach the DOM. */
-export type SafeAttachmentDto = Omit<AttachmentDto, "storageKey" | "cloudinaryPublicId">;
+export type SafeAttachmentDto = Omit<
+  AttachmentDto,
+  "storageKey" | "cloudinaryPublicId"
+>;
 
 export type ExpenseHistoryEntryDto = {
   id: string;

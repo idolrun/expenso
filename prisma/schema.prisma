@@ -1,4 +1,3 @@
-
 // Prisma 7 breaking change: provider changed from prisma-client-js to prisma-client.
 // The older provider will be removed in a future release.
 generator client {
@@ -130,26 +129,26 @@ model User {
   accounts      Account[]
   passkeys      Passkey[]
 
-  expensesCreated          Expense[]          @relation("ExpenseCreatedBy")
-  expensesUpdated          Expense[]          @relation("ExpenseUpdatedBy")
-  expenseHistoryChanges    ExpenseHistory[]   @relation("ExpenseHistoryChangedBy")
-  expenseTagsAssigned      ExpenseTag[]       @relation("ExpenseTagAssignedBy")
-  attachmentsUploaded      Attachment[]       @relation("AttachmentUploadedBy")
-  auditLogs                AuditLog[]         @relation("AuditLogActor")
-  inventoryItemsCreated    InventoryItem[]    @relation("InventoryItemCreatedBy")
-  inventoryItemsUpdated    InventoryItem[]    @relation("InventoryItemUpdatedBy")
-  merchandiseItemsCreated  MerchandiseItem[]  @relation("MerchandiseItemCreatedBy")
-  merchandiseItemsUpdated  MerchandiseItem[]  @relation("MerchandiseItemUpdatedBy")
-  salaryRecordsCreated     SalaryRecord[]     @relation("SalaryRecordCreatedBy")
-  salaryRecordsUpdated     SalaryRecord[]     @relation("SalaryRecordUpdatedBy")
-  categoriesCreated        Category[]         @relation("CategoryCreatedBy")
-  categoriesUpdated        Category[]         @relation("CategoryUpdatedBy")
-  allowedEmailsCreated     AllowedEmail[]     @relation("AllowedEmailCreatedBy")
-  allowedEmailsUpdated     AllowedEmail[]     @relation("AllowedEmailUpdatedBy")
-  credentialEntriesCreated CredentialEntry[]  @relation("CredentialEntryCreatedBy")
-  credentialEntriesUpdated CredentialEntry[]  @relation("CredentialEntryUpdatedBy")
+  expensesCreated          Expense[]           @relation("ExpenseCreatedBy")
+  expensesUpdated          Expense[]           @relation("ExpenseUpdatedBy")
+  expenseHistoryChanges    ExpenseHistory[]    @relation("ExpenseHistoryChangedBy")
+  expenseTagsAssigned      ExpenseTag[]        @relation("ExpenseTagAssignedBy")
+  attachmentsUploaded      Attachment[]        @relation("AttachmentUploadedBy")
+  auditLogs                AuditLog[]          @relation("AuditLogActor")
+  inventoryItemsCreated    InventoryItem[]     @relation("InventoryItemCreatedBy")
+  inventoryItemsUpdated    InventoryItem[]     @relation("InventoryItemUpdatedBy")
+  merchandiseItemsCreated  MerchandiseItem[]   @relation("MerchandiseItemCreatedBy")
+  merchandiseItemsUpdated  MerchandiseItem[]   @relation("MerchandiseItemUpdatedBy")
+  salaryRecordsCreated     SalaryRecord[]      @relation("SalaryRecordCreatedBy")
+  salaryRecordsUpdated     SalaryRecord[]      @relation("SalaryRecordUpdatedBy")
+  categoriesCreated        Category[]          @relation("CategoryCreatedBy")
+  categoriesUpdated        Category[]          @relation("CategoryUpdatedBy")
+  allowedEmailsCreated     AllowedEmail[]      @relation("AllowedEmailCreatedBy")
+  allowedEmailsUpdated     AllowedEmail[]      @relation("AllowedEmailUpdatedBy")
+  credentialEntriesCreated CredentialEntry[]   @relation("CredentialEntryCreatedBy")
+  credentialEntriesUpdated CredentialEntry[]   @relation("CredentialEntryUpdatedBy")
   credentialHistoryChanges CredentialHistory[] @relation("CredentialHistoryChangedBy")
-  fundEntriesCreated       FundEntry[]        @relation("FundEntryCreatedBy")
+  fundEntriesCreated       FundEntry[]         @relation("FundEntryCreatedBy")
 
   @@index([role])
   @@map("user")
@@ -285,12 +284,13 @@ model ExpenseTag {
 // ---------------------------------------------------------------------------
 
 model Expense {
-  id         String         @id @default(cuid())
-  section    ExpenseSection
-  status     ExpenseStatus  @default(DRAFT)
-  title      String
-  notes      String?
-  incurredOn DateTime       @db.Date
+  id       String         @id @default(cuid())
+  section  ExpenseSection
+  status   ExpenseStatus  @default(DRAFT)
+  title    String
+  notes    String?
+  fromDate DateTime       @db.Date
+  toDate   DateTime       @db.Date
 
   /// Amount in the currency the expense was originally entered in.
   originalAmount   Decimal      @db.Decimal(19, 4)
@@ -298,9 +298,9 @@ model Expense {
   originalCurrency CurrencyCode @default(USD)
 
   /// USD equivalent at time of recording (null until first FX snapshot is captured).
-  amountUsd Decimal? @db.Decimal(19, 4)
+  amountUsd        Decimal?  @db.Decimal(19, 4)
   /// NPR equivalent at time of recording (null until first FX snapshot is captured).
-  amountNpr Decimal? @db.Decimal(19, 4)
+  amountNpr        Decimal?  @db.Decimal(19, 4)
   /// 1 USD = fxRateUsdNpr NPR at the moment this expense was saved.
   fxRateUsdNpr     Decimal?  @db.Decimal(14, 6)
   /// When the FX snapshot above was captured (UTC).
@@ -330,12 +330,12 @@ model Expense {
   @@index([section, deletedAt])
   @@index([status, deletedAt])
   @@index([originalCurrency, deletedAt])
-  @@index([originalCurrency, incurredOn, deletedAt])
+  @@index([originalCurrency, fromDate, toDate, deletedAt])
   @@index([categoryId])
   @@index([createdById])
   @@index([updatedById])
   @@index([createdAt])
-  @@index([incurredOn])
+  @@index([fromDate, toDate])
   @@index([originalAmount])
   @@index([title])
   @@index([deletedAt])
@@ -365,7 +365,7 @@ model ExpenseHistory {
 /// Receipt or document attached to an expense, stored privately in a cloud provider.
 /// Never store permanent public delivery URLs — generate signed URLs at request time.
 model Attachment {
-  id       String @id @default(cuid())
+  id        String  @id @default(cuid())
   expenseId String
   expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 
@@ -418,10 +418,10 @@ model InventoryItem {
   expenseId   String?
   expense     Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
 
-  createdById String?  @db.Uuid
-  createdBy   User?    @relation("InventoryItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById String?  @db.Uuid
-  updatedBy   User?    @relation("InventoryItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdById String? @db.Uuid
+  createdBy   User?   @relation("InventoryItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String? @db.Uuid
+  updatedBy   User?   @relation("InventoryItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -444,10 +444,10 @@ model MerchandiseItem {
   expenseId     String?
   expense       Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
 
-  createdById String?  @db.Uuid
-  createdBy   User?    @relation("MerchandiseItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById String?  @db.Uuid
-  updatedBy   User?    @relation("MerchandiseItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdById String? @db.Uuid
+  createdBy   User?   @relation("MerchandiseItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String? @db.Uuid
+  updatedBy   User?   @relation("MerchandiseItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -471,10 +471,10 @@ model SalaryRecord {
   currency       CurrencyCode @default(USD)
   metadata       Json?
 
-  createdById String?  @db.Uuid
-  createdBy   User?    @relation("SalaryRecordCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById String?  @db.Uuid
-  updatedBy   User?    @relation("SalaryRecordUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdById String? @db.Uuid
+  createdBy   User?   @relation("SalaryRecordCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String? @db.Uuid
+  updatedBy   User?   @relation("SalaryRecordUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -565,16 +565,16 @@ model CredentialEntry {
   notes           String?
   isActive        Boolean              @default(true)
 
-  createdById     String               @db.Uuid
-  createdBy       User                 @relation("CredentialEntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdById String @db.Uuid
+  createdBy   User   @relation("CredentialEntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
-  updatedById     String?              @db.Uuid
-  updatedBy       User?                @relation("CredentialEntryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedById String? @db.Uuid
+  updatedBy   User?   @relation("CredentialEntryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  history         CredentialHistory[]
+  history CredentialHistory[]
 
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([isActive])
   @@index([authMethod])

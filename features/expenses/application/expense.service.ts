@@ -1,11 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import {
-  AuditAction,
-  Prisma,
-  UserRole,
-} from "@/generated/prisma/client";
-import type { CreateExpenseInput, UpdateExpenseInput } from "@/features/expenses/validation/expense";
+import { AuditAction, Prisma, UserRole } from "@/generated/prisma/client";
+import type {
+  CreateExpenseInput,
+  UpdateExpenseInput,
+} from "@/features/expenses/validation/expense";
 import type { DeleteExpenseInput } from "@/features/expenses/validation/expense";
 import type { ExpenseDto, ServiceResult } from "@/features/expenses/domain/dto";
 import {
@@ -34,7 +33,10 @@ export async function createExpenseService(
   actorUserId: string,
 ): Promise<ServiceResult<ExpenseDto>> {
   try {
-    await expenseRepository.assertCategoryExists(prisma, input.categoryId ?? null);
+    await expenseRepository.assertCategoryExists(
+      prisma,
+      input.categoryId ?? null,
+    );
     await expenseRepository.assertTagsExist(prisma, input.tagIds);
 
     const originalAmount = new Prisma.Decimal(input.amount);
@@ -53,12 +55,29 @@ export async function createExpenseService(
         amountNpr: fxSnapshot?.amountNpr ?? undefined,
         fxRateUsdNpr: fxSnapshot?.fxRateUsdNpr ?? undefined,
         fxRateSnapshotAt: fxSnapshot?.fxRateSnapshotAt ?? undefined,
-        incurredOn: parseYmdToUtcDate(input.incurredOn),
+        fromDate: parseYmdToUtcDate(input.fromDate),
+        toDate: parseYmdToUtcDate(input.toDate),
         category: input.categoryId
           ? { connect: { id: input.categoryId } }
           : undefined,
         createdBy: { connect: { id: actorUserId } },
         updatedBy: { connect: { id: actorUserId } },
+        ...(input.section === "SALARY" && input.employeeName
+          ? {
+              salaryRecord: {
+                create: {
+                  employeeName: input.employeeName,
+                  payPeriodStart: parseYmdToUtcDate(input.fromDate),
+                  payPeriodEnd: parseYmdToUtcDate(input.toDate),
+                  grossAmount: originalAmount,
+                  netAmount: originalAmount,
+                  currency: input.currency,
+                  createdBy: { connect: { id: actorUserId } },
+                  updatedBy: { connect: { id: actorUserId } },
+                },
+              },
+            }
+          : {}),
       });
 
       if (input.tagIds.length) {
@@ -102,7 +121,10 @@ export async function updateExpenseService(
   try {
     const existing = await expenseRepository.findActiveById(prisma, input.id);
     if (!existing) {
-      return { ok: false, error: { code: "NOT_FOUND", message: "Expense not found" } };
+      return {
+        ok: false,
+        error: { code: "NOT_FOUND", message: "Expense not found" },
+      };
     }
 
     if (input.categoryId !== undefined) {
@@ -121,13 +143,12 @@ export async function updateExpenseService(
       notes: input.notes !== undefined ? input.notes : before.notes,
       originalAmount: input.amount ?? before.originalAmount,
       originalCurrency: input.currency ?? before.originalCurrency,
-      incurredOn: input.incurredOn ?? before.incurredOn,
+      fromDate: input.fromDate ?? before.fromDate,
+      toDate: input.toDate ?? before.toDate,
       categoryId:
         input.categoryId !== undefined ? input.categoryId : before.categoryId,
       tagIds:
-        input.tagIds !== undefined
-          ? [...input.tagIds].sort()
-          : before.tagIds,
+        input.tagIds !== undefined ? [...input.tagIds].sort() : before.tagIds,
     };
 
     if (snapshotsEqual(before, after)) {
@@ -171,8 +192,11 @@ export async function updateExpenseService(
         data.originalAmount = new Prisma.Decimal(input.amount);
       }
       if (input.currency !== undefined) data.originalCurrency = input.currency;
-      if (input.incurredOn !== undefined) {
-        data.incurredOn = parseYmdToUtcDate(input.incurredOn);
+      if (input.fromDate !== undefined) {
+        data.fromDate = parseYmdToUtcDate(input.fromDate);
+      }
+      if (input.toDate !== undefined) {
+        data.toDate = parseYmdToUtcDate(input.toDate);
       }
       if (input.categoryId !== undefined) {
         data.category = input.categoryId
@@ -184,6 +208,54 @@ export async function updateExpenseService(
         data.amountNpr = fxSnapshot.amountNpr;
         data.fxRateUsdNpr = fxSnapshot.fxRateUsdNpr;
         data.fxRateSnapshotAt = fxSnapshot.fxRateSnapshotAt;
+      }
+
+      if (input.section === "SALARY" && input.employeeName) {
+        data.salaryRecord = {
+          upsert: {
+            create: {
+              employeeName: input.employeeName,
+              payPeriodStart: parseYmdToUtcDate(
+                input.fromDate ??
+                  existing.fromDate.toISOString().substring(0, 10),
+              ),
+              payPeriodEnd: parseYmdToUtcDate(
+                input.toDate ?? existing.toDate.toISOString().substring(0, 10),
+              ),
+              grossAmount: new Prisma.Decimal(
+                input.amount ?? existing.originalAmount,
+              ),
+              netAmount: new Prisma.Decimal(
+                input.amount ?? existing.originalAmount,
+              ),
+              currency: input.currency ?? existing.originalCurrency,
+              createdBy: { connect: { id: actorUserId } },
+              updatedBy: { connect: { id: actorUserId } },
+            },
+            update: {
+              employeeName: input.employeeName,
+              payPeriodStart: parseYmdToUtcDate(
+                input.fromDate ??
+                  existing.fromDate.toISOString().substring(0, 10),
+              ),
+              payPeriodEnd: parseYmdToUtcDate(
+                input.toDate ?? existing.toDate.toISOString().substring(0, 10),
+              ),
+              ...(input.amount !== undefined
+                ? {
+                    grossAmount: new Prisma.Decimal(input.amount),
+                    netAmount: new Prisma.Decimal(input.amount),
+                  }
+                : {}),
+              ...(input.currency !== undefined
+                ? { currency: input.currency }
+                : {}),
+              updatedBy: { connect: { id: actorUserId } },
+            },
+          },
+        };
+      } else if (input.section !== undefined && input.section !== "SALARY") {
+        data.salaryRecord = { delete: true };
       }
 
       await expenseRepository.update(tx, input.id, data);
@@ -252,7 +324,10 @@ export async function softDeleteExpenseService(
 
     const existing = await expenseRepository.findActiveById(prisma, input.id);
     if (!existing) {
-      return { ok: false, error: { code: "NOT_FOUND", message: "Expense not found" } };
+      return {
+        ok: false,
+        error: { code: "NOT_FOUND", message: "Expense not found" },
+      };
     }
 
     const batchId = randomUUID();

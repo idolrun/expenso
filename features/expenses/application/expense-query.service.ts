@@ -9,7 +9,10 @@ import type {
   ExpenseHistoryWithExpenseDto,
   PaginatedDto,
 } from "@/features/expenses/domain/dto";
-import { serializeExpense, serializeExpenseHistoryRow } from "@/features/expenses/domain/serialize";
+import {
+  serializeExpense,
+  serializeExpenseHistoryRow,
+} from "@/features/expenses/domain/serialize";
 import { expenseHistoryRepository } from "@/features/expenses/infrastructure/expense-history.repository";
 
 function parseYmdToUtcDate(ymd: string): Date {
@@ -34,11 +37,19 @@ export function buildExpenseListWhere(
   if (query.status) {
     andParts.push({ status: query.status });
   }
-  if (query.createdById !== undefined) {
-    andParts.push({ createdById: query.createdById });
+  if (query.createdByEmail) {
+    andParts.push({
+      createdBy: {
+        email: { contains: query.createdByEmail, mode: "insensitive" },
+      },
+    });
   }
-  if (query.updatedById !== undefined) {
-    andParts.push({ updatedById: query.updatedById });
+  if (query.updatedByEmail) {
+    andParts.push({
+      updatedBy: {
+        email: { contains: query.updatedByEmail, mode: "insensitive" },
+      },
+    });
   }
 
   if (query.tagIds.length) {
@@ -58,15 +69,15 @@ export function buildExpenseListWhere(
     andParts.push({ originalAmount: range });
   }
 
-  if (query.incurredOnFrom || query.incurredOnTo) {
-    const range: Prisma.DateTimeFilter = {};
-    if (query.incurredOnFrom) {
-      range.gte = parseYmdToUtcDate(query.incurredOnFrom);
+  if (query.dateRangeStart || query.dateRangeEnd) {
+    if (query.dateRangeStart) {
+      andParts.push({
+        fromDate: { gte: parseYmdToUtcDate(query.dateRangeStart) },
+      });
     }
-    if (query.incurredOnTo) {
-      range.lte = parseYmdToUtcDate(query.incurredOnTo);
+    if (query.dateRangeEnd) {
+      andParts.push({ toDate: { lte: parseYmdToUtcDate(query.dateRangeEnd) } });
     }
-    andParts.push({ incurredOn: range });
   }
 
   const q = query.search?.trim();
@@ -106,8 +117,8 @@ function buildOrderBy(
   switch (query.sortField) {
     case "amount":
       return [{ originalAmount: dir }];
-    case "incurredOn":
-      return [{ incurredOn: dir }];
+    case "fromDate":
+      return [{ fromDate: dir }];
     case "title":
       return [{ title: dir }];
     case "updatedAt":
@@ -122,7 +133,10 @@ export async function listExpenseHistoryForExpense(
   expenseId: string,
 ): Promise<ServiceResult<ExpenseHistoryWithExpenseDto[]>> {
   try {
-    const rows = await expenseHistoryRepository.findForExpense(prisma, expenseId);
+    const rows = await expenseHistoryRepository.findForExpense(
+      prisma,
+      expenseId,
+    );
     const data: ExpenseHistoryWithExpenseDto[] = rows.map((r) => ({
       ...serializeExpenseHistoryRow({
         id: r.id,
@@ -151,7 +165,10 @@ export async function getExpenseById(
   try {
     const row = await expenseRepository.findActiveById(prisma, id);
     if (!row) {
-      return { ok: false, error: { code: "NOT_FOUND", message: "Expense not found" } };
+      return {
+        ok: false,
+        error: { code: "NOT_FOUND", message: "Expense not found" },
+      };
     }
     return { ok: true, data: serializeExpense(row) };
   } catch (e) {

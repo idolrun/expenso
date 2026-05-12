@@ -32,7 +32,8 @@ const sortFields = [
   "createdAt",
   "updatedAt",
   "amount",
-  "incurredOn",
+  "fromDate",
+  "toDate",
   "title",
 ] as const;
 
@@ -63,9 +64,9 @@ export function ExpenseFilters({
   /* Sync drafts when the list query is hydrated from the URL (back/forward). */
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    setCreatedByDraft(query.createdById ?? "");
-    setUpdatedByDraft(query.updatedById ?? "");
-  }, [query.createdById, query.updatedById]);
+    setCreatedByDraft(query.createdByEmail ?? "");
+    setUpdatedByDraft(query.updatedByEmail ?? "");
+  }, [query.createdByEmail, query.updatedByEmail]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const selected = new Set(query.tagIds);
@@ -101,7 +102,7 @@ export function ExpenseFilters({
           {!hideSectionFilter ? (
             <NativeSelect
               aria-label="Section"
-              className="min-w-[8rem] flex-1"
+              className="min-w-32 flex-1"
               value={query.section ?? ""}
               onChange={(e) =>
                 setQuery({
@@ -121,7 +122,7 @@ export function ExpenseFilters({
           ) : null}
           <NativeSelect
             aria-label="Status"
-            className="min-w-[8rem] flex-1"
+            className="min-w-32 flex-1"
             value={query.status ?? ""}
             onChange={(e) =>
               setQuery({
@@ -241,20 +242,20 @@ export function ExpenseFilters({
               id="cb"
               inputMode="text"
               autoComplete="off"
-              placeholder="User UUID (Created by)"
-              aria-label="Created by user id"
+              placeholder="User Email (Created by)"
+              aria-label="Created by user email"
               value={createdByDraft}
               onChange={(e) => setCreatedByDraft(e.target.value)}
               onBlur={() => {
                 const v = createdByDraft.trim();
                 if (v === "") {
-                  setQuery({ createdById: undefined });
+                  setQuery({ createdByEmail: undefined });
                   return;
                 }
-                if (userRecordIdSchema.safeParse(v).success) {
-                  setQuery({ createdById: v });
+                if (v) {
+                  setQuery({ createdByEmail: v });
                 } else {
-                  setCreatedByDraft(query.createdById ?? "");
+                  setCreatedByDraft(query.createdByEmail ?? "");
                 }
               }}
               className={cn(
@@ -266,20 +267,20 @@ export function ExpenseFilters({
               id="ub"
               inputMode="text"
               autoComplete="off"
-              placeholder="User UUID (Updated by)"
-              aria-label="Updated by user id"
+              placeholder="User Email (Updated by)"
+              aria-label="Updated by user email"
               value={updatedByDraft}
               onChange={(e) => setUpdatedByDraft(e.target.value)}
               onBlur={() => {
                 const v = updatedByDraft.trim();
                 if (v === "") {
-                  setQuery({ updatedById: undefined });
+                  setQuery({ updatedByEmail: undefined });
                   return;
                 }
-                if (userRecordIdSchema.safeParse(v).success) {
-                  setQuery({ updatedById: v });
+                if (v) {
+                  setQuery({ updatedByEmail: v });
                 } else {
-                  setUpdatedByDraft(query.updatedById ?? "");
+                  setUpdatedByDraft(query.updatedByEmail ?? "");
                 }
               }}
               className={cn(
@@ -293,7 +294,7 @@ export function ExpenseFilters({
                   type="button"
                   variant="outline"
                   className={cn(
-                    "h-9 min-w-[10rem] flex-1 justify-between font-normal",
+                    "h-9 min-w-40 flex-1 justify-between font-normal",
                     controlSurface,
                   )}
                 >

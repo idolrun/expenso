@@ -33,7 +33,10 @@ function collectTagIds(value: unknown): string[] {
   if (typeof value === "string") {
     try {
       const parsed = JSON.parse(value);
-      if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
+      if (
+        Array.isArray(parsed) &&
+        parsed.every((item) => typeof item === "string")
+      ) {
         return parsed;
       }
     } catch {
@@ -83,7 +86,9 @@ export default async function ExpenseDetailPage({
         select: { id: true, name: true },
       })
     : [];
-  const tagNameById = Object.fromEntries(historyTags.map((t) => [t.id, t.name]));
+  const tagNameById = Object.fromEntries(
+    historyTags.map((t) => [t.id, t.name]),
+  );
 
   const hasFxSnapshot =
     expense.amountUsd !== null || expense.amountNpr !== null;
@@ -101,7 +106,7 @@ export default async function ExpenseDetailPage({
             {expense.title}
           </h1>
           <p className="text-muted-foreground text-sm">
-            Incurred {expense.incurredOn} · Updated{" "}
+            From {expense.fromDate} To {expense.toDate} · Updated{" "}
             {new Date(expense.updatedAt).toLocaleString()}
           </p>
         </div>
@@ -116,32 +121,44 @@ export default async function ExpenseDetailPage({
       </div>
 
       {/* Amount + FX snapshot */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-4">
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="text-base">Amount</CardTitle>
-            <CardDescription>Stored as {expense.originalCurrency}</CardDescription>
+            <CardDescription>
+              Stored as {expense.originalCurrency}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="font-numeric text-3xl font-semibold">
-              {formatMoneyAmount(expense.originalAmount, expense.originalCurrency)}
+              {formatMoneyAmount(
+                expense.originalAmount,
+                expense.originalCurrency,
+              )}
             </p>
             {hasFxSnapshot ? (
               <div className="space-y-1 rounded-lg border bg-muted/20 px-3 py-2 text-xs">
                 <p className="text-muted-foreground font-medium">FX snapshot</p>
                 {expense.amountUsd ? (
                   <p>
-                    USD: <span className="font-medium">{formatMoneyAmount(expense.amountUsd, "USD")}</span>
+                    USD:{" "}
+                    <span className="font-medium">
+                      {formatMoneyAmount(expense.amountUsd, "USD")}
+                    </span>
                   </p>
                 ) : null}
                 {expense.amountNpr ? (
                   <p>
-                    NPR: <span className="font-medium">{formatMoneyAmount(expense.amountNpr, "NPR")}</span>
+                    NPR:{" "}
+                    <span className="font-medium">
+                      {formatMoneyAmount(expense.amountNpr, "NPR")}
+                    </span>
                   </p>
                 ) : null}
                 {expense.fxRateUsdNpr ? (
                   <p className="text-muted-foreground">
-                    Rate: 1 USD = {formatMoneyAmount(expense.fxRateUsdNpr, "NPR")}
+                    Rate: 1 USD ={" "}
+                    {formatMoneyAmount(expense.fxRateUsdNpr, "NPR")}
                     {expense.fxRateSnapshotAt
                       ? ` (${new Date(expense.fxRateSnapshotAt).toLocaleDateString()})`
                       : null}
@@ -150,10 +167,38 @@ export default async function ExpenseDetailPage({
               </div>
             ) : (
               <p className="text-muted-foreground text-xs">
-                FX snapshot not yet available. It will be captured the next time
-                this expense is updated.
+                FX snapshot not yet available.
               </p>
             )}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="text-base">Date Range</CardTitle>
+            <CardDescription>
+              {expense.section === "SALARY"
+                ? "Salary Period"
+                : "Expense Period"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+                From Date
+              </p>
+              <p className="mt-1 font-medium">
+                {new Date(expense.fromDate).toLocaleDateString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+                To Date
+              </p>
+              <p className="mt-1 font-medium">
+                {new Date(expense.toDate).toLocaleDateString()}
+              </p>
+            </div>
           </CardContent>
         </Card>
 

@@ -12,33 +12,60 @@ import {
 
 const recordId = expenseRecordIdSchema;
 
-export const createExpenseSchema = z.object({
+export const createExpenseSchemaBase = z.object({
   section: z.enum(expenseSectionValues),
   status: z.enum(expenseStatusValues).optional().default("DRAFT"),
   title: z.string().trim().min(1).max(500),
   notes: z.string().trim().max(10_000).optional().nullable(),
   amount: moneyStringSchema,
   currency: currencyCodeSchema,
-  incurredOn: dateYmdSchema,
+  fromDate: dateYmdSchema,
+  toDate: dateYmdSchema,
   categoryId: recordId.optional().nullable(),
   tagIds: z.array(recordId).max(50).optional().default([]),
+  employeeName: z.string().trim().min(1).max(255).optional(),
 });
+
+export const createExpenseSchema = createExpenseSchemaBase.superRefine(
+  (v, ctx) => {
+    if (v.fromDate > v.toDate) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["toDate"],
+        message: "End date must be on or after start date.",
+      });
+    }
+
+    if (v.section === "SALARY") {
+      if (!v.employeeName) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["employeeName"],
+          message: "Employee name is required for salary expenses.",
+        });
+      }
+    }
+  },
+);
 
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 
-export const updateExpenseSchema = z
-  .object({
-    id: recordId,
-    section: z.enum(expenseSectionValues).optional(),
-    status: z.enum(expenseStatusValues).optional(),
-    title: z.string().trim().min(1).max(500).optional(),
-    notes: z.string().trim().max(10_000).optional().nullable(),
-    amount: moneyStringSchema.optional(),
-    currency: currencyCodeSchema.optional(),
-    incurredOn: dateYmdSchema.optional(),
-    categoryId: recordId.optional().nullable(),
-    tagIds: z.array(recordId).max(50).optional(),
-  })
+export const updateExpenseSchemaBase = z.object({
+  id: recordId,
+  section: z.enum(expenseSectionValues).optional(),
+  status: z.enum(expenseStatusValues).optional(),
+  title: z.string().trim().min(1).max(500).optional(),
+  notes: z.string().trim().max(10_000).optional().nullable(),
+  amount: moneyStringSchema.optional(),
+  currency: currencyCodeSchema.optional(),
+  fromDate: dateYmdSchema.optional(),
+  toDate: dateYmdSchema.optional(),
+  categoryId: recordId.optional().nullable(),
+  tagIds: z.array(recordId).max(50).optional(),
+  employeeName: z.string().trim().min(1).max(255).optional(),
+});
+
+export const updateExpenseSchema = updateExpenseSchemaBase
   .refine(
     (v) =>
       v.section !== undefined ||
@@ -47,11 +74,22 @@ export const updateExpenseSchema = z
       v.notes !== undefined ||
       v.amount !== undefined ||
       v.currency !== undefined ||
-      v.incurredOn !== undefined ||
+      v.fromDate !== undefined ||
+      v.toDate !== undefined ||
       v.categoryId !== undefined ||
-      v.tagIds !== undefined,
+      v.tagIds !== undefined ||
+      v.employeeName !== undefined,
     { message: "At least one field must be provided to update" },
-  );
+  )
+  .superRefine((v, ctx) => {
+    if (v.fromDate && v.toDate && v.fromDate > v.toDate) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["toDate"],
+        message: "End date must be on or after start date.",
+      });
+    }
+  });
 
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 
@@ -65,7 +103,7 @@ const sortFieldValues = [
   "createdAt",
   "updatedAt",
   "amount",
-  "incurredOn",
+  "fromDate",
   "title",
 ] as const;
 
@@ -93,16 +131,13 @@ export const listExpensesQuerySchema = z
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
     section: z.enum(expenseSectionValues).optional(),
     status: z.enum(expenseStatusValues).optional(),
-    tagIds: z.preprocess(
-      normalizeTagIdsQueryInput,
-      z.array(recordId).max(50),
-    ),
+    tagIds: z.preprocess(normalizeTagIdsQueryInput, z.array(recordId).max(50)),
     amountMin: z.string().trim().optional(),
     amountMax: z.string().trim().optional(),
-    incurredOnFrom: dateYmdSchema.optional(),
-    incurredOnTo: dateYmdSchema.optional(),
-    createdById: userRecordIdSchema.optional(),
-    updatedById: userRecordIdSchema.optional(),
+    dateRangeStart: dateYmdSchema.optional(),
+    dateRangeEnd: dateYmdSchema.optional(),
+    createdByEmail: z.string().trim().max(255).optional(),
+    updatedByEmail: z.string().trim().max(255).optional(),
     search: z.string().trim().max(200).optional(),
     sortField: z.enum(sortFieldValues).default("createdAt"),
     sortDir: z.enum(["asc", "desc"]).default("desc"),
@@ -122,18 +157,26 @@ export const listExpensesQuerySchema = z
         message: "Invalid decimal",
       });
     }
-    if (v.amountMin && v.amountMax && Number(v.amountMin) > Number(v.amountMax)) {
+    if (
+      v.amountMin &&
+      v.amountMax &&
+      Number(v.amountMin) > Number(v.amountMax)
+    ) {
       ctx.addIssue({
         code: "custom",
         path: ["amountMax"],
         message: "amountMax must be >= amountMin",
       });
     }
-    if (v.incurredOnFrom && v.incurredOnTo && v.incurredOnFrom > v.incurredOnTo) {
+    if (
+      v.dateRangeStart &&
+      v.dateRangeEnd &&
+      v.dateRangeStart > v.dateRangeEnd
+    ) {
       ctx.addIssue({
         code: "custom",
-        path: ["incurredOnTo"],
-        message: "incurredOnTo must be on or after incurredOnFrom",
+        path: ["dateRangeEnd"],
+        message: "dateRangeEnd must be on or after dateRangeStart",
       });
     }
   });

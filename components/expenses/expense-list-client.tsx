@@ -39,7 +39,10 @@ import { useExpenseList } from "@/src/features/expenses/hooks/use-expense-list";
 import type { ExportRow } from "@/src/features/expenses/types/export.types";
 import { useDisplayCurrency } from "@/src/features/display-currency/display-currency-context";
 import { formatMoneyAmount } from "@/src/lib/format-money";
-import { sectionLabel, type ExpenseSectionId } from "@/src/lib/expense-sections";
+import {
+  sectionLabel,
+  type ExpenseSectionId,
+} from "@/src/lib/expense-sections";
 
 type TagOption = { id: string; name: string; slug: string };
 
@@ -62,7 +65,11 @@ function resolveDisplayAmount(
   displayCurrency: "USD" | "NPR",
 ): { amount: string; currency: string; isConverted: boolean } {
   if (expense.originalCurrency === displayCurrency) {
-    return { amount: expense.originalAmount, currency: displayCurrency, isConverted: false };
+    return {
+      amount: expense.originalAmount,
+      currency: displayCurrency,
+      isConverted: false,
+    };
   }
   if (displayCurrency === "USD" && expense.amountUsd) {
     return { amount: expense.amountUsd, currency: "USD", isConverted: true };
@@ -71,12 +78,19 @@ function resolveDisplayAmount(
     return { amount: expense.amountNpr, currency: "NPR", isConverted: true };
   }
   // No snapshot yet — fall back to original
-  return { amount: expense.originalAmount, currency: expense.originalCurrency, isConverted: false };
+  return {
+    amount: expense.originalAmount,
+    currency: expense.originalCurrency,
+    isConverted: false,
+  };
 }
 
 function AmountCell({ expense }: { expense: ExpenseDto }) {
   const { displayCurrency } = useDisplayCurrency();
-  const { amount, currency, isConverted } = resolveDisplayAmount(expense, displayCurrency);
+  const { amount, currency, isConverted } = resolveDisplayAmount(
+    expense,
+    displayCurrency,
+  );
   const showOriginalBadge =
     isConverted && expense.originalAmount && expense.originalCurrency;
 
@@ -110,8 +124,10 @@ function getActiveFilters(
   if (query.amountMax?.trim()) filters.amountMax = query.amountMax.trim();
   if (query.incurredOnFrom) filters.incurredOnFrom = query.incurredOnFrom;
   if (query.incurredOnTo) filters.incurredOnTo = query.incurredOnTo;
-  if (query.createdById !== undefined) filters.createdById = String(query.createdById);
-  if (query.updatedById !== undefined) filters.updatedById = String(query.updatedById);
+  if (query.createdById !== undefined)
+    filters.createdById = String(query.createdById);
+  if (query.updatedById !== undefined)
+    filters.updatedById = String(query.updatedById);
   if (query.search?.trim()) filters.search = query.search.trim();
 
   return filters;
@@ -160,7 +176,10 @@ export function ExpenseListClient({
   const exportRows = useMemo<ExportRow[]>(
     () =>
       data?.items.map((expense) => {
-        const { amount, currency } = resolveDisplayAmount(expense, displayCurrency);
+        const { amount, currency } = resolveDisplayAmount(
+          expense,
+          displayCurrency,
+        );
 
         return {
           title: expense.title,
@@ -192,7 +211,13 @@ export function ExpenseListClient({
           ) : null}
         </div>
         <Button asChild size="sm" className="shrink-0 self-start sm:self-auto">
-          <Link href={section ? `/dashboard/expenses/new?section=${section}` : "/dashboard/expenses/new"}>
+          <Link
+            href={
+              section
+                ? `/dashboard/expenses/new?section=${section}`
+                : "/dashboard/expenses/new"
+            }
+          >
             New expense
           </Link>
         </Button>
@@ -212,7 +237,12 @@ export function ExpenseListClient({
           <AlertTitle>Could not load expenses</AlertTitle>
           <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <span>{error.message}</span>
-            <Button type="button" size="sm" variant="secondary" onClick={() => void retry()}>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => void retry()}
+            >
               Retry
             </Button>
           </AlertDescription>
@@ -233,9 +263,16 @@ export function ExpenseListClient({
               <ReceiptIcon className="size-6" />
             </EmptyMedia>
             <EmptyTitle>No expenses match</EmptyTitle>
-            <EmptyDescription>Adjust filters or create a new expense.</EmptyDescription>
+            <EmptyDescription>
+              Adjust filters or create a new expense.
+            </EmptyDescription>
           </EmptyHeader>
-          <Button type="button" variant="secondary" size="sm" onClick={() => void refetch()}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => void refetch()}
+          >
             Refresh
           </Button>
         </Empty>
@@ -285,7 +322,7 @@ export function ExpenseListClient({
                     <TableHead>Section</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="w-[100px]" />
+                    <TableHead className="w-25" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -298,7 +335,8 @@ export function ExpenseListClient({
                         aria-label={`Open expense: ${e.title}`}
                         className="cursor-pointer hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         onClick={(ev) => {
-                          if ((ev.target as HTMLElement).closest("a, button")) return;
+                          if ((ev.target as HTMLElement).closest("a, button"))
+                            return;
                           router.push(href);
                         }}
                         onKeyDown={(ev) => {
@@ -307,7 +345,7 @@ export function ExpenseListClient({
                           router.push(href);
                         }}
                       >
-                        <TableCell className="max-w-[220px] truncate font-medium">
+                        <TableCell className="max-w-55 truncate font-medium">
                           {e.title}
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
@@ -333,9 +371,14 @@ export function ExpenseListClient({
           {/* Mobile cards */}
           <div className="grid gap-3 md:hidden">
             {data.items.map((e) => (
-              <Card key={e.id} className="shadow-xs transition-shadow hover:shadow-sm">
+              <Card
+                key={e.id}
+                className="shadow-xs transition-shadow hover:shadow-sm"
+              >
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base leading-snug">{e.title}</CardTitle>
+                  <CardTitle className="text-base leading-snug">
+                    {e.title}
+                  </CardTitle>
                   <CardDescription>
                     {sectionLabel(e.section)} · {e.status}
                   </CardDescription>

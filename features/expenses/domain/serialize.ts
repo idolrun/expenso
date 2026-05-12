@@ -13,6 +13,7 @@ export type ExpenseRow = Prisma.ExpenseGetPayload<{
   include: {
     category: true;
     expenseTags: { include: { tag: true } };
+    salaryRecord: true;
   };
 }>;
 
@@ -36,8 +37,11 @@ export function serializeExpense(row: ExpenseRow): ExpenseDto {
     amountUsd: row.amountUsd?.toString() ?? null,
     amountNpr: row.amountNpr?.toString() ?? null,
     fxRateUsdNpr: row.fxRateUsdNpr?.toString() ?? null,
-    fxRateSnapshotAt: row.fxRateSnapshotAt ? toIsoDateTime(row.fxRateSnapshotAt) : null,
-    incurredOn: toIsoDate(row.incurredOn),
+    fxRateSnapshotAt: row.fxRateSnapshotAt
+      ? toIsoDateTime(row.fxRateSnapshotAt)
+      : null,
+    fromDate: toIsoDate(row.fromDate),
+    toDate: toIsoDate(row.toDate),
     categoryId: row.categoryId,
     category: row.category
       ? {
@@ -58,6 +62,13 @@ export function serializeExpense(row: ExpenseRow): ExpenseDto {
     createdAt: toIsoDateTime(row.createdAt),
     updatedAt: toIsoDateTime(row.updatedAt),
     deletedAt: row.deletedAt ? toIsoDateTime(row.deletedAt) : null,
+    salaryRecord: row.salaryRecord
+      ? {
+          employeeName: row.salaryRecord.employeeName,
+          payPeriodStart: toIsoDate(row.salaryRecord.payPeriodStart),
+          payPeriodEnd: toIsoDate(row.salaryRecord.payPeriodEnd),
+        }
+      : null,
   };
 }
 
@@ -79,7 +90,9 @@ export function serializeAttachment(row: Attachment): AttachmentDto {
   };
 }
 
-export function serializeAttachmentForClient(row: Attachment): SafeAttachmentDto {
+export function serializeAttachmentForClient(
+  row: Attachment,
+): SafeAttachmentDto {
   const full = serializeAttachment(row);
   return {
     id: full.id,
