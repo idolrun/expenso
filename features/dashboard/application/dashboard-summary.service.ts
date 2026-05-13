@@ -12,6 +12,13 @@ import { prisma } from "@/lib/prisma";
 const activeUsdWhere = { deletedAt: null, originalCurrency: "USD" } as const;
 const activeNprWhere = { deletedAt: null, originalCurrency: "NPR" } as const;
 
+/** Expense rows whose [fromDate, toDate] period overlaps [start, end] (inclusive calendar range). */
+function expensePeriodOverlapsRange(start: Date, end: Date): Prisma.ExpenseWhereInput {
+  return {
+    AND: [{ fromDate: { lte: end } }, { toDate: { gte: start } }],
+  };
+}
+
 function userLabel(
   user: { name: string | null; email: string } | null | undefined,
   fallbackId: string | null,
@@ -106,13 +113,13 @@ export async function getDashboardSummary(): Promise<
       prisma.expense.count({ where: { deletedAt: null } }),
       prisma.expense.aggregate({ where: activeUsdWhere, _sum: { originalAmount: true } }),
       prisma.expense.aggregate({
-        where: { ...activeUsdWhere, incurredOn: { gte: monthStart, lte: monthEnd } },
+        where: { ...activeUsdWhere, ...expensePeriodOverlapsRange(monthStart, monthEnd) },
         _sum: { originalAmount: true },
       }),
       // NPR direct totals
       prisma.expense.aggregate({ where: activeNprWhere, _sum: { originalAmount: true } }),
       prisma.expense.aggregate({
-        where: { ...activeNprWhere, incurredOn: { gte: monthStart, lte: monthEnd } },
+        where: { ...activeNprWhere, ...expensePeriodOverlapsRange(monthStart, monthEnd) },
         _sum: { originalAmount: true },
       }),
       // NPR via FX snapshot on USD expenses
@@ -124,7 +131,7 @@ export async function getDashboardSummary(): Promise<
         where: {
           ...activeUsdWhere,
           amountNpr: { not: null },
-          incurredOn: { gte: monthStart, lte: monthEnd },
+          ...expensePeriodOverlapsRange(monthStart, monthEnd),
         },
         _sum: { amountNpr: true },
       }),
@@ -168,24 +175,24 @@ export async function getDashboardSummary(): Promise<
       ...sectionBreakdownSpecs.map(({ start, end }) =>
         prisma.expense.groupBy({
           by: ["section"],
-          where: { ...activeUsdWhere, incurredOn: { gte: start, lte: end } },
+          where: { ...activeUsdWhere, ...expensePeriodOverlapsRange(start, end) },
           _sum: { originalAmount: true },
         }),
       ),
       ...monthRangeSpecs.map(({ start, end }) =>
         prisma.expense.aggregate({
-          where: { ...activeUsdWhere, incurredOn: { gte: start, lte: end } },
+          where: { ...activeUsdWhere, ...expensePeriodOverlapsRange(start, end) },
           _sum: { originalAmount: true },
         }),
       ),
     ]);
 
     // Compute combined NPR totals
-    const totalNprDec = (nprTotalDirectAgg._sum.originalAmount ?? new Prisma.Decimal(0)).add(
-      nprTotalSnapshotAgg._sum.amountNpr ?? new Prisma.Decimal(0),
+    const totalNprDec = (nprTotalDirectAgg._sum?.originalAmount ?? new Prisma.Decimal(0)).add(
+      nprTotalSnapshotAgg._sum?.amountNpr ?? new Prisma.Decimal(0),
     );
-    const monthNprDec = (nprMonthDirectAgg._sum.originalAmount ?? new Prisma.Decimal(0)).add(
-      nprMonthSnapshotAgg._sum.amountNpr ?? new Prisma.Decimal(0),
+    const monthNprDec = (nprMonthDirectAgg._sum?.originalAmount ?? new Prisma.Decimal(0)).add(
+      nprMonthSnapshotAgg._sum?.amountNpr ?? new Prisma.Decimal(0),
     );
 
     const monthlySpendUsdLast6 = monthRangeSpecs.map((spec, idx) => ({
@@ -273,8 +280,8 @@ export async function getDashboardSummary(): Promise<
       ok: true,
       data: {
         totalCount,
-        totalSpendUsd: totalSpendAgg._sum.originalAmount?.toString() ?? "0",
-        monthSpendUsd: monthSpendAgg._sum.originalAmount?.toString() ?? "0",
+        totalSpendUsd: totalSpendAgg._sum?.originalAmount?.toString() ?? "0",
+        monthSpendUsd: monthSpendAgg._sum?.originalAmount?.toString() ?? "0",
         monthlySpendUsdLast6,
         previousMonthSpendUsd,
         totalSpendNpr: totalNprDec.toString(),

@@ -4,6 +4,6 @@ export function getBrowserApiBaseUrl(): string {
     return `${window.location.origin}/api`;
   }
   const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  const origin = raw?.replace(/\/$/, "") ?? "http://localhost:3001";
+  const origin = raw?.replace(/\/$/, "") ?? "http://localhost:3000";
   return `${origin}/api`;
 }

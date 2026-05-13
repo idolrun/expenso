@@ -122,12 +122,12 @@ function getActiveFilters(
   if (query.tagIds.length > 0) filters.tagIds = query.tagIds.join(",");
   if (query.amountMin?.trim()) filters.amountMin = query.amountMin.trim();
   if (query.amountMax?.trim()) filters.amountMax = query.amountMax.trim();
-  if (query.incurredOnFrom) filters.incurredOnFrom = query.incurredOnFrom;
-  if (query.incurredOnTo) filters.incurredOnTo = query.incurredOnTo;
-  if (query.createdById !== undefined)
-    filters.createdById = String(query.createdById);
-  if (query.updatedById !== undefined)
-    filters.updatedById = String(query.updatedById);
+  if (query.dateRangeStart) filters.dateRangeStart = query.dateRangeStart;
+  if (query.dateRangeEnd) filters.dateRangeEnd = query.dateRangeEnd;
+  if (query.createdByEmail !== undefined)
+    filters.createdByEmail = String(query.createdByEmail);
+  if (query.updatedByEmail !== undefined)
+    filters.updatedByEmail = String(query.updatedByEmail);
   if (query.search?.trim()) filters.search = query.search.trim();
 
   return filters;
@@ -183,7 +183,7 @@ export function ExpenseListClient({
 
         return {
           title: expense.title,
-          date: expense.incurredOn,
+          date: expense.fromDate,
           amount,
           currency,
           status: expense.status,

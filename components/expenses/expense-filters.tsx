@@ -197,8 +197,8 @@ export function ExpenseFilters({
                 tagIds: [],
                 amountMin: undefined,
                 amountMax: undefined,
-                createdById: undefined,
-                updatedById: undefined,
+                createdByEmail: undefined,
+                updatedByEmail: undefined,
                 page: 1,
               });
             }}

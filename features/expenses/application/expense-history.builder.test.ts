@@ -15,13 +15,14 @@ describe("expenseRowToSnapshot", () => {
       notes: null,
       originalAmount: { toString: () => "120.5000" },
       originalCurrency: "USD",
-      incurredOn: new Date("2025-06-15T00:00:00.000Z"),
+      fromDate: new Date("2025-06-15T00:00:00.000Z"),
+      toDate: new Date("2025-06-15T00:00:00.000Z"),
       categoryId: "cat1",
       expenseTags: [{ tagId: "b" }, { tagId: "a" }],
     });
     expect(snap.originalAmount).toBe("120.5000");
     expect(snap.tagIds).toEqual(["a", "b"]);
-    expect(snap.incurredOn).toBe("2025-06-15");
+    expect(snap.fromDate).toBe("2025-06-15");
   });
 });
 
@@ -33,7 +34,8 @@ describe("buildExpenseHistoryRows", () => {
     notes: null,
     originalAmount: { toString: () => "10" },
     originalCurrency: "USD",
-    incurredOn: new Date("2025-01-01T00:00:00.000Z"),
+    fromDate: new Date("2025-01-01T00:00:00.000Z"),
+    toDate: new Date("2025-01-01T00:00:00.000Z"),
     categoryId: null,
     expenseTags: [],
   });

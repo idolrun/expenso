@@ -15,7 +15,7 @@ const recordId = expenseRecordIdSchema;
 export const createExpenseSchemaBase = z.object({
   section: z.enum(expenseSectionValues),
   status: z.enum(expenseStatusValues).optional().default("DRAFT"),
-  title: z.string().trim().min(1).max(500),
+  title: z.string().trim().max(500).optional(),
   notes: z.string().trim().max(10_000).optional().nullable(),
   amount: moneyStringSchema,
   currency: currencyCodeSchema,
@@ -37,11 +37,19 @@ export const createExpenseSchema = createExpenseSchemaBase.superRefine(
     }
 
     if (v.section === "SALARY") {
-      if (!v.employeeName) {
+      if (!v.employeeName || v.employeeName.trim().length === 0) {
         ctx.addIssue({
           code: "custom",
           path: ["employeeName"],
           message: "Employee name is required for salary expenses.",
+        });
+      }
+    } else {
+      if (!v.title || v.title.trim().length === 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["title"],
+          message: "Title is required.",
         });
       }
     }
@@ -54,7 +62,7 @@ export const updateExpenseSchemaBase = z.object({
   id: recordId,
   section: z.enum(expenseSectionValues).optional(),
   status: z.enum(expenseStatusValues).optional(),
-  title: z.string().trim().min(1).max(500).optional(),
+  title: z.string().trim().max(500).optional(),
   notes: z.string().trim().max(10_000).optional().nullable(),
   amount: moneyStringSchema.optional(),
   currency: currencyCodeSchema.optional(),
@@ -87,6 +95,22 @@ export const updateExpenseSchema = updateExpenseSchemaBase
         code: "custom",
         path: ["toDate"],
         message: "End date must be on or after start date.",
+      });
+    }
+
+    if (v.section === "SALARY") {
+      if (v.employeeName !== undefined && v.employeeName.trim().length === 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["employeeName"],
+          message: "Employee name is required for salary expenses.",
+        });
+      }
+    } else if (v.title !== undefined && v.title.trim().length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["title"],
+        message: "Title is required.",
       });
     }
   });

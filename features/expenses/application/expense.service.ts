@@ -18,6 +18,7 @@ import { expenseHistoryRepository } from "@/features/expenses/infrastructure/exp
 import { expenseRepository } from "@/features/expenses/infrastructure/expense.repository";
 import { serializeExpense } from "@/features/expenses/domain/serialize";
 import { userRepository } from "@/features/users/infrastructure/user.repository";
+import { uploadAttachmentInTransaction } from "@/features/attachments/application/attachment.service";
 import { prisma } from "@/lib/prisma";
 
 function parseYmdToUtcDate(ymd: string): Date {
@@ -31,6 +32,7 @@ function snapshotsEqual(a: ExpenseScalarSnapshot, b: ExpenseScalarSnapshot) {
 export async function createExpenseService(
   input: CreateExpenseInput,
   actorUserId: string,
+  attachments: File[] = [],
 ): Promise<ServiceResult<ExpenseDto>> {
   try {
     await expenseRepository.assertCategoryExists(
@@ -43,11 +45,16 @@ export async function createExpenseService(
     // Compute FX snapshot before the transaction — external API call, not transactional.
     const fxSnapshot = await computeFxSnapshot(originalAmount, input.currency);
 
+    const resolvedTitle =
+      input.section === "SALARY"
+        ? `Salary for ${input.employeeName?.trim() || "Employee"}`
+        : input.title!;
+
     const expense = await prisma.$transaction(async (tx) => {
       const created = await expenseRepository.create(tx, {
         section: input.section,
         status: input.status,
-        title: input.title,
+        title: resolvedTitle,
         notes: input.notes ?? undefined,
         originalAmount,
         originalCurrency: input.currency,
@@ -89,6 +96,13 @@ export async function createExpenseService(
         );
       }
 
+      // Upload attachments if provided
+      if (attachments.length > 0) {
+        for (const file of attachments) {
+          await uploadAttachmentInTransaction(tx, created.id, file, actorUserId);
+        }
+      }
+
       await auditLogRepository.create(tx, {
         action: AuditAction.EXPENSE_CREATED,
         entityType: "Expense",
@@ -117,6 +131,7 @@ export async function createExpenseService(
 export async function updateExpenseService(
   input: UpdateExpenseInput,
   actorUserId: string,
+  attachments: File[] = [],
 ): Promise<ServiceResult<ExpenseDto>> {
   try {
     const existing = await expenseRepository.findActiveById(prisma, input.id);
@@ -184,9 +199,14 @@ export async function updateExpenseService(
         updatedBy: { connect: { id: actorUserId } },
       };
 
+      const resolvedTitle =
+        input.section === "SALARY"
+          ? `Salary for ${input.employeeName?.trim() || "Employee"}`
+          : input.title;
+
       if (input.section !== undefined) data.section = input.section;
       if (input.status !== undefined) data.status = input.status;
-      if (input.title !== undefined) data.title = input.title;
+      if (resolvedTitle !== undefined) data.title = resolvedTitle;
       if (input.notes !== undefined) data.notes = input.notes;
       if (input.amount !== undefined) {
         data.originalAmount = new Prisma.Decimal(input.amount);
@@ -254,7 +274,11 @@ export async function updateExpenseService(
             },
           },
         };
-      } else if (input.section !== undefined && input.section !== "SALARY") {
+      } else if (
+        input.section !== undefined &&
+        input.section !== "SALARY" &&
+        existing.salaryRecord
+      ) {
         data.salaryRecord = { delete: true };
       }
 
@@ -270,6 +294,13 @@ export async function updateExpenseService(
       }
 
       await expenseHistoryRepository.createMany(tx, historyRows);
+
+      // Upload new attachments if provided
+      if (attachments.length > 0) {
+        for (const file of attachments) {
+          await uploadAttachmentInTransaction(tx, input.id, file, actorUserId);
+        }
+      }
 
       await auditLogRepository.create(tx, {
         action: AuditAction.EXPENSE_UPDATED,

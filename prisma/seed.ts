@@ -32,12 +32,6 @@ async function cleanup() {
   await prisma.salaryRecord.deleteMany({
     where: { employeeName: { startsWith: "SEED:" } },
   });
-  await prisma.inventoryItem.deleteMany({
-    where: { sku: { startsWith: "SEED-" } },
-  });
-  await prisma.merchandiseItem.deleteMany({
-    where: { sku: { startsWith: "SEED-" } },
-  });
   await prisma.expense.deleteMany({
     where: { notes: { contains: SEED_MARKER } },
   });
@@ -232,7 +226,8 @@ async function main() {
           notes: [plan.notesExtra, SEED_MARKER].join("\n"),
           originalAmount: new Prisma.Decimal(plan.amount),
           originalCurrency: "USD",
-          incurredOn: new Date(`2025-03-${String(10 + i).padStart(2, "0")}T00:00:00.000Z`),
+          fromDate: new Date(`2025-03-${String(10 + i).padStart(2, "0")}T00:00:00.000Z`),
+          toDate: new Date(`2025-03-${String(10 + i).padStart(2, "0")}T00:00:00.000Z`),
           categoryId: categories[i]!.id,
           createdById: plan.createdById,
           updatedById: admin.id,
@@ -303,82 +298,6 @@ async function main() {
         contentType: "application/zip",
         sizeBytes: 2_048_000,
         uploadedById: user1.id,
-      },
-    ],
-  });
-
-  await prisma.inventoryItem.createMany({
-    data: [
-      {
-        sku: "SEED-INV-001",
-        name: "Seed rack component",
-        description: "Demo inventory row 1",
-        quantity: 12,
-        unit: "ea",
-        unitCost: new Prisma.Decimal("89.9900"),
-        expenseId: expenses[0]!.id,
-        createdById: admin.id,
-        updatedById: admin.id,
-      },
-      {
-        sku: "SEED-INV-002",
-        name: "Seed spare cables",
-        description: "Demo inventory row 2",
-        quantity: 40,
-        unit: "ea",
-        unitCost: new Prisma.Decimal("4.5000"),
-        expenseId: null,
-        createdById: user1.id,
-        updatedById: admin.id,
-      },
-      {
-        sku: "SEED-INV-003",
-        name: "Seed tool kit",
-        description: "Demo inventory row 3",
-        quantity: 6,
-        unit: "kit",
-        unitCost: new Prisma.Decimal("120.0000"),
-        expenseId: null,
-        createdById: user2.id,
-        updatedById: user2.id,
-      },
-    ],
-  });
-
-  await prisma.merchandiseItem.createMany({
-    data: [
-      {
-        sku: "SEED-MERCH-001",
-        name: "Seed branded mug",
-        description: "Demo merchandise 1",
-        costPrice: new Prisma.Decimal("4.2500"),
-        retailPrice: new Prisma.Decimal("14.9900"),
-        stockQuantity: 200,
-        expenseId: null,
-        createdById: admin.id,
-        updatedById: admin.id,
-      },
-      {
-        sku: "SEED-MERCH-002",
-        name: "Seed event tee",
-        description: "Demo merchandise 2",
-        costPrice: new Prisma.Decimal("8.0000"),
-        retailPrice: new Prisma.Decimal("28.0000"),
-        stockQuantity: 95,
-        expenseId: null,
-        createdById: user1.id,
-        updatedById: admin.id,
-      },
-      {
-        sku: "SEED-MERCH-003",
-        name: "Seed tote bag",
-        description: "Demo merchandise 3",
-        costPrice: new Prisma.Decimal("3.7500"),
-        retailPrice: new Prisma.Decimal("18.5000"),
-        stockQuantity: 140,
-        expenseId: null,
-        createdById: user2.id,
-        updatedById: user2.id,
       },
     ],
   });

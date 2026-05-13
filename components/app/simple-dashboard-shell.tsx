@@ -34,10 +34,8 @@ import {
   ListIcon,
   MegaphoneIcon,
   MoneyIcon,
-  PackageIcon,
   ReceiptIcon,
   ScrollIcon,
-  ShoppingBagIcon,
   SquaresFourIcon,
   UserGearIcon,
   UsersIcon,
@@ -61,8 +59,7 @@ const sectionIconMap: Record<
   PETTY_CASH: CoinsIcon,
   SALARY: MoneyIcon,
   TRAVEL: AirplaneIcon,
-  INVENTORY: PackageIcon,
-  MERCHANDISE: ShoppingBagIcon,
+  // INVENTORY and MERCHANDISE removed — not implemented (see UX audit CR-05)
 };
 
 function NavItems({

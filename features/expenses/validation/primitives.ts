@@ -11,8 +11,6 @@ export const expenseSectionValues = [
   "PETTY_CASH",
   "SALARY",
   "TRAVEL",
-  "INVENTORY",
-  "MERCHANDISE",
 ] as const satisfies readonly ExpenseSection[];
 
 export const expenseStatusValues = [

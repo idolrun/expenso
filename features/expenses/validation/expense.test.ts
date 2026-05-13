@@ -13,7 +13,8 @@ describe("createExpenseSchema", () => {
       title: "Laptop",
       amount: "1299.99",
       currency: "usd",
-      incurredOn: "2025-04-01",
+      fromDate: "2025-04-01",
+      toDate: "2025-04-01",
       tagIds: [],
     });
     expect(r.success).toBe(true);
@@ -28,7 +29,8 @@ describe("createExpenseSchema", () => {
       title: "Local vendor",
       amount: "1800",
       currency: "npr",
-      incurredOn: "2025-04-01",
+      fromDate: "2025-04-01",
+      toDate: "2025-04-01",
     });
     expect(r.success).toBe(true);
     if (r.success) {
@@ -42,7 +44,8 @@ describe("createExpenseSchema", () => {
       title: "X",
       amount: "0",
       currency: "USD",
-      incurredOn: "2025-04-01",
+      fromDate: "2025-04-01",
+      toDate: "2025-04-01",
     });
     expect(r.success).toBe(false);
   });
@@ -53,7 +56,8 @@ describe("createExpenseSchema", () => {
       title: "Foreign fee",
       amount: "10",
       currency: "EUR",
-      incurredOn: "2025-04-01",
+      fromDate: "2025-04-01",
+      toDate: "2025-04-01",
     });
     expect(r.success).toBe(false);
   });

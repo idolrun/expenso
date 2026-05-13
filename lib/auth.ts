@@ -17,7 +17,7 @@ if (!secret || secret.length < 32) {
   );
 }
 
-/** In development, prefer the browser app origin (default :3001) over a stale BETTER_AUTH_URL (:3000). */
+/** In development, prefer the browser app origin (default :3000) over a stale BETTER_AUTH_URL (e.g. :3001). */
 const baseURL =
   process.env.NODE_ENV === "development"
     ? getPublicAppUrl()

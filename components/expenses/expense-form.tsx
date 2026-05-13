@@ -1,21 +1,38 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  createExpenseAction,
-  updateExpenseAction,
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  createExpenseWithAttachmentsAction,
+  updateExpenseWithAttachmentsAction,
 } from "@/features/expenses/actions/expense-actions";
+import { createExpenseSchema } from "@/features/expenses/validation/expense";
 import {
   defaultExpenseCurrency,
   expenseCurrencyValues,
@@ -25,10 +42,6 @@ import type {
   ExpenseDto,
   SafeAttachmentDto,
 } from "@/features/expenses/domain/dto";
-import {
-  expenseSectionValues,
-  expenseStatusValues,
-} from "@/features/expenses/validation/primitives";
 import { apiAxios } from "@/src/lib/axios";
 import {
   slugForSection,
@@ -41,6 +54,16 @@ import {
   UploadIcon,
   FileIcon,
 } from "@phosphor-icons/react";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Field,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
+import { expenseStatusValues } from "@/features/expenses/validation/primitives";
+
+const MAX_FILE_BYTES = 3 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
 
 type TagOption = { id: string; name: string; slug: string };
 
@@ -51,33 +74,12 @@ type CategoryRow = {
   section: ExpenseSectionId;
 };
 
-type ExpenseStatusId = (typeof expenseStatusValues)[number];
-type SectionInputValue = ExpenseSectionId | "";
-type StatusInputValue = ExpenseStatusId | "";
-
 type ApiOk<T> = { ok: true; data: T };
 
 type ExchangeRatePayload = {
   rate: number;
   lastUpdated: string;
 };
-
-function RequiredLabel({
-  htmlFor,
-  children,
-}: {
-  htmlFor?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Label htmlFor={htmlFor}>
-      {children}
-      <span className="text-destructive" aria-hidden>
-        *
-      </span>
-    </Label>
-  );
-}
 
 function normalizeCurrency(currency: string | undefined): ExpenseCurrencyCode {
   return currency === "NPR" ? "NPR" : defaultExpenseCurrency;
@@ -87,7 +89,6 @@ function parseAmountInput(value: string): number | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   if (!/^\d+(\.\d*)?$/.test(trimmed)) return null;
-
   const amount = Number(trimmed);
   return Number.isFinite(amount) ? amount : null;
 }
@@ -118,34 +119,15 @@ function isExchangeRatePayload(value: unknown): value is ExchangeRatePayload {
   );
 }
 
-function CurrencyFieldLabel({
-  htmlFor,
-  code,
-  savedCurrency,
-}: {
-  htmlFor: string;
-  code: ExpenseCurrencyCode;
-  savedCurrency: ExpenseCurrencyCode;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <Label htmlFor={htmlFor}>{code} amount</Label>
-      {savedCurrency === code ? (
-        <span className="text-muted-foreground text-xs">Saved</span>
-      ) : null}
-    </div>
-  );
-}
-
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
-
-const MAX_FILE_BYTES = 3 * 1024 * 1024;
+function resolveSalaryTitle(employeeName: string): string {
+  return `Salary for ${employeeName.trim() || "Employee"}`;
+}
 
 export function ExpenseForm({
   mode,
@@ -164,86 +146,110 @@ export function ExpenseForm({
   const [pending, start] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const initial = useMemo(() => {
-    const initialCurrency =
-      mode === "edit" && expense
-        ? normalizeCurrency(expense.originalCurrency)
-        : defaultExpenseCurrency;
-    const initialAmount =
-      mode === "edit" && expense ? expense.originalAmount : "";
-
-    return {
-      section:
-        mode === "edit" && expense
-          ? expense.section
-          : ((defaultSection ?? "") as SectionInputValue),
-      status:
-        mode === "edit" && expense ? expense.status : ("" as StatusInputValue),
-      title: mode === "edit" && expense ? expense.title : "",
-      notes: mode === "edit" && expense ? (expense.notes ?? "") : "",
-      usdAmount: initialCurrency === "USD" ? initialAmount : "",
-      nprAmount: initialCurrency === "NPR" ? initialAmount : "",
-      currency: initialCurrency,
-      lastEditedCurrency: initialCurrency,
-      fromDate:
-        mode === "edit" && expense
-          ? expense.fromDate
-          : new Date().toISOString().slice(0, 10),
-      toDate:
-        mode === "edit" && expense
-          ? expense.toDate
-          : new Date().toISOString().slice(0, 10),
-      categoryId: mode === "edit" && expense ? (expense.categoryId ?? "") : "",
-      tagIds:
-        mode === "edit" && expense
-          ? expense.tags.map((t) => t.id)
-          : ([] as string[]),
-      employeeName:
-        mode === "edit" && expense?.salaryRecord
-          ? expense.salaryRecord.employeeName
-          : "",
-      payPeriodStart:
-        mode === "edit" && expense?.salaryRecord
-          ? expense.salaryRecord.payPeriodStart
-          : new Date().toISOString().slice(0, 10),
-      payPeriodEnd:
-        mode === "edit" && expense?.salaryRecord
-          ? expense.salaryRecord.payPeriodEnd
-          : new Date().toISOString().slice(0, 10),
-    };
-  }, [defaultSection, expense, mode]);
-
-  const [section, setSection] = useState<SectionInputValue>(initial.section);
-  const [status, setStatus] = useState<StatusInputValue>(initial.status);
-  const [title, setTitle] = useState(initial.title);
-  const [notes, setNotes] = useState(initial.notes);
-  const [usdAmount, setUsdAmount] = useState(initial.usdAmount);
-  const [nprAmount, setNprAmount] = useState(initial.nprAmount);
-  const [currency, setCurrency] = useState<ExpenseCurrencyCode>(
-    initial.currency,
-  );
-  const [lastEditedCurrency, setLastEditedCurrency] =
-    useState<ExpenseCurrencyCode>(initial.lastEditedCurrency);
-  const [fromDate, setFromDate] = useState(initial.fromDate);
-  const [toDate, setToDate] = useState(initial.toDate);
-  const [categoryId, setCategoryId] = useState(initial.categoryId);
-  const [tagIds, setTagIds] = useState<string[]>(initial.tagIds);
-  const [employeeName, setEmployeeName] = useState(initial.employeeName);
-  const [payPeriodStart, setPayPeriodStart] = useState(initial.payPeriodStart);
-  const [payPeriodEnd, setPayPeriodEnd] = useState(initial.payPeriodEnd);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [exchangeRateError, setExchangeRateError] = useState<string | null>(null);
+  const [conversionPreview, setConversionPreview] = useState<string | null>(null);
 
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] =
     useState<SafeAttachmentDto[]>(initialAttachments);
-  const [uploadingFiles, setUploadingFiles] = useState(false);
 
-  // Conversion syncs immediately as the user types; no debounce needed.
+  const [deleteAttachmentId, setDeleteAttachmentId] = useState<string | null>(null);
+  const [deleteAttachmentName, setDeleteAttachmentName] = useState<string>("");
 
+  type ExpenseFormValues = {
+    section: ExpenseSectionId;
+    status?: (typeof expenseStatusValues)[number];
+    title?: string;
+    notes?: string | null;
+    amount: string;
+    currency: ExpenseCurrencyCode;
+    fromDate: string;
+    toDate: string;
+    categoryId?: string | null;
+    tagIds?: string[];
+    employeeName?: string;
+  };
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    setValue,
+    clearErrors,
+    formState: { errors, isDirty, isSubmitting },
+  } = useForm<ExpenseFormValues>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(createExpenseSchema) as any,
+    defaultValues: useMemo(() => {
+      const initialCurrency =
+        mode === "edit" && expense
+          ? normalizeCurrency(expense.originalCurrency)
+          : defaultExpenseCurrency;
+      const initialAmount =
+        mode === "edit" && expense ? String(expense.originalAmount) : "";
+
+      return {
+        section:
+          (mode === "edit" && expense
+            ? expense.section
+            : (defaultSection ?? "OVERVIEW")) as ExpenseSectionId,
+        status:
+          mode === "edit" && expense ? expense.status : "DRAFT",
+        title: mode === "edit" && expense ? expense.title : "",
+        notes: mode === "edit" && expense ? (expense.notes ?? "") : "",
+        amount: initialAmount,
+        currency: initialCurrency,
+        fromDate:
+          mode === "edit" && expense
+            ? expense.fromDate
+            : new Date().toISOString().slice(0, 10),
+        toDate:
+          mode === "edit" && expense
+            ? expense.toDate
+            : new Date().toISOString().slice(0, 10),
+        categoryId: mode === "edit" && expense ? (expense.categoryId ?? "") : "",
+        tagIds:
+          mode === "edit" && expense
+            ? expense.tags.map((t) => t.id)
+            : [],
+        employeeName:
+          mode === "edit" && expense?.salaryRecord
+            ? expense.salaryRecord.employeeName
+            : "",
+      };
+    }, [defaultSection, expense, mode]),
+    mode: "onSubmit",
+  });
+
+  const section = watch("section");
+  const currency = watch("currency");
+  const amountValue = watch("amount");
+  const employeeName = watch("employeeName");
+
+  // Focus first error field after submit
+  useEffect(() => {
+    const firstErrorField = Object.keys(errors)[0] as keyof ExpenseFormValues | undefined;
+    if (firstErrorField) {
+      const el = document.getElementById(firstErrorField);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.focus();
+      }
+    }
+  }, [errors]);
+
+  // Fetch categories when section changes
   useEffect(() => {
     let cancelled = false;
-    if (!section) return;
+    if (!section) {
+      setCategories([]);
+      return;
+    }
+    setCategoryError(null);
     void apiAxios
       .get<ApiOk<CategoryRow[]>>("/categories", { params: { section } })
       .then((res) => {
@@ -252,13 +258,22 @@ export function ExpenseForm({
         if (body.ok) setCategories(body.data);
       })
       .catch(() => {
-        if (!cancelled) setCategories([]);
+        if (!cancelled) {
+          setCategories([]);
+          setCategoryError("Failed to load categories. Try selecting the section again.");
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [section]);
 
+  // Reset category when section changes
+  useEffect(() => {
+    setValue("categoryId", "");
+  }, [section, setValue]);
+
+  // Fetch exchange rate
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
@@ -277,17 +292,7 @@ export function ExpenseForm({
           | null;
 
         if (!response.ok) {
-          const message =
-            typeof body === "object" &&
-            body !== null &&
-            "error" in body &&
-            typeof body.error === "object" &&
-            body.error !== null &&
-            "message" in body.error &&
-            typeof body.error.message === "string"
-              ? body.error.message
-              : "Unable to load the exchange rate";
-          throw new Error(message);
+          throw new Error("Unable to load the exchange rate");
         }
 
         if (!isExchangeRatePayload(body)) {
@@ -295,8 +300,8 @@ export function ExpenseForm({
         }
 
         if (cancelled) return;
-
         setExchangeRate(body.rate);
+        setExchangeRateError(null);
       } catch (error) {
         if (
           cancelled ||
@@ -305,6 +310,7 @@ export function ExpenseForm({
           return;
         }
         setExchangeRate(null);
+        setExchangeRateError("Exchange rate unavailable. Conversions are disabled.");
       }
     }
 
@@ -316,81 +322,31 @@ export function ExpenseForm({
     };
   }, []);
 
+  // Compute cross-currency preview
   useEffect(() => {
-    if (!exchangeRate) return;
-
-    const timeout = window.setTimeout(() => {
-      if (lastEditedCurrency === "USD") {
-        const parsedUsdAmount = parseAmountInput(usdAmount);
-        const nextNprAmount =
-          parsedUsdAmount === null
-            ? ""
-            : toEditableAmount(parsedUsdAmount * exchangeRate);
-
-        setNprAmount((current) =>
-          current === nextNprAmount ? current : nextNprAmount,
-        );
-      } else {
-        const parsedNprAmount = parseAmountInput(nprAmount);
-        const nextUsdAmount =
-          parsedNprAmount === null
-            ? ""
-            : toEditableAmount(parsedNprAmount / exchangeRate);
-
-        setUsdAmount((current) =>
-          current === nextUsdAmount ? current : nextUsdAmount,
-        );
-      }
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [usdAmount, nprAmount, exchangeRate, lastEditedCurrency]);
+    const parsed = parseAmountInput(amountValue ?? "");
+    if (parsed === null || !exchangeRate) {
+      setConversionPreview(null);
+      return;
+    }
+    if (currency === "USD") {
+      const npr = toEditableAmount(parsed * exchangeRate);
+      setConversionPreview(`≈ ${formatMoneyAmount(npr, "NPR")}`);
+    } else {
+      const usd = toEditableAmount(parsed / exchangeRate);
+      setConversionPreview(`≈ ${formatMoneyAmount(usd, "USD")}`);
+    }
+  }, [amountValue, currency, exchangeRate]);
 
   const toggleTag = (id: string) => {
-    setTagIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    const current = watch("tagIds") ?? [];
+    const next = current.includes(id)
+      ? current.filter((x) => x !== id)
+      : [...current, id];
+    setValue("tagIds", next, { shouldDirty: true });
   };
 
-  const handleAmountChange = (
-    targetCurrency: ExpenseCurrencyCode,
-    value: string,
-  ) => {
-    if (targetCurrency === "USD") {
-      setUsdAmount(value);
-    } else {
-      setNprAmount(value);
-    }
-    setLastEditedCurrency(targetCurrency);
-  };
-
-  const handleSectionChange = (value: SectionInputValue) => {
-    setSection(value);
-    setCategoryId("");
-    setCategories([]);
-  };
-
-  const resolveSubmissionAmount = (targetCurrency: ExpenseCurrencyCode) => {
-    const directValue = (
-      targetCurrency === "USD" ? usdAmount : nprAmount
-    ).trim();
-
-    if (lastEditedCurrency === targetCurrency) {
-      return directValue;
-    }
-
-    const sourceValue = lastEditedCurrency === "USD" ? usdAmount : nprAmount;
-    const sourceNumber = parseAmountInput(sourceValue);
-    if (sourceNumber === null || !exchangeRate) {
-      return directValue;
-    }
-
-    return lastEditedCurrency === "USD"
-      ? toEditableAmount(sourceNumber * exchangeRate)
-      : toEditableAmount(sourceNumber / exchangeRate);
-  };
+  const tagIds = watch("tagIds") ?? [];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -427,12 +383,16 @@ export function ExpenseForm({
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const removeExistingAttachment = async (attachmentId: string) => {
-    if (!expense) return;
-    if (!confirm("Remove this attachment?")) return;
+  const confirmRemoveExisting = (attachment: SafeAttachmentDto) => {
+    setDeleteAttachmentId(attachment.id);
+    setDeleteAttachmentName(attachment.fileName);
+  };
+
+  const executeRemoveExisting = async () => {
+    if (!deleteAttachmentId || !expense) return;
     try {
       const res = await fetch(
-        `/api/expenses/${expense.id}/attachments/${attachmentId}`,
+        `/api/expenses/${expense.id}/attachments/${deleteAttachmentId}`,
         {
           method: "DELETE",
           credentials: "same-origin",
@@ -448,323 +408,289 @@ export function ExpenseForm({
       }
       toast.success("Attachment removed");
       setExistingAttachments((prev) =>
-        prev.filter((a) => a.id !== attachmentId),
+        prev.filter((a) => a.id !== deleteAttachmentId),
       );
     } catch {
       toast.error("Network error while removing attachment");
-    }
-  };
-
-  async function uploadPendingFiles(expenseId: string) {
-    if (pendingFiles.length === 0) return;
-    setUploadingFiles(true);
-    try {
-      for (const file of pendingFiles) {
-        const formData = new FormData();
-        formData.append("file", file);
-        const uploadRes = await fetch(
-          `/api/expenses/${expenseId}/attachments`,
-          {
-            method: "POST",
-            body: formData,
-            credentials: "same-origin",
-          },
-        );
-        const body = (await uploadRes.json()) as {
-          ok: boolean;
-          data?: SafeAttachmentDto;
-          error?: { message: string };
-        };
-        if (!uploadRes.ok || !body.ok) {
-          toast.error(body.error?.message ?? `Failed to upload ${file.name}`);
-        }
-      }
-    } catch {
-      toast.error("Network error during file upload");
     } finally {
-      setUploadingFiles(false);
+      setDeleteAttachmentId(null);
+      setDeleteAttachmentName("");
     }
-  }
-
-  const submit = () => {
-    start(async () => {
-      if (!section) {
-        toast.error("Section is required");
-        return;
-      }
-
-      const amount = resolveSubmissionAmount(currency);
-      if (!amount) {
-        toast.error(`Enter an amount in ${currency}`);
-        return;
-      }
-
-      const payload = {
-        section,
-        ...(status ? { status } : {}),
-        title:
-          section === "SALARY"
-            ? `Salary for ${employeeName.trim() || "Employee"}`
-            : title.trim(),
-        notes: notes.trim() || null,
-        amount,
-        currency,
-        fromDate: fromDate.trim(),
-        toDate: toDate.trim(),
-        categoryId: categoryId.trim() || null,
-        tagIds,
-        ...(section === "SALARY"
-          ? {
-              employeeName: employeeName.trim(),
-              payPeriodStart,
-              payPeriodEnd,
-            }
-          : {}),
-      };
-
-      if (mode === "create") {
-        const res = await createExpenseAction(payload);
-        if (!res.ok) {
-          toast.error(res.error.message);
-          return;
-        }
-        await uploadPendingFiles(res.data.id);
-        toast.success("Expense created");
-        router.push(
-          `/dashboard/sections/${slugForSection(section as ExpenseSectionId)}`,
-        );
-        router.refresh();
-        return;
-      }
-
-      if (!expense) return;
-      const res = await updateExpenseAction({
-        id: expense.id,
-        ...payload,
-      });
-      if (!res.ok) {
-        toast.error(res.error.message);
-        return;
-      }
-      await uploadPendingFiles(expense.id);
-      toast.success("Expense updated");
-      router.push(`/dashboard/expenses/${res.data.id}`);
-      router.refresh();
-    });
   };
 
-  const savedAmountPreview = toFormattedPreview(
-    resolveSubmissionAmount(currency),
-    currency,
-  );
-  const usdPreview = toFormattedPreview(usdAmount, "USD");
-  const nprPreview = toFormattedPreview(nprAmount, "NPR");
+  const onSubmit = async (values: ExpenseFormValues) => {
+    const formData = new FormData();
+    formData.append("payload", JSON.stringify(values));
+    for (const file of pendingFiles) {
+      formData.append("files", file);
+    }
+
+    if (mode === "create") {
+      const res = await createExpenseWithAttachmentsAction(formData);
+      if (!res.ok) {
+        if (res.error.code === "VALIDATION_ERROR") {
+          toast.error(res.error.message);
+        } else {
+          toast.error(res.error.message);
+        }
+        return;
+      }
+      toast.success("Expense created");
+      router.push(
+        `/dashboard/sections/${slugForSection(values.section as ExpenseSectionId)}`,
+      );
+      router.refresh();
+      return;
+    }
+
+    if (!expense) return;
+    const updateFormData = new FormData();
+    updateFormData.append(
+      "payload",
+      JSON.stringify({ id: expense.id, ...values }),
+    );
+    for (const file of pendingFiles) {
+      updateFormData.append("files", file);
+    }
+
+    const res = await updateExpenseWithAttachmentsAction(updateFormData);
+    if (!res.ok) {
+      toast.error(res.error.message);
+      return;
+    }
+    toast.success("Expense updated");
+    router.push(`/dashboard/expenses/${res.data.id}`);
+    router.refresh();
+  };
+
+  const savedAmountPreview = toFormattedPreview(amountValue ?? "", currency);
+
+  const isSalary = section === "SALARY";
+  const salaryPreview = isSalary ? resolveSalaryTitle(employeeName ?? "") : null;
 
   return (
-    <div className="bg-card space-y-6 rounded-xl border p-4 shadow-xs sm:p-6">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="bg-card space-y-6 rounded-xl border p-4 shadow-xs sm:p-6"
+    >
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <RequiredLabel>Section</RequiredLabel>
-          <NativeSelect
-            className="w-full min-w-0"
-            value={section}
-            onChange={(e) =>
-              handleSectionChange(e.target.value as SectionInputValue)
-            }
-            required
-          >
-            <NativeSelectOption value="">Select section</NativeSelectOption>
-            {expenseSectionValues.map((s) => (
-              <NativeSelectOption key={s} value={s}>
-                {s.replaceAll("_", " ")}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
+        <Field data-invalid={!!errors.section}>
+          <FieldLabel htmlFor="section">
+            Section<span className="text-destructive" aria-hidden> *</span>
+          </FieldLabel>
+          <Controller
+            control={control}
+            name="section"
+            render={({ field }) => (
+              <NativeSelect
+                id="section"
+                className="w-full min-w-0"
+                value={field.value}
+                onChange={(e) => {
+                  field.onChange(e.target.value);
+                  clearErrors("section");
+                }}
+              >
+                <NativeSelectOption value="">Select section</NativeSelectOption>
+                {(
+                  [
+                    "OVERVIEW",
+                    "TECH",
+                    "MARKETING",
+                    "SOCIAL_MEDIA",
+                    "PETTY_CASH",
+                    "SALARY",
+                    "TRAVEL",
+                  ] as ExpenseSectionId[]
+                ).map((s) => (
+                  <NativeSelectOption key={s} value={s}>
+                    {s.replaceAll("_", " ")}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            )}
+          />
+          <FieldError>{errors.section?.message}</FieldError>
+        </Field>
 
-        <div className="space-y-2">
-          <Label>Status</Label>
-          <NativeSelect
-            className="w-full min-w-0"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as StatusInputValue)}
-          >
-            <NativeSelectOption value="">Select status</NativeSelectOption>
-            {expenseStatusValues.map((s) => (
-              <NativeSelectOption key={s} value={s}>
-                {s}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
+        <Field data-invalid={!!errors.status}>
+          <FieldLabel htmlFor="status">Status</FieldLabel>
+          <Controller
+            control={control}
+            name="status"
+            render={({ field }) => (
+              <NativeSelect
+                id="status"
+                className="w-full min-w-0"
+                value={field.value}
+                onChange={(e) => field.onChange(e.target.value)}
+              >
+                <NativeSelectOption value="DRAFT">DRAFT</NativeSelectOption>
+                <NativeSelectOption value="SUBMITTED">SUBMITTED</NativeSelectOption>
+                <NativeSelectOption value="APPROVED">APPROVED</NativeSelectOption>
+                <NativeSelectOption value="REJECTED">REJECTED</NativeSelectOption>
+                <NativeSelectOption value="PAID">PAID</NativeSelectOption>
+                <NativeSelectOption value="CANCELLED">CANCELLED</NativeSelectOption>
+              </NativeSelect>
+            )}
+          />
+          <FieldError>{errors.status?.message}</FieldError>
+        </Field>
 
-        {section !== "SALARY" && (
-          <div className="space-y-2 sm:col-span-2">
-            <RequiredLabel htmlFor="title">Title</RequiredLabel>
+        {!isSalary && (
+          <Field data-invalid={!!errors.title} className="sm:col-span-2">
+            <FieldLabel htmlFor="title">
+              Title<span className="text-destructive" aria-hidden> *</span>
+            </FieldLabel>
             <Input
               id="title"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              {...register("title")}
+              aria-invalid={!!errors.title}
             />
-          </div>
+            <FieldError>{errors.title?.message}</FieldError>
+          </Field>
         )}
 
-        {section === "SALARY" && (
-          <div className="space-y-4 sm:col-span-2 bg-muted/50 p-4 rounded-xl border border-dashed">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
-                <RequiredLabel htmlFor="employeeName">
-                  Employee Name
-                </RequiredLabel>
-                <Input
-                  id="employeeName"
-                  required
-                  value={employeeName}
-                  onChange={(e) => setEmployeeName(e.target.value)}
-                  placeholder="e.g. Jane Doe"
-                />
-              </div>
-              <div className="space-y-2">
-                <RequiredLabel htmlFor="payPeriodStart">
-                  From Date
-                </RequiredLabel>
-                <Input
-                  id="payPeriodStart"
-                  type="date"
-                  required
-                  value={payPeriodStart}
-                  onChange={(e) => setPayPeriodStart(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <RequiredLabel htmlFor="payPeriodEnd">To Date</RequiredLabel>
-                <Input
-                  id="payPeriodEnd"
-                  type="date"
-                  required
-                  value={payPeriodEnd}
-                  onChange={(e) => setPayPeriodEnd(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
+        {isSalary && (
+          <Field data-invalid={!!errors.employeeName} className="sm:col-span-2">
+            <FieldLabel htmlFor="employeeName">
+              Employee Name<span className="text-destructive" aria-hidden> *</span>
+            </FieldLabel>
+            <Input
+              id="employeeName"
+              placeholder="e.g. Jane Doe"
+              {...register("employeeName")}
+              aria-invalid={!!errors.employeeName}
+            />
+            <FieldError>{errors.employeeName?.message}</FieldError>
+            {salaryPreview && (
+              <p className="text-muted-foreground text-xs">
+                This will be saved as: <span className="font-medium">{salaryPreview}</span>
+              </p>
+            )}
+          </Field>
         )}
 
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="notes">Notes</Label>
+        <Field className="sm:col-span-2">
+          <FieldLabel htmlFor="notes">Notes</FieldLabel>
           <Textarea
             id="notes"
             rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            {...register("notes")}
           />
-        </div>
+          <FieldError>{errors.notes?.message}</FieldError>
+        </Field>
 
-        {currency === "USD" && (
-          <div className="space-y-2">
-            <CurrencyFieldLabel
-              htmlFor="amount-usd"
-              code="USD"
-              savedCurrency={currency}
-            />
-            <Input
-              id="amount-usd"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={usdAmount}
-              onChange={(e) => handleAmountChange("USD", e.target.value)}
-            />
-            <p className="text-muted-foreground text-xs">
-              {usdPreview ?? "Type in USD to calculate NPR automatically."}
-            </p>
+        <Field data-invalid={!!errors.currency}>
+          <FieldLabel htmlFor="currency">
+            Saved currency<span className="text-destructive" aria-hidden> *</span>
+          </FieldLabel>
+          <Controller
+            control={control}
+            name="currency"
+            render={({ field }) => (
+              <NativeSelect
+                id="currency"
+                className="w-full min-w-0"
+                value={field.value}
+                onChange={(e) => {
+                  field.onChange(e.target.value);
+                }}
+              >
+                {expenseCurrencyValues.map((code) => (
+                  <NativeSelectOption key={code} value={code}>
+                    {code}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            )}
+          />
+          <FieldError>{errors.currency?.message}</FieldError>
+        </Field>
+
+        <Field data-invalid={!!errors.amount}>
+          <FieldLabel htmlFor="amount">
+            Amount ({currency})<span className="text-destructive" aria-hidden> *</span>
+          </FieldLabel>
+          <Input
+            id="amount"
+            inputMode="decimal"
+            placeholder="0.00"
+            {...register("amount")}
+            aria-invalid={!!errors.amount}
+          />
+          <FieldError>{errors.amount?.message}</FieldError>
+          <div className="flex items-center gap-2">
+            {savedAmountPreview && (
+              <p className="text-muted-foreground text-xs">
+                Saved: {savedAmountPreview}
+              </p>
+            )}
+            {conversionPreview && (
+              <p className="text-muted-foreground text-xs">
+                {conversionPreview}
+              </p>
+            )}
           </div>
-        )}
+        </Field>
 
-        {currency === "NPR" && (
-          <div className="space-y-2">
-            <CurrencyFieldLabel
-              htmlFor="amount-npr"
-              code="NPR"
-              savedCurrency={currency}
-            />
-            <Input
-              id="amount-npr"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={nprAmount}
-              onChange={(e) => handleAmountChange("NPR", e.target.value)}
-            />
-            <p className="text-muted-foreground text-xs">
-              {nprPreview ?? "Type in NPR to calculate USD automatically."}
-            </p>
-          </div>
-        )}
-
-        <div className="space-y-2">
-          <RequiredLabel htmlFor="currency">Saved currency</RequiredLabel>
-          <NativeSelect
-            className="w-full min-w-0"
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value as ExpenseCurrencyCode)}
-          >
-            {expenseCurrencyValues.map((code) => (
-              <NativeSelectOption key={code} value={code}>
-                {code}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-
-        <div className="space-y-2">
-          <RequiredLabel htmlFor="fromDate">From Date</RequiredLabel>
+        <Field data-invalid={!!errors.fromDate}>
+          <FieldLabel htmlFor="fromDate">
+            From Date<span className="text-destructive" aria-hidden> *</span>
+          </FieldLabel>
           <Input
             id="fromDate"
             type="date"
-            required
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
+            {...register("fromDate")}
+            aria-invalid={!!errors.fromDate}
           />
-        </div>
+          <FieldError>{errors.fromDate?.message}</FieldError>
+        </Field>
 
-        <div className="space-y-2">
-          <RequiredLabel htmlFor="toDate">To Date</RequiredLabel>
+        <Field data-invalid={!!errors.toDate}>
+          <FieldLabel htmlFor="toDate">
+            To Date<span className="text-destructive" aria-hidden> *</span>
+          </FieldLabel>
           <Input
             id="toDate"
             type="date"
-            required
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
+            {...register("toDate")}
+            aria-invalid={!!errors.toDate}
           />
-        </div>
+          <FieldError>{errors.toDate?.message}</FieldError>
+        </Field>
 
-        <div className="space-y-2 sm:col-span-2">
-          <p className="text-muted-foreground text-xs">
-            {savedAmountPreview
-              ? `This expense will be saved as ${savedAmountPreview}.`
-              : `Choose the saved currency and enter an amount in USD or NPR.`}
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Category</Label>
-          <NativeSelect
-            className="w-full min-w-0"
-            value={categoryId || ""}
-            onChange={(e) => setCategoryId(e.target.value)}
-          >
-            <NativeSelectOption value="">None</NativeSelectOption>
-            {categories.map((c) => (
-              <NativeSelectOption key={c.id} value={c.id}>
-                {c.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
+        <Field data-invalid={!!categoryError || !!errors.categoryId} className="sm:col-span-2">
+          <FieldLabel htmlFor="categoryId">Category</FieldLabel>
+          <Controller
+            control={control}
+            name="categoryId"
+            render={({ field }) => (
+              <NativeSelect
+                id="categoryId"
+                className="w-full min-w-0"
+                value={field.value || ""}
+                onChange={(e) => field.onChange(e.target.value || null)}
+              >
+                <NativeSelectOption value="">None</NativeSelectOption>
+                {categories.map((c) => (
+                  <NativeSelectOption key={c.id} value={c.id}>
+                    {c.name}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            )}
+          />
+          {categoryError ? (
+            <FieldError>{categoryError}</FieldError>
+          ) : (
+            <FieldError>{errors.categoryId?.message}</FieldError>
+          )}
+        </Field>
       </div>
 
-      <div className="space-y-2">
-        <Label>Tags</Label>
+      <Field>
+        <FieldLabel>Tags</FieldLabel>
         <div className="flex flex-wrap gap-2">
           {tags.map((t) => (
             <label
@@ -781,18 +707,18 @@ export function ExpenseForm({
             </label>
           ))}
         </div>
-      </div>
+      </Field>
 
       {/* Receipts */}
       <div className="space-y-3 rounded-lg border p-4">
         <div className="flex items-center justify-between gap-2">
-          <Label>Receipts</Label>
+          <FieldLabel>Receipts</FieldLabel>
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="gap-1.5"
-            disabled={pending || uploadingFiles}
+            disabled={pending || isSubmitting}
             onClick={() => fileInputRef.current?.click()}
           >
             <UploadIcon className="size-3.5" />
@@ -810,6 +736,9 @@ export function ExpenseForm({
         <p className="text-muted-foreground text-xs">
           Accepted: PNG, JPEG, PDF. Max 3 MB per file.
         </p>
+        {exchangeRateError && (
+          <p className="text-destructive text-xs">{exchangeRateError}</p>
+        )}
 
         {mode === "edit" && existingAttachments.length > 0 && (
           <ul className="space-y-2">
@@ -832,7 +761,7 @@ export function ExpenseForm({
                   variant="ghost"
                   size="icon"
                   className="text-destructive hover:text-destructive size-7"
-                  onClick={() => removeExistingAttachment(a.id)}
+                  onClick={() => confirmRemoveExisting(a)}
                   aria-label={`Remove ${a.fileName}`}
                 >
                   <TrashIcon className="size-3.5" />
@@ -873,17 +802,58 @@ export function ExpenseForm({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          disabled={pending || uploadingFiles}
-          onClick={submit}
-        >
+        <Button type="submit" disabled={pending || isSubmitting}>
+          {(pending || isSubmitting) && <Spinner className="mr-2 size-4" />}
           {mode === "create" ? "Create expense" : "Save changes"}
         </Button>
-        <Button type="button" variant="outline" onClick={() => router.back()}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => router.back()}
+          disabled={pending || isSubmitting}
+        >
           Cancel
         </Button>
       </div>
-    </div>
+
+      {/* Unsaved changes guard */}
+      {isDirty && (
+        <p className="text-muted-foreground text-xs">
+          You have unsaved changes.
+        </p>
+      )}
+
+      {/* Attachment delete confirmation */}
+      <AlertDialog
+        open={!!deleteAttachmentId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteAttachmentId(null);
+            setDeleteAttachmentName("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove attachment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteAttachmentName
+                ? `Remove "${deleteAttachmentName}" from this expense?`
+                : "Remove this attachment from the expense?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={executeRemoveExisting}
+            >
+              Remove
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </form>
   );
 }

@@ -18,13 +18,12 @@ export type ExpenseListFilter = Pick<
   | "section"
   | "status"
   | "categoryId"
-  | "createdById"
-  | "updatedById"
   | "deletedAt"
   | "originalAmount"
   | "originalCurrency"
   | "createdAt"
-  | "incurredOn"
+  | "fromDate"
+  | "toDate"
 > & {
   tagIds?: string[];
 };

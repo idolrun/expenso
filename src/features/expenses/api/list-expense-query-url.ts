@@ -38,10 +38,10 @@ export function serializeListExpensesQueryToSearchParams(
   if (query.tagIds.length) p.set("tagIds", query.tagIds.join(","));
   if (query.amountMin?.trim()) p.set("amountMin", query.amountMin.trim());
   if (query.amountMax?.trim()) p.set("amountMax", query.amountMax.trim());
-  if (query.incurredOnFrom) p.set("incurredOnFrom", query.incurredOnFrom);
-  if (query.incurredOnTo) p.set("incurredOnTo", query.incurredOnTo);
-  if (query.createdById !== undefined) p.set("createdById", String(query.createdById));
-  if (query.updatedById !== undefined) p.set("updatedById", String(query.updatedById));
+  if (query.dateRangeStart) p.set("dateRangeStart", query.dateRangeStart);
+  if (query.dateRangeEnd) p.set("dateRangeEnd", query.dateRangeEnd);
+  if (query.createdByEmail !== undefined) p.set("createdByEmail", String(query.createdByEmail));
+  if (query.updatedByEmail !== undefined) p.set("updatedByEmail", String(query.updatedByEmail));
   if (query.search?.trim()) p.set("search", query.search.trim());
   if (query.sortField !== DEFAULT_SORT_FIELD) p.set("sortField", query.sortField);
   if (query.sortDir !== DEFAULT_SORT_DIR) p.set("sortDir", query.sortDir);

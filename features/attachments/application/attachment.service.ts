@@ -2,6 +2,7 @@ import { Readable } from "node:stream";
 import type { UploadApiResponse } from "cloudinary";
 
 import { AuditAction } from "@/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 
 import type { AttachmentDto, ServiceResult } from "@/features/expenses/domain/dto";
 import { serializeAttachment } from "@/features/expenses/domain/serialize";
@@ -18,6 +19,7 @@ import {
   cloudinaryResourceType,
 } from "@/lib/cloudinary";
 import { prisma } from "@/lib/prisma";
+import type { DbClient } from "@/features/expenses/infrastructure/db.types";
 
 // ─── Cloudinary upload helper ────────────────────────────────────────────────
 
@@ -59,6 +61,70 @@ function logAttachmentAccess(event: {
       ts: new Date().toISOString(),
     }) + "\n",
   );
+}
+
+// ─── Transactional upload helper ─────────────────────────────────────────────
+
+/**
+ * Upload a file to Cloudinary and persist the attachment record inside an
+ * existing Prisma transaction. This is used by expense create/edit flows so
+ * that attachment failures surface to the user before they are redirected.
+ */
+export async function uploadAttachmentInTransaction(
+  tx: Prisma.TransactionClient,
+  expenseId: string,
+  file: File,
+  actorUserId: string,
+): Promise<AttachmentDto> {
+  const validationError = validateReceiptFile(file);
+  if (validationError) {
+    throw new Error(attachmentValidationMessage(validationError));
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const year = new Date().getFullYear();
+  const folder = `expenso/receipts/${year}`;
+  const safeBase = sanitizeFilename(file.name).replace(/\.[^.]+$/, "");
+
+  const uploadResult = await streamUploadToCloudinary(buffer, {
+    folder,
+    type: "authenticated",
+    resource_type: "auto",
+    public_id: `${expenseId}/${Date.now()}_${safeBase}`,
+    overwrite: false,
+  });
+
+  const safeFileName = sanitizeFilename(file.name);
+
+  const row = await attachmentRepository.create(tx, {
+    expense: { connect: { id: expenseId } },
+    provider: "CLOUDINARY",
+    storageKey: uploadResult.public_id,
+    cloudinaryPublicId: uploadResult.public_id,
+    cloudinaryVersion: uploadResult.version,
+    cloudinaryFolder: folder,
+    cloudinaryFormat: uploadResult.format ?? null,
+    fileName: safeFileName,
+    contentType: file.type || null,
+    sizeBytes: file.size,
+    isPrivate: true,
+    uploadedBy: { connect: { id: actorUserId } },
+  });
+
+  await auditLogRepository.create(tx, {
+    action: AuditAction.ATTACHMENT_ADDED,
+    entityType: "Attachment",
+    entityId: row.id,
+    actor: { connect: { id: actorUserId } },
+    metadata: {
+      expenseId,
+      fileName: safeFileName,
+      sizeBytes: file.size,
+      cloudinaryPublicId: uploadResult.public_id,
+    },
+  });
+
+  return serializeAttachment(row);
 }
 
 // ─── Upload ──────────────────────────────────────────────────────────────────

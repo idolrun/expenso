@@ -17,18 +17,16 @@ export const EXPENSE_SECTION_NAV: SectionNavItem[] = [
   { slug: "petty-cash", section: "PETTY_CASH", label: "Petty cash" },
   { slug: "salary", section: "SALARY", label: "Salary" },
   { slug: "travel", section: "TRAVEL", label: "Travel" },
-  { slug: "inventory", section: "INVENTORY", label: "Inventory" },
-  { slug: "merchandise", section: "MERCHANDISE", label: "Merchandise" },
 ];
 
 export function sectionFromSlug(slug: string): ExpenseSectionId | null {
   return EXPENSE_SECTION_NAV.find((s) => s.slug === slug)?.section ?? null;
 }
 
-export function slugForSection(section: ExpenseSectionId): string {
+export function slugForSection(section: string): string {
   return EXPENSE_SECTION_NAV.find((s) => s.section === section)?.slug ?? "overview";
 }
 
-export function sectionLabel(section: ExpenseSectionId): string {
+export function sectionLabel(section: string): string {
   return EXPENSE_SECTION_NAV.find((s) => s.section === section)?.label ?? section;
 }

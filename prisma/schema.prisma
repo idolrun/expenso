@@ -57,10 +57,6 @@ enum AuditAction {
   CATEGORY_CREATED
   CATEGORY_UPDATED
   CATEGORY_DELETED
-  INVENTORY_ITEM_CREATED
-  INVENTORY_ITEM_UPDATED
-  MERCHANDISE_ITEM_CREATED
-  MERCHANDISE_ITEM_UPDATED
   SALARY_RECORD_CREATED
   SALARY_RECORD_UPDATED
   CREDENTIAL_ENTRY_CREATED
@@ -135,10 +131,6 @@ model User {
   expenseTagsAssigned      ExpenseTag[]        @relation("ExpenseTagAssignedBy")
   attachmentsUploaded      Attachment[]        @relation("AttachmentUploadedBy")
   auditLogs                AuditLog[]          @relation("AuditLogActor")
-  inventoryItemsCreated    InventoryItem[]     @relation("InventoryItemCreatedBy")
-  inventoryItemsUpdated    InventoryItem[]     @relation("InventoryItemUpdatedBy")
-  merchandiseItemsCreated  MerchandiseItem[]   @relation("MerchandiseItemCreatedBy")
-  merchandiseItemsUpdated  MerchandiseItem[]   @relation("MerchandiseItemUpdatedBy")
   salaryRecordsCreated     SalaryRecord[]      @relation("SalaryRecordCreatedBy")
   salaryRecordsUpdated     SalaryRecord[]      @relation("SalaryRecordUpdatedBy")
   categoriesCreated        Category[]          @relation("CategoryCreatedBy")
@@ -323,8 +315,6 @@ model Expense {
   expenseTags ExpenseTag[]
   attachments Attachment[]
 
-  inventoryItems   InventoryItem[]
-  merchandiseItems MerchandiseItem[]
   salaryRecord     SalaryRecord?
 
   @@index([section, deletedAt])
@@ -406,58 +396,6 @@ model Attachment {
 // ---------------------------------------------------------------------------
 // Domain: satellite ledgers (normalized; optional link to originating expense)
 // ---------------------------------------------------------------------------
-
-model InventoryItem {
-  id          String   @id @default(cuid())
-  sku         String   @unique
-  name        String
-  description String?
-  quantity    Int      @default(0)
-  unit        String?
-  unitCost    Decimal? @db.Decimal(19, 4)
-  expenseId   String?
-  expense     Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
-
-  createdById String? @db.Uuid
-  createdBy   User?   @relation("InventoryItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById String? @db.Uuid
-  updatedBy   User?   @relation("InventoryItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([expenseId])
-  @@index([name])
-  @@index([createdById])
-  @@index([updatedById])
-  @@map("inventory_item")
-}
-
-model MerchandiseItem {
-  id            String   @id @default(cuid())
-  sku           String   @unique
-  name          String
-  description   String?
-  costPrice     Decimal? @db.Decimal(19, 4)
-  retailPrice   Decimal? @db.Decimal(19, 4)
-  stockQuantity Int      @default(0)
-  expenseId     String?
-  expense       Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
-
-  createdById String? @db.Uuid
-  createdBy   User?   @relation("MerchandiseItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById String? @db.Uuid
-  updatedBy   User?   @relation("MerchandiseItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([expenseId])
-  @@index([name])
-  @@index([createdById])
-  @@index([updatedById])
-  @@map("merchandise_item")
-}
 
 model SalaryRecord {
   id             String       @id @default(cuid())
