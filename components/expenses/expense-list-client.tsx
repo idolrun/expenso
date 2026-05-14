@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ReceiptIcon } from "@phosphor-icons/react";
 
 import { ExpenseFilters } from "@/components/expenses/expense-filters";
@@ -41,8 +41,13 @@ import { useDisplayCurrency } from "@/src/features/display-currency/display-curr
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import {
   sectionLabel,
+  statusLabel,
+  paymentTypeLabel,
   type ExpenseSectionId,
-} from "@/src/lib/expense-sections";
+} from "@/src/lib/labels";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BulkActionBar } from "@/components/expenses/bulk-action-bar";
+import type { AppUserRole } from "@/src/lib/app-user-role";
 
 type TagOption = { id: string; name: string; slug: string };
 
@@ -52,7 +57,7 @@ const expenseExportColumns: (keyof ExportRow)[] = [
   "amount",
   "currency",
   "status",
-  "category",
+  "paymentType",
   "section",
 ];
 
@@ -119,6 +124,7 @@ function getActiveFilters(
 
   if (!lockedSection && query.section) filters.section = query.section;
   if (query.status) filters.status = query.status;
+  if (query.paymentType) filters.paymentType = query.paymentType;
   if (query.tagIds.length > 0) filters.tagIds = query.tagIds.join(",");
   if (query.amountMin?.trim()) filters.amountMin = query.amountMin.trim();
   if (query.amountMax?.trim()) filters.amountMax = query.amountMax.trim();
@@ -139,14 +145,17 @@ export function ExpenseListClient({
   section,
   title,
   description,
+  userRole,
 }: {
   tags: TagOption[];
   initialQuery?: Partial<ListExpensesQuery>;
   section?: ExpenseSectionId;
   title: string;
   description?: string;
+  userRole?: AppUserRole;
 }) {
   const router = useRouter();
+  const isAdmin = userRole === "ADMIN";
 
   const mergedInitialQuery = useMemo<Partial<ListExpensesQuery>>(
     () => ({
@@ -173,6 +182,39 @@ export function ExpenseListClient({
   });
   const { displayCurrency } = useDisplayCurrency();
 
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!data) return;
+    const pageIds = data.items.map((i) => i.id);
+    const allSelected = pageIds.every((id) => selectedIds.has(id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        pageIds.forEach((id) => next.delete(id));
+      } else {
+        pageIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  // Clear selection when data changes (page/filter)
+  useEffect(() => {
+    clearSelection();
+  }, [data?.page, query.section, query.status, query.tagIds, query.search]);
+
   const exportRows = useMemo<ExportRow[]>(
     () =>
       data?.items.map((expense) => {
@@ -182,12 +224,13 @@ export function ExpenseListClient({
         );
 
         return {
+          id: expense.id,
           title: expense.title,
           date: expense.fromDate,
           amount,
           currency,
           status: expense.status,
-          category: expense.category?.name ?? "",
+          paymentType: expense.paymentType,
           section: expense.section,
         };
       }) ?? [],
@@ -241,6 +284,7 @@ export function ExpenseListClient({
               type="button"
               size="sm"
               variant="secondary"
+              disabled={isLoading}
               onClick={() => void retry()}
             >
               Retry
@@ -264,17 +308,31 @@ export function ExpenseListClient({
             </EmptyMedia>
             <EmptyTitle>No expenses match</EmptyTitle>
             <EmptyDescription>
-              Adjust filters or create a new expense.
+              Adjust filters or create a new expense to get started.
             </EmptyDescription>
           </EmptyHeader>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => void refetch()}
-          >
-            Refresh
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild size="sm">
+              <Link
+                href={
+                  section
+                    ? `/dashboard/expenses/new?section=${section}`
+                    : "/dashboard/expenses/new"
+                }
+              >
+                New expense
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={isLoading}
+              onClick={() => void refetch()}
+            >
+              Refresh
+            </Button>
+          </div>
         </Empty>
       ) : null}
 
@@ -318,6 +376,16 @@ export function ExpenseListClient({
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={
+                          data.items.length > 0 &&
+                          data.items.every((i) => selectedIds.has(i.id))
+                        }
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all on page"
+                      />
+                    </TableHead>
                     <TableHead>Title</TableHead>
                     <TableHead>Section</TableHead>
                     <TableHead>Status</TableHead>
@@ -335,7 +403,11 @@ export function ExpenseListClient({
                         aria-label={`Open expense: ${e.title}`}
                         className="cursor-pointer hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         onClick={(ev) => {
-                          if ((ev.target as HTMLElement).closest("a, button"))
+                          if (
+                            (ev.target as HTMLElement).closest(
+                              "a, button, [role=checkbox]",
+                            )
+                          )
                             return;
                           router.push(href);
                         }}
@@ -345,13 +417,20 @@ export function ExpenseListClient({
                           router.push(href);
                         }}
                       >
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.has(e.id)}
+                            onCheckedChange={() => toggleSelect(e.id)}
+                            aria-label={`Select ${e.title}`}
+                          />
+                        </TableCell>
                         <TableCell className="max-w-55 truncate font-medium">
                           {e.title}
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
                           {sectionLabel(e.section)}
                         </TableCell>
-                        <TableCell className="text-sm">{e.status}</TableCell>
+                        <TableCell className="text-sm">{statusLabel(e.status)}</TableCell>
                         <TableCell className="text-right text-sm">
                           <AmountCell expense={e} />
                         </TableCell>
@@ -376,12 +455,21 @@ export function ExpenseListClient({
                 className="shadow-xs transition-shadow hover:shadow-sm"
               >
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base leading-snug">
-                    {e.title}
-                  </CardTitle>
-                  <CardDescription>
-                    {sectionLabel(e.section)} · {e.status}
-                  </CardDescription>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <CardTitle className="text-base leading-snug">
+                        {e.title}
+                      </CardTitle>
+                      <CardDescription>
+                        {sectionLabel(e.section)} · {statusLabel(e.status)}
+                      </CardDescription>
+                    </div>
+                    <Checkbox
+                      checked={selectedIds.has(e.id)}
+                      onCheckedChange={() => toggleSelect(e.id)}
+                      aria-label={`Select ${e.title}`}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent className="flex items-center justify-between gap-2 pt-0">
                   <AmountCell expense={e} />
@@ -394,6 +482,18 @@ export function ExpenseListClient({
           </div>
         </>
       ) : null}
+
+      {selectedIds.size > 0 && data && (
+        <BulkActionBar
+          selectedIds={selectedIds}
+          onClear={clearSelection}
+          exportRows={exportRows.filter((r) => r.id && selectedIds.has(r.id))}
+          canAdmin={isAdmin}
+          allApproved={data.items
+            .filter((i) => selectedIds.has(i.id))
+            .every((i) => i.status === "APPROVED")}
+        />
+      )}
     </div>
   );
 }

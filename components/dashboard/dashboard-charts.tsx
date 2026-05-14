@@ -17,6 +17,7 @@ import {
 import type {
   DashboardMonthSpendUsd,
   DashboardSectionBreakdownPeriod,
+  SectionSpendDetail,
 } from "@/features/dashboard/domain/types";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { sectionLabel, type ExpenseSectionId } from "@/src/lib/expense-sections";
@@ -42,14 +43,61 @@ const sparklineConfig = {
   },
 } satisfies ChartConfig;
 
+function SectionBreakdownTooltip({
+  active,
+  payload,
+  label,
+  displayCurrency,
+  detail,
+}: {
+  active?: boolean;
+  payload?: Array<{ value: number; payload: { sectionKey: ExpenseSectionId } }>;
+  label?: string;
+  displayCurrency: "USD" | "NPR";
+  detail?: Partial<Record<ExpenseSectionId, SectionSpendDetail>>;
+}) {
+  if (!active || !payload?.length) return null;
+
+  const p = payload[0];
+  const sectionKey = p.payload.sectionKey;
+  const d = detail?.[sectionKey];
+
+  return (
+    <div className="rounded-lg border bg-background p-3 shadow-md">
+      <p className="font-medium text-sm">{label}</p>
+      <p className="text-lg font-semibold tabular-nums">
+        {formatMoneyAmount(String(p.value), displayCurrency)}
+      </p>
+      {d && (
+        <div className="mt-2 space-y-1 text-xs text-muted-foreground border-t pt-2">
+          {Number(d.originalUsdTotal) > 0 && (
+            <p>Original USD: {formatMoneyAmount(d.originalUsdTotal, "USD")}</p>
+          )}
+          {Number(d.originalNprTotal) > 0 && (
+            <p>Original NPR: {formatMoneyAmount(d.originalNprTotal, "NPR")}</p>
+          )}
+          {Number(d.avgRate) > 0 && (
+            <p>Rate: 1 USD ≈ {d.avgRate} NPR</p>
+          )}
+          <p>{d.expenseCount} expense{d.expenseCount === 1 ? "" : "s"}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SectionBreakdownBarChart({
   spendBySectionUsd,
   periodLabel,
   displayCurrency = "USD",
+  accessibleView = false,
+  detail,
 }: {
   spendBySectionUsd: Partial<Record<ExpenseSectionId, string>>;
   periodLabel?: string;
   displayCurrency?: "USD" | "NPR";
+  accessibleView?: boolean;
+  detail?: Partial<Record<ExpenseSectionId, SectionSpendDetail>>;
 }) {
   const captionId = React.useId();
 
@@ -78,6 +126,40 @@ export function SectionBreakdownBarChart({
       <p className="text-muted-foreground text-sm">
         No {displayCurrency} spend yet.
       </p>
+    );
+  }
+
+  if (accessibleView) {
+    return (
+      <div className="w-full">
+        <p className="text-muted-foreground mb-2 text-xs font-medium">
+          {displayCurrency} spend by section
+        </p>
+        <div className="overflow-hidden rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">Section</th>
+                <th className="px-3 py-2 text-right font-medium">Amount ({displayCurrency})</th>
+                <th className="px-3 py-2 text-right font-medium">Expenses</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.sectionKey} className="border-t">
+                  <td className="px-3 py-2">{row.name}</td>
+                  <td className="px-3 py-2 text-right font-numeric tabular-nums">
+                    {formatMoneyAmount(String(row.amount), displayCurrency)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-numeric tabular-nums">
+                    {detail?.[row.sectionKey]?.expenseCount ?? "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     );
   }
 
@@ -135,11 +217,9 @@ export function SectionBreakdownBarChart({
           <ChartTooltip
             cursor={{ fill: "hsl(var(--muted) / 0.35)" }}
             content={
-              <ChartTooltipContent
-                formatter={(value) =>
-                  formatMoneyAmount(String(value), displayCurrency)
-                }
-                labelKey="name"
+              <SectionBreakdownTooltip
+                displayCurrency={displayCurrency}
+                detail={detail}
               />
             }
           />
@@ -170,9 +250,11 @@ function statusLabel(status: ExpenseStatus): string {
 export function StatusMixDonutChart({
   byStatus,
   totalActiveCount,
+  accessibleView = false,
 }: {
   byStatus: Partial<Record<ExpenseStatus, number>>;
   totalActiveCount: number;
+  accessibleView?: boolean;
 }) {
   const captionId = React.useId();
 
@@ -196,6 +278,36 @@ export function StatusMixDonutChart({
 
   if (data.length === 0) {
     return <p className="text-muted-foreground text-sm">No data.</p>;
+  }
+
+  if (accessibleView) {
+    return (
+      <div className="w-full">
+        <p className="text-muted-foreground mb-2 text-xs font-medium">Active expenses by status</p>
+        <div className="overflow-hidden rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">Status</th>
+                <th className="px-3 py-2 text-right font-medium">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row) => (
+                <tr key={row.status} className="border-t">
+                  <td className="px-3 py-2">{row.name}</td>
+                  <td className="px-3 py-2 text-right font-numeric tabular-nums">{row.value}</td>
+                </tr>
+              ))}
+              <tr className="border-t bg-muted/30">
+                <td className="px-3 py-2 font-medium">Total active</td>
+                <td className="px-3 py-2 text-right font-numeric tabular-nums font-medium">{totalActiveCount}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -274,7 +386,13 @@ export function StatusMixDonutChart({
   );
 }
 
-export function TotalSpendSparkline({ months }: { months: DashboardMonthSpendUsd[] }) {
+export function TotalSpendSparkline({
+  months,
+  accessibleView = false,
+}: {
+  months: DashboardMonthSpendUsd[];
+  accessibleView?: boolean;
+}) {
   const data = months.map((m) => ({
     label: m.label,
     amount: Number(m.amount),
@@ -284,6 +402,34 @@ export function TotalSpendSparkline({ months }: { months: DashboardMonthSpendUsd
 
   if (data.length === 0) {
     return null;
+  }
+
+  if (accessibleView) {
+    return (
+      <div className="mt-3 w-full">
+        <p className="text-muted-foreground mb-2 text-xs font-medium">Monthly USD spend (last 6 months)</p>
+        <div className="overflow-hidden rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">Month</th>
+                <th className="px-3 py-2 text-right font-medium">Amount (USD)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {months.map((m) => (
+                <tr key={m.monthKey} className="border-t">
+                  <td className="px-3 py-2">{m.label}</td>
+                  <td className="px-3 py-2 text-right font-numeric tabular-nums">
+                    {formatMoneyAmount(m.amount, "USD")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -392,5 +538,3 @@ export function MonthOverMonthIndicator({
     </p>
   );
 }
-
-

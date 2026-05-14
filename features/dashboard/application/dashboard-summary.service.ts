@@ -58,6 +58,88 @@ function mergeNprSectionSpend(
   return result;
 }
 
+function buildSectionSpendDetail(
+  usdRows: { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null }; _count: { _all: number } }[],
+  nprRows: { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null }; _count: { _all: number } }[],
+  usdFxRows: { section: ExpenseSection; _sum: { amountNpr: Prisma.Decimal | null; originalAmount: Prisma.Decimal | null }; _avg: { fxRateUsdNpr: Prisma.Decimal | null } }[],
+): Partial<Record<ExpenseSection, import("@/features/dashboard/domain/types").SectionSpendDetail>> {
+  const map = new Map<ExpenseSection, {
+    usdTotal: Prisma.Decimal;
+    nprTotal: Prisma.Decimal;
+    originalUsdTotal: Prisma.Decimal;
+    originalNprTotal: Prisma.Decimal;
+    rateSum: Prisma.Decimal;
+    rateCount: number;
+    expenseCount: number;
+  }>();
+
+  for (const row of usdRows) {
+    const existing = map.get(row.section) ?? {
+      usdTotal: new Prisma.Decimal(0),
+      nprTotal: new Prisma.Decimal(0),
+      originalUsdTotal: new Prisma.Decimal(0),
+      originalNprTotal: new Prisma.Decimal(0),
+      rateSum: new Prisma.Decimal(0),
+      rateCount: 0,
+      expenseCount: 0,
+    };
+    const amt = row._sum.originalAmount ?? new Prisma.Decimal(0);
+    existing.usdTotal = existing.usdTotal.add(amt);
+    existing.originalUsdTotal = existing.originalUsdTotal.add(amt);
+    existing.expenseCount += row._count._all;
+    map.set(row.section, existing);
+  }
+
+  for (const row of nprRows) {
+    const existing = map.get(row.section) ?? {
+      usdTotal: new Prisma.Decimal(0),
+      nprTotal: new Prisma.Decimal(0),
+      originalUsdTotal: new Prisma.Decimal(0),
+      originalNprTotal: new Prisma.Decimal(0),
+      rateSum: new Prisma.Decimal(0),
+      rateCount: 0,
+      expenseCount: 0,
+    };
+    const amt = row._sum.originalAmount ?? new Prisma.Decimal(0);
+    existing.nprTotal = existing.nprTotal.add(amt);
+    existing.originalNprTotal = existing.originalNprTotal.add(amt);
+    existing.expenseCount += row._count._all;
+    map.set(row.section, existing);
+  }
+
+  for (const row of usdFxRows) {
+    const existing = map.get(row.section) ?? {
+      usdTotal: new Prisma.Decimal(0),
+      nprTotal: new Prisma.Decimal(0),
+      originalUsdTotal: new Prisma.Decimal(0),
+      originalNprTotal: new Prisma.Decimal(0),
+      rateSum: new Prisma.Decimal(0),
+      rateCount: 0,
+      expenseCount: 0,
+    };
+    const nprAmt = row._sum.amountNpr ?? new Prisma.Decimal(0);
+    existing.nprTotal = existing.nprTotal.add(nprAmt);
+    if (row._avg.fxRateUsdNpr) {
+      existing.rateSum = existing.rateSum.add(row._avg.fxRateUsdNpr);
+      existing.rateCount += 1;
+    }
+    map.set(row.section, existing);
+  }
+
+  const result: Partial<Record<ExpenseSection, import("@/features/dashboard/domain/types").SectionSpendDetail>> = {};
+  for (const [section, data] of map.entries()) {
+    result[section] = {
+      usdTotal: data.usdTotal.toString(),
+      nprTotal: data.nprTotal.toString(),
+      originalUsdTotal: data.originalUsdTotal.toString(),
+      originalNprTotal: data.originalNprTotal.toString(),
+      avgRate: data.rateCount > 0 ? data.rateSum.div(data.rateCount).toDecimalPlaces(4).toString() : "0",
+      expenseCount: data.expenseCount,
+    };
+  }
+  return result;
+}
+
 export async function getDashboardSummary(): Promise<
   ServiceResult<DashboardSummaryDto>
 > {
@@ -108,6 +190,10 @@ export async function getDashboardSummary(): Promise<
       sectionBreakdown1m,
       sectionBreakdown2m,
       sectionBreakdown3m,
+      // Section detail for rich tooltips
+      sectionDetailUsdGroups,
+      sectionDetailNprGroups,
+      sectionDetailUsdFxGroups,
       ...monthAggs
     ] = await Promise.all([
       prisma.expense.count({ where: { deletedAt: null } }),
@@ -185,6 +271,27 @@ export async function getDashboardSummary(): Promise<
           _sum: { originalAmount: true },
         }),
       ),
+      // Section detail: direct USD
+      prisma.expense.groupBy({
+        by: ["section"],
+        where: activeUsdWhere,
+        _sum: { originalAmount: true },
+        _count: { _all: true },
+      }),
+      // Section detail: direct NPR
+      prisma.expense.groupBy({
+        by: ["section"],
+        where: activeNprWhere,
+        _sum: { originalAmount: true },
+        _count: { _all: true },
+      }),
+      // Section detail: USD with FX snapshot
+      prisma.expense.groupBy({
+        by: ["section"],
+        where: { ...activeUsdWhere, amountNpr: { not: null } },
+        _sum: { amountNpr: true, originalAmount: true },
+        _avg: { fxRateUsdNpr: true },
+      }),
     ]);
 
     // Compute combined NPR totals
@@ -226,6 +333,12 @@ export async function getDashboardSummary(): Promise<
     const spendBySectionNpr = mergeNprSectionSpend(
       nprSectionDirectGroups as { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null } }[],
       nprSectionSnapshotGroups as { section: ExpenseSection; _sum: { amountNpr: Prisma.Decimal | null } }[],
+    );
+
+    const spendBySectionDetail = buildSectionSpendDetail(
+      sectionDetailUsdGroups as { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null }; _count: { _all: number } }[],
+      sectionDetailNprGroups as { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null }; _count: { _all: number } }[],
+      sectionDetailUsdFxGroups as { section: ExpenseSection; _sum: { amountNpr: Prisma.Decimal | null; originalAmount: Prisma.Decimal | null }; _avg: { fxRateUsdNpr: Prisma.Decimal | null } }[],
     );
 
     const recentHistory = historyRows.map((r) => ({
@@ -295,6 +408,7 @@ export async function getDashboardSummary(): Promise<
           "3m": mapSectionSpend(sectionBreakdown3m as { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[]),
         },
         spendBySectionNpr,
+        spendBySectionDetail,
         recentExpenses: recentRows.map(serializeExpense),
         recentHistory,
         recentActivity: activityCandidates.slice(0, 20),

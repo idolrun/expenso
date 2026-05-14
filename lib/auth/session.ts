@@ -8,7 +8,7 @@ export const getSession = cache(async () => {
 });
 
 export function parseUserRole(role: unknown): UserRole {
-  if (role === UserRole.ADMIN || role === UserRole.USER) {
+  if (role === UserRole.ADMIN || role === UserRole.APPROVER || role === UserRole.USER) {
     return role;
   }
   return UserRole.USER;

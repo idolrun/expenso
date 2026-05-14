@@ -37,6 +37,9 @@ export function buildExpenseListWhere(
   if (query.status) {
     andParts.push({ status: query.status });
   }
+  if (query.paymentType) {
+    andParts.push({ paymentType: query.paymentType });
+  }
   if (query.createdByEmail) {
     andParts.push({
       createdBy: {
@@ -86,11 +89,6 @@ export function buildExpenseListWhere(
       OR: [
         { title: { contains: q, mode: "insensitive" } },
         { notes: { contains: q, mode: "insensitive" } },
-        {
-          category: {
-            name: { contains: q, mode: "insensitive" },
-          },
-        },
         {
           expenseTags: {
             some: {

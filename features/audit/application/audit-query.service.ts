@@ -32,7 +32,11 @@ export async function listAuditLogs(
   try {
     const where: Prisma.AuditLogWhereInput = {};
     if (query.action) {
-      where.action = query.action;
+      // CATEGORY_CREATED/UPDATED/DELETED are deprecated enum values; filter them out
+      const deprecatedActions = ["CATEGORY_CREATED", "CATEGORY_UPDATED", "CATEGORY_DELETED"];
+      if (!deprecatedActions.includes(query.action)) {
+        where.action = query.action;
+      }
     }
     if (query.entityType) {
       where.entityType = query.entityType;

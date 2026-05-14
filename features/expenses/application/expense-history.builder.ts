@@ -5,6 +5,8 @@ import {
   expenseCurrencyValues,
   type ExpenseCurrencyCode,
 } from "@/features/expenses/domain/currency";
+import { paymentTypeValues } from "@/features/expenses/validation/primitives";
+import type { PaymentType } from "@/generated/prisma/client";
 
 export type ExpenseScalarSnapshot = {
   section: ExpenseSection;
@@ -15,7 +17,7 @@ export type ExpenseScalarSnapshot = {
   originalCurrency: ExpenseCurrencyCode;
   fromDate: string;
   toDate: string;
-  categoryId: string | null;
+  paymentType: PaymentType;
   tagIds: string[];
 };
 
@@ -33,6 +35,12 @@ function toExpenseCurrencyCode(currency: string): ExpenseCurrencyCode {
     : defaultExpenseCurrency;
 }
 
+function toPaymentType(paymentType: string): PaymentType {
+  return paymentTypeValues.includes(paymentType as PaymentType)
+    ? (paymentType as PaymentType)
+    : "OTHER";
+}
+
 export function expenseRowToSnapshot(row: {
   section: ExpenseSection;
   status: ExpenseStatus;
@@ -42,7 +50,7 @@ export function expenseRowToSnapshot(row: {
   originalCurrency: string;
   fromDate: Date;
   toDate: Date;
-  categoryId: string | null;
+  paymentType: string;
   expenseTags: { tagId: string }[];
 }): ExpenseScalarSnapshot {
   return {
@@ -54,7 +62,7 @@ export function expenseRowToSnapshot(row: {
     originalCurrency: toExpenseCurrencyCode(row.originalCurrency),
     fromDate: toYmd(row.fromDate),
     toDate: toYmd(row.toDate),
-    categoryId: row.categoryId,
+    paymentType: toPaymentType(row.paymentType),
     tagIds: row.expenseTags.map((t) => t.tagId).sort(),
   };
 }
@@ -76,7 +84,7 @@ export function buildExpenseHistoryRows(args: {
     "originalCurrency",
     "fromDate",
     "toDate",
-    "categoryId",
+    "paymentType",
     "tagIds",
   ];
 

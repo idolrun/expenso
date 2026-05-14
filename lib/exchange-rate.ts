@@ -1,8 +1,12 @@
 /**
  * Shared USD→NPR exchange-rate fetching logic.
- * Module-level cache (3-hour TTL) is shared across all callers in the same
- * Node.js process — both the API route handler and the FX snapshot service.
+ * Tiered fallback strategy for production resilience:
+ *   1. Live API (3-hour module cache)
+ *   2. Database cache (ExchangeRateCache table, 24h TTL)
+ *   3. Hard-coded fallback rate (last resort, logged as warning)
  */
+
+import { prisma } from "@/lib/prisma";
 
 type CachedRate = {
   rate: number;
@@ -26,47 +30,99 @@ type ApiError = {
   "error-type"?: string;
 };
 
-const REVALIDATE_MS = 10_800_000; // 3 hours
+const REVALATE_MS = 10_800_000; // 3 hours
+const DB_CACHE_TTL_MS = 86_400_000; // 24 hours
 
-let _cache: CachedRate | null = null;
+/** Hard-coded fallback rate — update periodically to match market reality. */
+export const FALLBACK_RATE = 133.0;
+
+let _memoryCache: CachedRate | null = null;
 
 function toPayload(c: CachedRate): ExchangeRatePayload {
   return { rate: c.rate, lastUpdated: c.lastUpdated };
 }
 
-/** Fetch (or return cached) the current 1 USD → NPR rate. Returns null on error. */
-export async function fetchUsdNprRate(): Promise<ExchangeRatePayload | null> {
-  // Snapshot at function entry to prevent control-flow narrowing issues.
-  const cached: CachedRate | null = _cache;
+async function getDbCachedRate(): Promise<ExchangeRatePayload | null> {
+  try {
+    const row = await prisma.exchangeRateCache.findFirst({
+      where: {
+        pair: "USD_NPR",
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { cachedAt: "desc" },
+    });
+    if (!row) return null;
+    return { rate: row.rate.toNumber(), lastUpdated: row.cachedAt.toISOString() };
+  } catch {
+    return null;
+  }
+}
 
-  if (cached !== null && cached.expiresAt > Date.now()) {
-    return toPayload(cached);
+async function saveDbCache(rate: number, source: string): Promise<void> {
+  try {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + DB_CACHE_TTL_MS);
+    await prisma.exchangeRateCache.upsert({
+      where: { pair: "USD_NPR" },
+      update: { rate, source, cachedAt: now, expiresAt },
+      create: { pair: "USD_NPR", rate, source, cachedAt: now, expiresAt },
+    });
+  } catch {
+    // Non-critical: in-memory cache is sufficient
+  }
+}
+
+/** Fetch (or return cached) the current 1 USD → NPR rate. Never returns null in production. */
+export async function fetchUsdNprRate(): Promise<ExchangeRatePayload> {
+  const memory: CachedRate | null = _memoryCache;
+
+  if (memory !== null && memory.expiresAt > Date.now()) {
+    return toPayload(memory);
   }
 
   const apiKey = process.env.EXCHANGE_RATE_API_KEY?.trim();
-  if (!apiKey) return cached ? toPayload(cached) : null;
 
-  try {
-    const res = await fetch(
-      `https://v6.exchangerate-api.com/v6/${apiKey}/latest/USD`,
-      { cache: "force-cache", next: { revalidate: 10800 } },
-    );
+  if (apiKey) {
+    try {
+      const res = await fetch(
+        `https://v6.exchangerate-api.com/v6/${apiKey}/latest/USD`,
+        { cache: "force-cache", next: { revalidate: 10800 } },
+      );
 
-    if (!res.ok) return cached ? toPayload(cached) : null;
+      if (res.ok) {
+        const body = (await res.json()) as ApiSuccess | ApiError;
+        if (body.result === "success") {
+          const rate = (body as ApiSuccess).conversion_rates?.NPR;
+          if (typeof rate === "number" && Number.isFinite(rate)) {
+            const lastUpdated = (body as ApiSuccess).time_last_update_utc
+              ? new Date((body as ApiSuccess).time_last_update_utc!).toISOString()
+              : new Date().toISOString();
 
-    const body = (await res.json()) as ApiSuccess | ApiError;
-    if (body.result !== "success") return cached ? toPayload(cached) : null;
-
-    const rate = (body as ApiSuccess).conversion_rates?.NPR;
-    if (typeof rate !== "number" || !Number.isFinite(rate)) return null;
-
-    const lastUpdated = (body as ApiSuccess).time_last_update_utc
-      ? new Date((body as ApiSuccess).time_last_update_utc!).toISOString()
-      : new Date().toISOString();
-
-    _cache = { rate, lastUpdated, expiresAt: Date.now() + REVALIDATE_MS };
-    return { rate, lastUpdated };
-  } catch {
-    return cached ? toPayload(cached) : null;
+            _memoryCache = { rate, lastUpdated, expiresAt: Date.now() + REVALATE_MS };
+            await saveDbCache(rate, "api");
+            return { rate, lastUpdated };
+          }
+        }
+      }
+    } catch {
+      // Fall through to DB cache
+    }
   }
+
+  // Tier 2: DB cache
+  const dbCached = await getDbCachedRate();
+  if (dbCached) {
+    _memoryCache = {
+      rate: dbCached.rate,
+      lastUpdated: dbCached.lastUpdated,
+      expiresAt: Date.now() + REVALATE_MS,
+    };
+    return dbCached;
+  }
+
+  // Tier 3: hard-coded fallback
+  console.warn("[exchange-rate] All rate sources failed. Using fallback rate.", FALLBACK_RATE);
+  const fallbackPayload = { rate: FALLBACK_RATE, lastUpdated: new Date().toISOString() };
+  _memoryCache = { rate: FALLBACK_RATE, lastUpdated: fallbackPayload.lastUpdated, expiresAt: Date.now() + REVALATE_MS };
+  return fallbackPayload;
 }

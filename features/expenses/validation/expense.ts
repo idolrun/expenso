@@ -7,23 +7,22 @@ import {
   expenseSectionValues,
   expenseStatusValues,
   moneyStringSchema,
-  userRecordIdSchema,
+  paymentTypeSchema,
 } from "@/features/expenses/validation/primitives";
 
 const recordId = expenseRecordIdSchema;
 
 export const createExpenseSchemaBase = z.object({
   section: z.enum(expenseSectionValues),
-  status: z.enum(expenseStatusValues).optional().default("DRAFT"),
   title: z.string().trim().max(500).optional(),
   notes: z.string().trim().max(10_000).optional().nullable(),
   amount: moneyStringSchema,
   currency: currencyCodeSchema,
   fromDate: dateYmdSchema,
   toDate: dateYmdSchema,
-  categoryId: recordId.optional().nullable(),
   tagIds: z.array(recordId).max(50).optional().default([]),
   employeeName: z.string().trim().min(1).max(255).optional(),
+  paymentType: paymentTypeSchema,
 });
 
 export const createExpenseSchema = createExpenseSchemaBase.superRefine(
@@ -61,32 +60,30 @@ export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 export const updateExpenseSchemaBase = z.object({
   id: recordId,
   section: z.enum(expenseSectionValues).optional(),
-  status: z.enum(expenseStatusValues).optional(),
   title: z.string().trim().max(500).optional(),
   notes: z.string().trim().max(10_000).optional().nullable(),
   amount: moneyStringSchema.optional(),
   currency: currencyCodeSchema.optional(),
   fromDate: dateYmdSchema.optional(),
   toDate: dateYmdSchema.optional(),
-  categoryId: recordId.optional().nullable(),
   tagIds: z.array(recordId).max(50).optional(),
   employeeName: z.string().trim().min(1).max(255).optional(),
+  paymentType: paymentTypeSchema.optional(),
 });
 
 export const updateExpenseSchema = updateExpenseSchemaBase
   .refine(
     (v) =>
       v.section !== undefined ||
-      v.status !== undefined ||
       v.title !== undefined ||
       v.notes !== undefined ||
       v.amount !== undefined ||
       v.currency !== undefined ||
       v.fromDate !== undefined ||
       v.toDate !== undefined ||
-      v.categoryId !== undefined ||
       v.tagIds !== undefined ||
-      v.employeeName !== undefined,
+      v.employeeName !== undefined ||
+      v.paymentType !== undefined,
     { message: "At least one field must be provided to update" },
   )
   .superRefine((v, ctx) => {
@@ -155,6 +152,7 @@ export const listExpensesQuerySchema = z
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
     section: z.enum(expenseSectionValues).optional(),
     status: z.enum(expenseStatusValues).optional(),
+    paymentType: paymentTypeSchema.optional(),
     tagIds: z.preprocess(normalizeTagIdsQueryInput, z.array(recordId).max(50)),
     amountMin: z.string().trim().optional(),
     amountMax: z.string().trim().optional(),

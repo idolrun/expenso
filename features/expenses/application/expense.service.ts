@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { AuditAction, Prisma, UserRole } from "@/generated/prisma/client";
+import { AuditAction, ExpenseStatus, Prisma, UserRole } from "@/generated/prisma/client";
 import type {
   CreateExpenseInput,
   UpdateExpenseInput,
@@ -35,14 +35,11 @@ export async function createExpenseService(
   attachments: File[] = [],
 ): Promise<ServiceResult<ExpenseDto>> {
   try {
-    await expenseRepository.assertCategoryExists(
-      prisma,
-      input.categoryId ?? null,
-    );
     await expenseRepository.assertTagsExist(prisma, input.tagIds);
 
     const originalAmount = new Prisma.Decimal(input.amount);
-    // Compute FX snapshot before the transaction — external API call, not transactional.
+
+    // Compute FX snapshot — always required, never null (tiered fallback).
     const fxSnapshot = await computeFxSnapshot(originalAmount, input.currency);
 
     const resolvedTitle =
@@ -53,20 +50,18 @@ export async function createExpenseService(
     const expense = await prisma.$transaction(async (tx) => {
       const created = await expenseRepository.create(tx, {
         section: input.section,
-        status: input.status,
+        status: ExpenseStatus.DRAFT,
         title: resolvedTitle,
         notes: input.notes ?? undefined,
         originalAmount,
         originalCurrency: input.currency,
-        amountUsd: fxSnapshot?.amountUsd ?? undefined,
-        amountNpr: fxSnapshot?.amountNpr ?? undefined,
-        fxRateUsdNpr: fxSnapshot?.fxRateUsdNpr ?? undefined,
-        fxRateSnapshotAt: fxSnapshot?.fxRateSnapshotAt ?? undefined,
+        amountUsd: fxSnapshot.amountUsd,
+        amountNpr: fxSnapshot.amountNpr,
+        fxRateUsdNpr: fxSnapshot.fxRateUsdNpr,
+        fxRateSnapshotAt: fxSnapshot.fxRateSnapshotAt,
         fromDate: parseYmdToUtcDate(input.fromDate),
         toDate: parseYmdToUtcDate(input.toDate),
-        category: input.categoryId
-          ? { connect: { id: input.categoryId } }
-          : undefined,
+        paymentType: input.paymentType,
         createdBy: { connect: { id: actorUserId } },
         updatedBy: { connect: { id: actorUserId } },
         ...(input.section === "SALARY" && input.employeeName
@@ -112,7 +107,8 @@ export async function createExpenseService(
           title: created.title,
           section: created.section,
           originalCurrency: created.originalCurrency,
-          fxSnapshotCaptured: fxSnapshot !== null,
+          fxSnapshotCaptured: true,
+          paymentType: input.paymentType,
         },
       });
 
@@ -142,9 +138,6 @@ export async function updateExpenseService(
       };
     }
 
-    if (input.categoryId !== undefined) {
-      await expenseRepository.assertCategoryExists(prisma, input.categoryId);
-    }
     if (input.tagIds !== undefined) {
       await expenseRepository.assertTagsExist(prisma, input.tagIds);
     }
@@ -153,15 +146,14 @@ export async function updateExpenseService(
 
     const after: ExpenseScalarSnapshot = {
       section: input.section ?? before.section,
-      status: input.status ?? before.status,
+      status: before.status,
       title: input.title ?? before.title,
       notes: input.notes !== undefined ? input.notes : before.notes,
       originalAmount: input.amount ?? before.originalAmount,
       originalCurrency: input.currency ?? before.originalCurrency,
       fromDate: input.fromDate ?? before.fromDate,
       toDate: input.toDate ?? before.toDate,
-      categoryId:
-        input.categoryId !== undefined ? input.categoryId : before.categoryId,
+      paymentType: input.paymentType ?? before.paymentType,
       tagIds:
         input.tagIds !== undefined ? [...input.tagIds].sort() : before.tagIds,
     };
@@ -205,7 +197,6 @@ export async function updateExpenseService(
           : input.title;
 
       if (input.section !== undefined) data.section = input.section;
-      if (input.status !== undefined) data.status = input.status;
       if (resolvedTitle !== undefined) data.title = resolvedTitle;
       if (input.notes !== undefined) data.notes = input.notes;
       if (input.amount !== undefined) {
@@ -218,10 +209,8 @@ export async function updateExpenseService(
       if (input.toDate !== undefined) {
         data.toDate = parseYmdToUtcDate(input.toDate);
       }
-      if (input.categoryId !== undefined) {
-        data.category = input.categoryId
-          ? { connect: { id: input.categoryId } }
-          : { disconnect: true };
+      if (input.paymentType !== undefined) {
+        data.paymentType = input.paymentType;
       }
       if (fxSnapshot) {
         data.amountUsd = fxSnapshot.amountUsd;

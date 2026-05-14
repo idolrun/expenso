@@ -20,6 +20,7 @@ datasource db {
 
 enum UserRole {
   ADMIN
+  APPROVER
   USER
 }
 
@@ -50,13 +51,16 @@ enum AuditAction {
   EXPENSE_UPDATED
   EXPENSE_SOFT_DELETED
   EXPENSE_RESTORED
+  EXPENSE_SUBMITTED
+  EXPENSE_APPROVED
+  EXPENSE_REJECTED
+  EXPENSE_PAID
+  EXPENSE_CANCELLED
   ATTACHMENT_ADDED
   ATTACHMENT_REMOVED
   TAG_ASSIGNED
   TAG_REMOVED
-  CATEGORY_CREATED
-  CATEGORY_UPDATED
-  CATEGORY_DELETED
+  // CATEGORY_CREATED, CATEGORY_UPDATED, CATEGORY_DELETED — deprecated, no longer emitted
   SALARY_RECORD_CREATED
   SALARY_RECORD_UPDATED
   CREDENTIAL_ENTRY_CREATED
@@ -83,6 +87,15 @@ enum FundSource {
   LOAN
   INVESTMENT
   GRANT
+  OTHER
+}
+
+enum PaymentType {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  MOBILE_WALLET
+  CARD
   OTHER
 }
 
@@ -127,14 +140,15 @@ model User {
 
   expensesCreated          Expense[]           @relation("ExpenseCreatedBy")
   expensesUpdated          Expense[]           @relation("ExpenseUpdatedBy")
+  expensesSubmitted        Expense[]           @relation("ExpenseSubmittedBy")
+  expensesApproved         Expense[]           @relation("ExpenseApprovedBy")
+  expensesRejected         Expense[]           @relation("ExpenseRejectedBy")
   expenseHistoryChanges    ExpenseHistory[]    @relation("ExpenseHistoryChangedBy")
   expenseTagsAssigned      ExpenseTag[]        @relation("ExpenseTagAssignedBy")
   attachmentsUploaded      Attachment[]        @relation("AttachmentUploadedBy")
   auditLogs                AuditLog[]          @relation("AuditLogActor")
   salaryRecordsCreated     SalaryRecord[]      @relation("SalaryRecordCreatedBy")
   salaryRecordsUpdated     SalaryRecord[]      @relation("SalaryRecordUpdatedBy")
-  categoriesCreated        Category[]          @relation("CategoryCreatedBy")
-  categoriesUpdated        Category[]          @relation("CategoryUpdatedBy")
   allowedEmailsCreated     AllowedEmail[]      @relation("AllowedEmailCreatedBy")
   allowedEmailsUpdated     AllowedEmail[]      @relation("AllowedEmailUpdatedBy")
   credentialEntriesCreated CredentialEntry[]   @relation("CredentialEntryCreatedBy")
@@ -217,30 +231,6 @@ model Passkey {
 // Domain: taxonomy
 // ---------------------------------------------------------------------------
 
-model Category {
-  id          String         @id @default(cuid())
-  section     ExpenseSection
-  name        String
-  slug        String
-  description String?
-  sortOrder   Int            @default(0)
-  isActive    Boolean        @default(true)
-  createdById String?        @db.Uuid
-  createdBy   User?          @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedById String?        @db.Uuid
-  updatedBy   User?          @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  expenses Expense[]
-
-  @@unique([section, slug])
-  @@index([section, isActive])
-  @@index([createdById])
-  @@index([updatedById])
-  @@map("category")
-}
-
 model Tag {
   id        String   @id @default(cuid())
   name      String
@@ -298,8 +288,7 @@ model Expense {
   /// When the FX snapshot above was captured (UTC).
   fxRateSnapshotAt DateTime?
 
-  categoryId String?
-  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  paymentType PaymentType @default(OTHER)
 
   createdById String  @db.Uuid
   createdBy   User    @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
@@ -311,6 +300,21 @@ model Expense {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Approval workflow
+  submittedAt   DateTime?
+  submittedById String?   @db.Uuid
+  submittedBy   User?     @relation("ExpenseSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+
+  approvedAt   DateTime?
+  approvedById String?   @db.Uuid
+  approvedBy   User?     @relation("ExpenseApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  rejectedAt   DateTime?
+  rejectedById String?   @db.Uuid
+  rejectedBy   User?     @relation("ExpenseRejectedBy", fields: [rejectedById], references: [id], onDelete: SetNull)
+
+  approvalComment String?
+
   history     ExpenseHistory[]
   expenseTags ExpenseTag[]
   attachments Attachment[]
@@ -321,14 +325,20 @@ model Expense {
   @@index([status, deletedAt])
   @@index([originalCurrency, deletedAt])
   @@index([originalCurrency, fromDate, toDate, deletedAt])
-  @@index([categoryId])
+  @@index([section, deletedAt, originalCurrency])
+  @@index([fromDate, toDate, deletedAt])
   @@index([createdById])
   @@index([updatedById])
   @@index([createdAt])
-  @@index([fromDate, toDate])
   @@index([originalAmount])
+  @@index([amountUsd, deletedAt])
+  @@index([amountNpr, deletedAt])
   @@index([title])
   @@index([deletedAt])
+  @@index([paymentType])
+  @@index([submittedById])
+  @@index([approvedById])
+  @@index([rejectedById])
   @@map("expense")
 }
 
@@ -445,6 +455,25 @@ model FundEntry {
   @@index([createdById])
   @@index([amount])
   @@map("fund_entry")
+}
+
+/// Cached exchange rate for resilient FX snapshot computation.
+/// Falls back to the most recent cached rate when the live API is unreachable.
+model ExchangeRateCache {
+  id        String   @id @default(cuid())
+  /// Currency pair descriptor, e.g. "USD_NPR".
+  pair      String   @unique
+  /// The stored rate value (e.g. 133.50).
+  rate      Decimal  @db.Decimal(14, 6)
+  /// Where this rate came from: "api", "fallback", "manual".
+  source    String   @default("api")
+  /// When this cache entry was last refreshed.
+  cachedAt  DateTime @default(now())
+  /// When this cache entry expires (typically 24h).
+  expiresAt DateTime
+
+  @@index([pair, expiresAt])
+  @@map("exchange_rate_cache")
 }
 
 // ---------------------------------------------------------------------------

@@ -22,9 +22,19 @@ export const expenseStatusValues = [
   "CANCELLED",
 ] as const satisfies readonly ExpenseStatus[];
 
+export const paymentTypeValues = [
+  "CASH",
+  "BANK_TRANSFER",
+  "CHEQUE",
+  "MOBILE_WALLET",
+  "CARD",
+  "OTHER",
+] as const;
+
 export const expenseSectionSchema = z.enum(expenseSectionValues);
 export const expenseStatusSchema = z.enum(expenseStatusValues);
 export const expenseCurrencySchema = z.enum(expenseCurrencyValues);
+export const paymentTypeSchema = z.enum(paymentTypeValues);
 
 export const moneyStringSchema = z
   .string()
@@ -35,7 +45,7 @@ export const moneyStringSchema = z
   )
   .refine((v) => Number(v) > 0, "Amount must be greater than zero");
 
-/** Prisma expense / category ids (cuid). */
+/** Prisma expense ids (cuid). */
 export const expenseRecordIdSchema = z
   .string()
   .trim()

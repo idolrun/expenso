@@ -11,9 +11,11 @@ import type {
 
 export type ExpenseRow = Prisma.ExpenseGetPayload<{
   include: {
-    category: true;
     expenseTags: { include: { tag: true } };
     salaryRecord: true;
+    submittedBy: { select: { id: true; name: true; email: true } };
+    approvedBy: { select: { id: true; name: true; email: true } };
+    rejectedBy: { select: { id: true; name: true; email: true } };
   };
 }>;
 
@@ -42,15 +44,7 @@ export function serializeExpense(row: ExpenseRow): ExpenseDto {
       : null,
     fromDate: toIsoDate(row.fromDate),
     toDate: toIsoDate(row.toDate),
-    categoryId: row.categoryId,
-    category: row.category
-      ? {
-          id: row.category.id,
-          name: row.category.name,
-          slug: row.category.slug,
-          section: row.category.section,
-        }
-      : null,
+    paymentType: row.paymentType,
     tags: row.expenseTags.map((et) => ({
       id: et.tag.id,
       name: et.tag.name,
@@ -69,6 +63,19 @@ export function serializeExpense(row: ExpenseRow): ExpenseDto {
           payPeriodEnd: toIsoDate(row.salaryRecord.payPeriodEnd),
         }
       : null,
+
+    submittedAt: row.submittedAt ? toIsoDateTime(row.submittedAt) : null,
+    submittedById: row.submittedById ?? null,
+    submittedBy: row.submittedBy ?? null,
+
+    approvedAt: row.approvedAt ? toIsoDateTime(row.approvedAt) : null,
+    approvedById: row.approvedById ?? null,
+    approvedBy: row.approvedBy ?? null,
+    approvalComment: row.approvalComment ?? null,
+
+    rejectedAt: row.rejectedAt ? toIsoDateTime(row.rejectedAt) : null,
+    rejectedById: row.rejectedById ?? null,
+    rejectedBy: row.rejectedBy ?? null,
   };
 }
 

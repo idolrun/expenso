@@ -41,9 +41,6 @@ async function cleanup() {
   await prisma.verification.deleteMany({
     where: { value: { startsWith: "seed-verify-value-" } },
   });
-  await prisma.category.deleteMany({
-    where: { slug: { startsWith: "seed-" } },
-  });
   await prisma.tag.deleteMany({
     where: { slug: { startsWith: "seed-" } },
   });
@@ -152,29 +149,6 @@ async function main() {
     })),
   });
 
-  const categorySections = [
-    ExpenseSection.TECH,
-    ExpenseSection.SALARY,
-    ExpenseSection.TRAVEL,
-  ] as const;
-
-  const categories = await Promise.all(
-    categorySections.map((section, i) =>
-      prisma.category.create({
-        data: {
-          section,
-          slug: `${sectionSlug(section)}-${i + 1}`,
-          name: `${section} seed category`,
-          description: `Seed category ${i + 1} (${section})`,
-          sortOrder: i,
-          isActive: true,
-          createdById: admin.id,
-          updatedById: admin.id,
-        },
-      }),
-    ),
-  );
-
   const tagDefs = [
     { slug: "seed-infra", name: "Infrastructure", color: "#FF9900" },
     { slug: "seed-payroll", name: "Payroll", color: "#059669" },
@@ -228,7 +202,7 @@ async function main() {
           originalCurrency: "USD",
           fromDate: new Date(`2025-03-${String(10 + i).padStart(2, "0")}T00:00:00.000Z`),
           toDate: new Date(`2025-03-${String(10 + i).padStart(2, "0")}T00:00:00.000Z`),
-          categoryId: categories[i]!.id,
+          paymentType: "OTHER",
           createdById: plan.createdById,
           updatedById: admin.id,
         },

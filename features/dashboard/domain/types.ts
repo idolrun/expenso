@@ -37,6 +37,21 @@ export type DashboardMonthSpendUsd = {
 
 export type DashboardSectionBreakdownPeriod = "1m" | "2m" | "3m";
 
+export type SectionSpendDetail = {
+  /** Total in USD (direct USD expenses). */
+  usdTotal: string;
+  /** Total in NPR (direct NPR expenses). */
+  nprTotal: string;
+  /** Sum of original USD amounts within this section. */
+  originalUsdTotal: string;
+  /** Sum of original NPR amounts within this section. */
+  originalNprTotal: string;
+  /** Average FX rate for USD→NPR conversions in this section (0 if none). */
+  avgRate: string;
+  /** Number of expenses in this section. */
+  expenseCount: number;
+};
+
 export type DashboardSummaryDto = {
   totalCount: number;
 
@@ -70,6 +85,9 @@ export type DashboardSummaryDto = {
 
   /** NPR spend per section (direct NPR + USD→NPR via snapshot). */
   spendBySectionNpr: Partial<Record<ExpenseSection, string>>;
+
+  /** Per-section currency breakdown for rich chart tooltips. */
+  spendBySectionDetail: Partial<Record<ExpenseSection, SectionSpendDetail>>;
 
   recentExpenses: ExpenseDto[];
   recentHistory: ExpenseHistoryWithExpenseDto[];

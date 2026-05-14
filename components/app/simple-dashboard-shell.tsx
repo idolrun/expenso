@@ -7,7 +7,8 @@ import { useState } from "react";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ThemeToggle } from "@/components/auth/theme-toggle";
-import { GlobalSearchCommand } from "@/components/app/global-search-command";
+import { SmartCommandPalette } from "@/components/app/smart-command-palette";
+import { useAppKeyboardShortcuts } from "@/src/features/keyboard-shortcuts/use-keyboard-shortcuts";
 import { Button } from "@/components/ui/button";
 import { CurrencyToggle } from "@/components/ui/currency-toggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,6 +41,8 @@ import {
   UserGearIcon,
   UsersIcon,
   XIcon,
+  CheckCircleIcon,
+  TrashIcon,
 } from "@phosphor-icons/react";
 
 const mainLinks = [
@@ -137,13 +140,44 @@ function NavItems({
   );
 }
 
+function ApprovalsNav({
+  onNavigate,
+  count,
+}: {
+  onNavigate?: () => void;
+  count: number;
+}) {
+  const pathname = usePathname();
+  return (
+    <Link
+      href="/dashboard/approvals"
+      onClick={onNavigate}
+      className={cn(
+        "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+        pathname === "/dashboard/approvals" ||
+          pathname.startsWith("/dashboard/approvals/")
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+      )}
+    >
+      <CheckCircleIcon className="size-4" />
+      <span className="flex-1">Approvals</span>
+      {count > 0 && (
+        <span className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold">
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
     <>
-      {/* <p className="nav-group-label px-3 pt-4 pb-1 text-xs uppercase">
+      <p className="font-semibold text-muted-foreground px-3 pt-4 pb-1 text-xs uppercase">
         Admin
-      </p> */}
+      </p>
       <Link
         href="/dashboard/admin/audit"
         onClick={onNavigate}
@@ -172,22 +206,38 @@ function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
         <UserGearIcon className="size-4" />
         Users
       </Link>
+      <Link
+        href="/dashboard/trash"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          pathname === "/dashboard/trash" ||
+            pathname.startsWith("/dashboard/trash/")
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+        )}
+      >
+        <TrashIcon className="size-4" />
+        Trash
+      </Link>
     </>
   );
 }
 
 export function SimpleDashboardShell({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   role,
   userEmail,
+  pendingApprovalCount = 0,
   children,
 }: {
   role: AppUserRole;
   userEmail: string | null;
+  pendingApprovalCount?: number;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const { displayCurrency, setDisplayCurrency } = useDisplayCurrency();
+  useAppKeyboardShortcuts(role);
 
   return (
     <div className="bg-background flex  min-h-full flex-1">
@@ -217,7 +267,11 @@ export function SimpleDashboardShell({
         </div>
         <ScrollArea className="flex-1 px-2 py-3">
           <NavItems />
-          <AdminNav />
+          <p className="font-semibold text-muted-foreground px-3 pt-4 pb-1 text-xs uppercase">
+            Tools
+          </p>
+          {(role === "ADMIN" || role === "APPROVER") && <ApprovalsNav count={pendingApprovalCount} />}
+          {role === "ADMIN" && <AdminNav />}
         </ScrollArea>
         <div className="text-muted-foreground border-t border-sidebar-border p-3 text-xs">
           {userEmail ?? "Signed in"}
@@ -254,7 +308,13 @@ export function SimpleDashboardShell({
               </SheetHeader>
               <ScrollArea className="h-[calc(100dvh-5rem)] px-2 py-3">
                 <NavItems onNavigate={() => setOpen(false)} />
-                <AdminNav onNavigate={() => setOpen(false)} />
+                <p className="font-semibold text-muted-foreground px-3 pt-4 pb-1 text-xs uppercase">
+                  Tools
+                </p>
+                {(role === "ADMIN" || role === "APPROVER") && (
+                  <ApprovalsNav onNavigate={() => setOpen(false)} count={pendingApprovalCount} />
+                )}
+                {role === "ADMIN" && <AdminNav onNavigate={() => setOpen(false)} />}
               </ScrollArea>
             </SheetContent>
           </Sheet>
@@ -264,7 +324,7 @@ export function SimpleDashboardShell({
               onChange={setDisplayCurrency}
               className="hidden sm:inline-flex"
             />
-            <GlobalSearchCommand />
+            <SmartCommandPalette />
             <ThemeToggle />
             <SignOutButton />
           </div>

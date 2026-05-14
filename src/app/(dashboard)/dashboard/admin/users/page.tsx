@@ -7,7 +7,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { UserRole } from "@/generated/prisma/client";
 
 export default async function AdminUsersPage() {
-  const { session, role } = await requireRole([UserRole.ADMIN, UserRole.USER]);
+  const { session, role } = await requireRole([UserRole.ADMIN]);
   const res = await listUsersAction();
 
   if (!res.ok) {

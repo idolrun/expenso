@@ -6,6 +6,7 @@ import { UserRole } from "@/generated/prisma/client";
 import { AdminDeleteExpense } from "@/components/expenses/admin-delete-expense";
 import { AttachmentSection } from "@/components/expenses/attachment-section";
 import { ExpenseHistoryTimeline } from "@/components/expenses/expense-history-timeline";
+import { ExpenseWorkflowActions } from "@/components/expenses/expense-workflow-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,7 @@ import {
 import { serializeAttachmentForClient } from "@/features/expenses/domain/serialize";
 import { requireAuth } from "@/lib/auth/guards";
 import { parseUserRole } from "@/lib/auth/session";
+import { sessionToUserId } from "@/lib/auth/actor";
 import { prisma } from "@/lib/prisma";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { sectionLabel } from "@/src/lib/expense-sections";
@@ -93,6 +95,8 @@ export default async function ExpenseDetailPage({
   const hasFxSnapshot =
     expense.amountUsd !== null || expense.amountNpr !== null;
 
+  const currentUserId = sessionToUserId(session);
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -114,6 +118,11 @@ export default async function ExpenseDetailPage({
           <Button asChild variant="secondary" size="sm">
             <Link href={`/dashboard/expenses/${id}/edit`}>Edit</Link>
           </Button>
+          <ExpenseWorkflowActions
+            expense={expense}
+            currentUserId={currentUserId}
+            role={role === UserRole.ADMIN ? "ADMIN" : role === UserRole.APPROVER ? "APPROVER" : "USER"}
+          />
           {role === UserRole.ADMIN ? (
             <AdminDeleteExpense expenseId={id} />
           ) : null}
@@ -221,12 +230,12 @@ export default async function ExpenseDetailPage({
         </div>
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Category & tags</CardTitle>
+            <CardTitle className="text-base">Payment Type &amp; tags</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div>
-              <span className="text-muted-foreground">Category: </span>
-              <span>{expense.category?.name ?? "—"}</span>
+              <span className="text-muted-foreground">Payment Type: </span>
+              <span>{expense.paymentType.replace(/_/g, " ")}</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {expense.tags.length === 0 ? (
@@ -242,6 +251,54 @@ export default async function ExpenseDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Approval History */}
+      {(expense.submittedAt || expense.approvedAt || expense.rejectedAt) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Approval History</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {expense.submittedAt && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">Submitted</Badge>
+                <span className="text-muted-foreground">
+                  by {expense.submittedBy?.name || expense.submittedBy?.email || "unknown"} on{" "}
+                  {new Date(expense.submittedAt).toLocaleString()}
+                </span>
+              </div>
+            )}
+            {expense.approvedAt && (
+              <div className="flex items-center gap-2">
+                <Badge variant="default">Approved</Badge>
+                <span className="text-muted-foreground">
+                  by {expense.approvedBy?.name || expense.approvedBy?.email || "unknown"} on{" "}
+                  {new Date(expense.approvedAt).toLocaleString()}
+                </span>
+                {expense.approvalComment && (
+                  <span className="text-muted-foreground italic">
+                    — "{expense.approvalComment}"
+                  </span>
+                )}
+              </div>
+            )}
+            {expense.rejectedAt && (
+              <div className="flex items-center gap-2">
+                <Badge variant="destructive">Rejected</Badge>
+                <span className="text-muted-foreground">
+                  by {expense.rejectedBy?.name || expense.rejectedBy?.email || "unknown"} on{" "}
+                  {new Date(expense.rejectedAt).toLocaleString()}
+                </span>
+                {expense.approvalComment && (
+                  <span className="text-muted-foreground italic">
+                    — "{expense.approvalComment}"
+                  </span>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* History */}
       <ExpenseHistoryTimeline entries={history} tagNameById={tagNameById} />

@@ -47,6 +47,8 @@ import {
 import { cn } from "@/lib/utils";
 import { FundExportButton } from "@/src/features/funds/components/FundExportButton";
 import type { FundExportRow } from "@/src/features/funds/types/export.types";
+import { InlineEdit } from "@/components/ui/inline-edit";
+import { updateFundNoteAction } from "@/features/funds/actions/fund-actions";
 
 interface FundListClientProps {
   initialData: { entries: FundEntryRecord[]; total: number };
@@ -557,22 +559,16 @@ export function FundListClient({ initialData }: FundListClientProps) {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[200px]">
-                          {entry.note ? (
-                            <Tooltip>
-                              <TooltipTrigger className="truncate text-left text-sm cursor-help underline decoration-dotted underline-offset-4 decoration-border w-full">
-                                {entry.note.slice(0, 60)}
-                                {entry.note.length > 60 ? "..." : ""}
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="max-w-xs">{entry.note}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <span className="text-muted-foreground/50 italic text-sm">
-                              No note
-                            </span>
-                          )}
+                        <TableCell className="max-w-[260px]">
+                          <InlineEdit
+                            value={entry.note ?? ""}
+                            onSave={async (v) => {
+                              const res = await updateFundNoteAction(entry.id, v);
+                              return { ok: res.ok, error: res.ok ? undefined : res.error };
+                            }}
+                            placeholder="No note"
+                            className="w-full truncate"
+                          />
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">

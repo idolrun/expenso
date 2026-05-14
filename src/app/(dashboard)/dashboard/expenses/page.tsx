@@ -1,6 +1,7 @@
 import { ExpenseListClient } from "@/components/expenses/expense-list-client";
 import { listExpensesQuerySchema } from "@/features/expenses/validation/expense";
 import { requireAuth } from "@/lib/auth/guards";
+import { parseUserRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { flattenSearchParams } from "@/src/lib/flatten-search-params";
 
@@ -9,7 +10,8 @@ export default async function ExpensesPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAuth();
+  const session = await requireAuth();
+  const role = parseUserRole(session.user.role);
   const sp = flattenSearchParams(await searchParams);
   const parsed = listExpensesQuerySchema.safeParse(sp);
 
@@ -24,6 +26,7 @@ export default async function ExpensesPage({
       initialQuery={parsed.success ? parsed.data : undefined}
       title="Expenses"
       description="Search, filter, and open records. Filters sync to the URL."
+      userRole={role}
     />
   );
 }

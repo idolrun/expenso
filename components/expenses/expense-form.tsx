@@ -38,6 +38,7 @@ import {
   expenseCurrencyValues,
   type ExpenseCurrencyCode,
 } from "@/features/expenses/domain/currency";
+import { paymentTypeValues } from "@/features/expenses/validation/primitives";
 import type {
   ExpenseDto,
   SafeAttachmentDto,
@@ -45,8 +46,9 @@ import type {
 import { apiAxios } from "@/src/lib/axios";
 import {
   slugForSection,
+  sectionLabel,
   type ExpenseSectionId,
-} from "@/src/lib/expense-sections";
+} from "@/src/lib/labels";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import {
   PaperclipIcon,
@@ -54,25 +56,17 @@ import {
   UploadIcon,
   FileIcon,
 } from "@phosphor-icons/react";
+import { FormSection } from "@/components/ui/form-section";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Field,
   FieldError,
   FieldLabel,
 } from "@/components/ui/field";
-import { expenseStatusValues } from "@/features/expenses/validation/primitives";
-
 const MAX_FILE_BYTES = 3 * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
 
 type TagOption = { id: string; name: string; slug: string };
-
-type CategoryRow = {
-  id: string;
-  name: string;
-  slug: string;
-  section: ExpenseSectionId;
-};
 
 type ApiOk<T> = { ok: true; data: T };
 
@@ -144,10 +138,9 @@ export function ExpenseForm({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [removingAttachment, startRemoving] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [categories, setCategories] = useState<CategoryRow[]>([]);
-  const [categoryError, setCategoryError] = useState<string | null>(null);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [exchangeRateError, setExchangeRateError] = useState<string | null>(null);
   const [conversionPreview, setConversionPreview] = useState<string | null>(null);
@@ -159,18 +152,19 @@ export function ExpenseForm({
   const [deleteAttachmentId, setDeleteAttachmentId] = useState<string | null>(null);
   const [deleteAttachmentName, setDeleteAttachmentName] = useState<string>("");
 
+
+
   type ExpenseFormValues = {
     section: ExpenseSectionId;
-    status?: (typeof expenseStatusValues)[number];
     title?: string;
     notes?: string | null;
     amount: string;
     currency: ExpenseCurrencyCode;
     fromDate: string;
     toDate: string;
-    categoryId?: string | null;
     tagIds?: string[];
     employeeName?: string;
+    paymentType: string;
   };
 
   const {
@@ -197,8 +191,6 @@ export function ExpenseForm({
           (mode === "edit" && expense
             ? expense.section
             : (defaultSection ?? "OVERVIEW")) as ExpenseSectionId,
-        status:
-          mode === "edit" && expense ? expense.status : "DRAFT",
         title: mode === "edit" && expense ? expense.title : "",
         notes: mode === "edit" && expense ? (expense.notes ?? "") : "",
         amount: initialAmount,
@@ -211,7 +203,6 @@ export function ExpenseForm({
           mode === "edit" && expense
             ? expense.toDate
             : new Date().toISOString().slice(0, 10),
-        categoryId: mode === "edit" && expense ? (expense.categoryId ?? "") : "",
         tagIds:
           mode === "edit" && expense
             ? expense.tags.map((t) => t.id)
@@ -220,6 +211,7 @@ export function ExpenseForm({
           mode === "edit" && expense?.salaryRecord
             ? expense.salaryRecord.employeeName
             : "",
+        paymentType: mode === "edit" && expense ? expense.paymentType : "OTHER",
       };
     }, [defaultSection, expense, mode]),
     mode: "onSubmit",
@@ -241,37 +233,6 @@ export function ExpenseForm({
       }
     }
   }, [errors]);
-
-  // Fetch categories when section changes
-  useEffect(() => {
-    let cancelled = false;
-    if (!section) {
-      setCategories([]);
-      return;
-    }
-    setCategoryError(null);
-    void apiAxios
-      .get<ApiOk<CategoryRow[]>>("/categories", { params: { section } })
-      .then((res) => {
-        if (cancelled) return;
-        const body = res.data;
-        if (body.ok) setCategories(body.data);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setCategories([]);
-          setCategoryError("Failed to load categories. Try selecting the section again.");
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [section]);
-
-  // Reset category when section changes
-  useEffect(() => {
-    setValue("categoryId", "");
-  }, [section, setValue]);
 
   // Fetch exchange rate
   useEffect(() => {
@@ -388,34 +349,36 @@ export function ExpenseForm({
     setDeleteAttachmentName(attachment.fileName);
   };
 
-  const executeRemoveExisting = async () => {
+  const executeRemoveExisting = () => {
     if (!deleteAttachmentId || !expense) return;
-    try {
-      const res = await fetch(
-        `/api/expenses/${expense.id}/attachments/${deleteAttachmentId}`,
-        {
-          method: "DELETE",
-          credentials: "same-origin",
-        },
-      );
-      const body = (await res.json()) as {
-        ok: boolean;
-        error?: { message: string };
-      };
-      if (!res.ok || !body.ok) {
-        toast.error(body.error?.message ?? "Failed to remove attachment");
-        return;
+    startRemoving(async () => {
+      try {
+        const res = await fetch(
+          `/api/expenses/${expense.id}/attachments/${deleteAttachmentId}`,
+          {
+            method: "DELETE",
+            credentials: "same-origin",
+          },
+        );
+        const body = (await res.json()) as {
+          ok: boolean;
+          error?: { message: string };
+        };
+        if (!res.ok || !body.ok) {
+          toast.error(body.error?.message ?? "Failed to remove attachment");
+          return;
+        }
+        toast.success("Attachment removed");
+        setExistingAttachments((prev) =>
+          prev.filter((a) => a.id !== deleteAttachmentId),
+        );
+      } catch {
+        toast.error("Network error while removing attachment");
+      } finally {
+        setDeleteAttachmentId(null);
+        setDeleteAttachmentName("");
       }
-      toast.success("Attachment removed");
-      setExistingAttachments((prev) =>
-        prev.filter((a) => a.id !== deleteAttachmentId),
-      );
-    } catch {
-      toast.error("Network error while removing attachment");
-    } finally {
-      setDeleteAttachmentId(null);
-      setDeleteAttachmentName("");
-    }
+    });
   };
 
   const onSubmit = async (values: ExpenseFormValues) => {
@@ -471,10 +434,12 @@ export function ExpenseForm({
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="bg-card space-y-6 rounded-xl border p-4 shadow-xs sm:p-6"
+      className="bg-card space-y-4 rounded-xl border p-4 shadow-xs sm:space-y-6 sm:p-6"
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field data-invalid={!!errors.section}>
+      <div className="space-y-4 sm:space-y-6">
+        <FormSection title="Basic Info" step={1} totalSteps={4}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field data-invalid={!!errors.section}>
           <FieldLabel htmlFor="section">
             Section<span className="text-destructive" aria-hidden> *</span>
           </FieldLabel>
@@ -504,37 +469,13 @@ export function ExpenseForm({
                   ] as ExpenseSectionId[]
                 ).map((s) => (
                   <NativeSelectOption key={s} value={s}>
-                    {s.replaceAll("_", " ")}
+                    {sectionLabel(s)}
                   </NativeSelectOption>
                 ))}
               </NativeSelect>
             )}
           />
           <FieldError>{errors.section?.message}</FieldError>
-        </Field>
-
-        <Field data-invalid={!!errors.status}>
-          <FieldLabel htmlFor="status">Status</FieldLabel>
-          <Controller
-            control={control}
-            name="status"
-            render={({ field }) => (
-              <NativeSelect
-                id="status"
-                className="w-full min-w-0"
-                value={field.value}
-                onChange={(e) => field.onChange(e.target.value)}
-              >
-                <NativeSelectOption value="DRAFT">DRAFT</NativeSelectOption>
-                <NativeSelectOption value="SUBMITTED">SUBMITTED</NativeSelectOption>
-                <NativeSelectOption value="APPROVED">APPROVED</NativeSelectOption>
-                <NativeSelectOption value="REJECTED">REJECTED</NativeSelectOption>
-                <NativeSelectOption value="PAID">PAID</NativeSelectOption>
-                <NativeSelectOption value="CANCELLED">CANCELLED</NativeSelectOption>
-              </NativeSelect>
-            )}
-          />
-          <FieldError>{errors.status?.message}</FieldError>
         </Field>
 
         {!isSalary && (
@@ -571,17 +512,21 @@ export function ExpenseForm({
           </Field>
         )}
 
-        <Field className="sm:col-span-2">
-          <FieldLabel htmlFor="notes">Notes</FieldLabel>
-          <Textarea
-            id="notes"
-            rows={3}
-            {...register("notes")}
-          />
-          <FieldError>{errors.notes?.message}</FieldError>
-        </Field>
+            <Field className="sm:col-span-2">
+              <FieldLabel htmlFor="notes">Notes</FieldLabel>
+              <Textarea
+                id="notes"
+                rows={3}
+                {...register("notes")}
+              />
+              <FieldError>{errors.notes?.message}</FieldError>
+            </Field>
+          </div>
+        </FormSection>
 
-        <Field data-invalid={!!errors.currency}>
+        <FormSection title="Amount & Dates" step={2} totalSteps={4}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field data-invalid={!!errors.currency}>
           <FieldLabel htmlFor="currency">
             Saved currency<span className="text-destructive" aria-hidden> *</span>
           </FieldLabel>
@@ -647,70 +592,74 @@ export function ExpenseForm({
           <FieldError>{errors.fromDate?.message}</FieldError>
         </Field>
 
-        <Field data-invalid={!!errors.toDate}>
-          <FieldLabel htmlFor="toDate">
-            To Date<span className="text-destructive" aria-hidden> *</span>
-          </FieldLabel>
-          <Input
-            id="toDate"
-            type="date"
-            {...register("toDate")}
-            aria-invalid={!!errors.toDate}
-          />
-          <FieldError>{errors.toDate?.message}</FieldError>
-        </Field>
-
-        <Field data-invalid={!!categoryError || !!errors.categoryId} className="sm:col-span-2">
-          <FieldLabel htmlFor="categoryId">Category</FieldLabel>
-          <Controller
-            control={control}
-            name="categoryId"
-            render={({ field }) => (
-              <NativeSelect
-                id="categoryId"
-                className="w-full min-w-0"
-                value={field.value || ""}
-                onChange={(e) => field.onChange(e.target.value || null)}
-              >
-                <NativeSelectOption value="">None</NativeSelectOption>
-                {categories.map((c) => (
-                  <NativeSelectOption key={c.id} value={c.id}>
-                    {c.name}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            )}
-          />
-          {categoryError ? (
-            <FieldError>{categoryError}</FieldError>
-          ) : (
-            <FieldError>{errors.categoryId?.message}</FieldError>
-          )}
-        </Field>
-      </div>
-
-      <Field>
-        <FieldLabel>Tags</FieldLabel>
-        <div className="flex flex-wrap gap-2">
-          {tags.map((t) => (
-            <label
-              key={t.id}
-              className="border-input hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm"
-            >
-              <input
-                type="checkbox"
-                className="size-3.5 accent-primary"
-                checked={tagIds.includes(t.id)}
-                onChange={() => toggleTag(t.id)}
+            <Field data-invalid={!!errors.toDate}>
+              <FieldLabel htmlFor="toDate">
+                To Date<span className="text-destructive" aria-hidden> *</span>
+              </FieldLabel>
+              <Input
+                id="toDate"
+                type="date"
+                {...register("toDate")}
+                aria-invalid={!!errors.toDate}
               />
-              {t.name}
-            </label>
-          ))}
-        </div>
-      </Field>
+              <FieldError>{errors.toDate?.message}</FieldError>
+            </Field>
+          </div>
+        </FormSection>
 
-      {/* Receipts */}
-      <div className="space-y-3 rounded-lg border p-4">
+        <FormSection title="Classification" step={3} totalSteps={4}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field data-invalid={!!errors.paymentType} className="sm:col-span-2">
+              <FieldLabel htmlFor="paymentType">
+                Payment Type<span className="text-destructive" aria-hidden> *</span>
+              </FieldLabel>
+              <Controller
+                control={control}
+                name="paymentType"
+                render={({ field }) => (
+                  <NativeSelect
+                    id="paymentType"
+                    className="w-full min-w-0"
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  >
+                    {paymentTypeValues.map((pt) => (
+                      <NativeSelectOption key={pt} value={pt}>
+                        {pt.replace(/_/g, " ")}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                )}
+              />
+              <FieldError>{errors.paymentType?.message}</FieldError>
+            </Field>
+          </div>
+          <div className="mt-4">
+            <Field>
+              <FieldLabel>Tags</FieldLabel>
+              <div className="flex flex-wrap gap-2">
+                {tags.map((t) => (
+                  <label
+                    key={t.id}
+                    className="border-input hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="size-3.5 accent-primary"
+                      checked={tagIds.includes(t.id)}
+                      onChange={() => toggleTag(t.id)}
+                    />
+                    {t.name}
+                  </label>
+                ))}
+              </div>
+            </Field>
+          </div>
+        </FormSection>
+
+        <FormSection title="Attachments" step={4} totalSteps={4}>
+          {/* Receipts */}
+          <div className="space-y-3 rounded-lg border p-4 sm:border-0 sm:p-0">
         <div className="flex items-center justify-between gap-2">
           <FieldLabel>Receipts</FieldLabel>
           <Button
@@ -816,12 +765,14 @@ export function ExpenseForm({
         </Button>
       </div>
 
-      {/* Unsaved changes guard */}
-      {isDirty && (
-        <p className="text-muted-foreground text-xs">
-          You have unsaved changes.
-        </p>
-      )}
+        {/* Unsaved changes guard */}
+        {isDirty && (
+          <p className="text-muted-foreground text-xs">
+            You have unsaved changes.
+          </p>
+        )}
+        </FormSection>
+      </div>
 
       {/* Attachment delete confirmation */}
       <AlertDialog
@@ -843,12 +794,14 @@ export function ExpenseForm({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={removingAttachment}>Cancel</AlertDialogCancel>
             <Button
               type="button"
               variant="destructive"
+              disabled={removingAttachment}
               onClick={executeRemoveExisting}
             >
+              {removingAttachment && <Spinner className="mr-2 size-4" />}
               Remove
             </Button>
           </AlertDialogFooter>

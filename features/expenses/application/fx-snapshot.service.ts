@@ -13,16 +13,15 @@ export type FxSnapshotFields = {
 /**
  * Compute the FX snapshot for an expense amount.
  *
- * Returns null when the exchange-rate API is unreachable — callers must
- * handle null gracefully (leave snapshot fields as null in the DB and
- * retry or backfill later).
+ * This function **never returns null** — it uses a tiered fallback strategy
+ * (live API → DB cache → hard-coded fallback) to ensure every expense
+ * records a historical FX rate at creation/update time.
  */
 export async function computeFxSnapshot(
   originalAmount: Prisma.Decimal,
   originalCurrency: CurrencyCode,
-): Promise<FxSnapshotFields | null> {
+): Promise<FxSnapshotFields> {
   const rateData = await fetchUsdNprRate();
-  if (!rateData) return null;
 
   const rate = new Prisma.Decimal(rateData.rate);
   const snapshotAt = new Date();

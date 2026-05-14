@@ -6,6 +6,11 @@ import {
   canCreateExpense,
   canDeleteExpense,
   canUpdateExpense,
+  canSubmitForApproval,
+  canApproveExpense,
+  canPayExpense,
+  canCancelExpense,
+  canAccessApprovals,
 } from "@/lib/auth/permissions";
 import type { ServiceResult } from "@/features/expenses/domain/dto";
 import type { ExpenseDto } from "@/features/expenses/domain/dto";
@@ -15,10 +20,26 @@ import {
   updateExpenseSchema,
 } from "@/features/expenses/validation/expense";
 import {
+  submitForApprovalSchema,
+  approveExpenseSchema,
+  rejectExpenseSchema,
+  payExpenseSchema,
+  cancelExpenseSchema,
+} from "@/features/expenses/validation/workflow";
+import type { ListExpensesQuery } from "@/features/expenses/validation/expense";
+import {
   createExpenseService,
   softDeleteExpenseService,
   updateExpenseService,
 } from "@/features/expenses/application/expense.service";
+import {
+  submitForApprovalService,
+  approveExpenseService,
+  rejectExpenseService,
+  payExpenseService,
+  cancelExpenseService,
+} from "@/features/expenses/application/expense-workflow.service";
+import { listExpenses } from "@/features/expenses/application/expense-query.service";
 import { validateReceiptFile } from "@/features/attachments/validation/attachment";
 
 async function requireSessionUser() {
@@ -232,4 +253,126 @@ export async function deleteExpenseAction(
   }
 
   return softDeleteExpenseService(parsed.data, auth.userId, role);
+}
+
+// ---------------------------------------------------------------------------
+// Workflow actions
+// ---------------------------------------------------------------------------
+
+export async function submitForApprovalAction(
+  raw: unknown,
+): Promise<ServiceResult<{ id: string }>> {
+  const auth = await requireSessionUser();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  const role = parseUserRole(auth.session.user.role);
+  if (!canSubmitForApproval(role)) {
+    return { ok: false, error: { code: "FORBIDDEN", message: "Cannot submit" } };
+  }
+
+  const parsed = submitForApprovalSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: parsed.error.issues.map((i) => i.message).join("; ") },
+    };
+  }
+
+  return submitForApprovalService(parsed.data, auth.userId);
+}
+
+export async function approveExpenseAction(
+  raw: unknown,
+): Promise<ServiceResult<{ id: string }>> {
+  const auth = await requireSessionUser();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  const role = parseUserRole(auth.session.user.role);
+  if (!canApproveExpense(role)) {
+    return { ok: false, error: { code: "FORBIDDEN", message: "Cannot approve" } };
+  }
+
+  const parsed = approveExpenseSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: parsed.error.issues.map((i) => i.message).join("; ") },
+    };
+  }
+
+  return approveExpenseService(parsed.data, auth.userId, role);
+}
+
+export async function rejectExpenseAction(
+  raw: unknown,
+): Promise<ServiceResult<{ id: string }>> {
+  const auth = await requireSessionUser();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  const role = parseUserRole(auth.session.user.role);
+  if (!canApproveExpense(role)) {
+    return { ok: false, error: { code: "FORBIDDEN", message: "Cannot reject" } };
+  }
+
+  const parsed = rejectExpenseSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: parsed.error.issues.map((i) => i.message).join("; ") },
+    };
+  }
+
+  return rejectExpenseService(parsed.data, auth.userId, role);
+}
+
+export async function payExpenseAction(
+  raw: unknown,
+): Promise<ServiceResult<{ id: string }>> {
+  const auth = await requireSessionUser();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  const role = parseUserRole(auth.session.user.role);
+  if (!canPayExpense(role)) {
+    return { ok: false, error: { code: "FORBIDDEN", message: "Cannot pay" } };
+  }
+
+  const parsed = payExpenseSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: parsed.error.issues.map((i) => i.message).join("; ") },
+    };
+  }
+
+  return payExpenseService(parsed.data, auth.userId);
+}
+
+export async function cancelExpenseAction(
+  raw: unknown,
+): Promise<ServiceResult<{ id: string }>> {
+  const auth = await requireSessionUser();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  const role = parseUserRole(auth.session.user.role);
+  if (!canCancelExpense(role)) {
+    return { ok: false, error: { code: "FORBIDDEN", message: "Cannot cancel" } };
+  }
+
+  const parsed = cancelExpenseSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: parsed.error.issues.map((i) => i.message).join("; ") },
+    };
+  }
+
+  return cancelExpenseService(parsed.data, auth.userId, role);
+}
+
+export async function listPendingApprovalsAction(
+  query: ListExpensesQuery,
+): Promise<ServiceResult<import("@/features/expenses/domain/dto").PaginatedDto<ExpenseDto>>> {
+  const auth = await requireSessionUser();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  const role = parseUserRole(auth.session.user.role);
+  if (!canAccessApprovals(role)) {
+    return { ok: false, error: { code: "FORBIDDEN", message: "Cannot access approvals" } };
+  }
+
+  return listExpenses({ ...query, status: "SUBMITTED" });
 }

@@ -45,9 +45,6 @@ const ACTIVITY_BADGE_TONES: Record<string, string> = {
   TAG_ASSIGNED: "badge-tone-violet",
   TAG_REMOVED: "badge-tone-amber",
   USER_ROLE_CHANGED: "badge-tone-amber",
-  CATEGORY_CREATED: "badge-tone-green",
-  CATEGORY_UPDATED: "badge-tone-blue",
-  CATEGORY_DELETED: "badge-tone-red",
   ATTACHMENT_ADDED: "badge-tone-violet",
   ATTACHMENT_REMOVED: "badge-tone-amber",
 };
@@ -60,7 +57,7 @@ const FIELD_BADGE_TONES: Record<string, string> = {
 };
 
 const FIELD_LABELS: Record<string, string> = {
-  categoryId: "Category",
+  paymentType: "Payment Type",
   incurredOn: "Incurred date",
   notes: "Notes",
   originalAmount: "Amount",
@@ -287,6 +284,7 @@ export function DashboardBento({
   const [sectionBreakdownPeriod, setSectionBreakdownPeriod] = useState<
     "all" | DashboardSectionBreakdownPeriod
   >("all");
+  const [accessibleView, setAccessibleView] = useState(false);
 
   // Pick the right totals based on selected display currency
   const totalSpend =
@@ -357,7 +355,18 @@ export function DashboardBento({
               {data.totalCount} active expense{data.totalCount === 1 ? "" : "s"}
             </p>
             <div className="mt-auto pt-6">
-              <TotalSpendSparkline months={data.monthlySpendUsdLast6} />
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[10px]"
+                  onClick={() => setAccessibleView((v) => !v)}
+                >
+                  {accessibleView ? "View chart" : "View table"}
+                </Button>
+              </div>
+              <TotalSpendSparkline months={data.monthlySpendUsdLast6} accessibleView={accessibleView} />
             </div>
           </CardContent>
         </Card>
@@ -486,9 +495,22 @@ export function DashboardBento({
             ) : null}
           </CardHeader>
           <CardContent>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[10px]"
+                onClick={() => setAccessibleView((v) => !v)}
+              >
+                {accessibleView ? "View chart" : "View table"}
+              </Button>
+            </div>
             <SectionBreakdownBarChart
               spendBySectionUsd={sectionSpend}
               displayCurrency={displayCurrency}
+              accessibleView={accessibleView}
+              detail={data.spendBySectionDetail}
               periodLabel={
                 displayCurrency === "NPR"
                   ? "All-time NPR section breakdown"
@@ -514,9 +536,21 @@ export function DashboardBento({
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[10px]"
+                onClick={() => setAccessibleView((v) => !v)}
+              >
+                {accessibleView ? "View chart" : "View table"}
+              </Button>
+            </div>
             <StatusMixDonutChart
               byStatus={data.byStatus}
               totalActiveCount={data.totalCount}
+              accessibleView={accessibleView}
             />
           </CardContent>
         </Card>

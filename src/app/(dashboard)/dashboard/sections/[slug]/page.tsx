@@ -39,6 +39,7 @@ export default async function SectionExpensesPage({
         initialQuery={parsed.success ? parsed.data : { section }}
         title="Expenses"
         description="Filtered to this section. You can still adjust other filters."
+        userRole={role}
       />
     </div>
   );

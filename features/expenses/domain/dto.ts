@@ -2,6 +2,7 @@ import type {
   AttachmentProvider,
   ExpenseSection,
   ExpenseStatus,
+  PaymentType,
 } from "@/generated/prisma/client";
 
 import type { ExpenseCurrencyCode } from "@/features/expenses/domain/currency";
@@ -13,14 +14,6 @@ export type ExpenseTagDto = {
   slug: string;
   color: string | null;
 };
-
-/** Optional category summary on an expense. */
-export type ExpenseCategoryDto = {
-  id: string;
-  name: string;
-  slug: string;
-  section: ExpenseSection;
-} | null;
 
 /** List / detail row for API and actions. */
 export type ExpenseDto = {
@@ -35,19 +28,18 @@ export type ExpenseDto = {
   /** The currency the user entered the expense in. */
   originalCurrency: ExpenseCurrencyCode;
 
-  /** USD equivalent captured at the time of recording. Null if not yet snapshotted. */
+  /** USD equivalent captured at the time of recording. */
   amountUsd: string | null;
-  /** NPR equivalent captured at the time of recording. Null if not yet snapshotted. */
+  /** NPR equivalent captured at the time of recording. */
   amountNpr: string | null;
-  /** 1 USD = fxRateUsdNpr NPR at snapshot time. Null if not yet captured. */
+  /** 1 USD = fxRateUsdNpr NPR at snapshot time. */
   fxRateUsdNpr: string | null;
-  /** ISO-8601 datetime when the FX snapshot was taken. Null if not yet captured. */
+  /** ISO-8601 datetime when the FX snapshot was taken. */
   fxRateSnapshotAt: string | null;
 
   fromDate: string;
   toDate: string;
-  categoryId: string | null;
-  category: ExpenseCategoryDto;
+  paymentType: PaymentType;
   tags: ExpenseTagDto[];
   createdById: string;
   updatedById: string | null;
@@ -60,6 +52,20 @@ export type ExpenseDto = {
     payPeriodStart: string;
     payPeriodEnd: string;
   } | null;
+
+  // Approval workflow
+  submittedAt: string | null;
+  submittedById: string | null;
+  submittedBy: { id: string; name: string | null; email: string } | null;
+
+  approvedAt: string | null;
+  approvedById: string | null;
+  approvedBy: { id: string; name: string | null; email: string } | null;
+  approvalComment: string | null;
+
+  rejectedAt: string | null;
+  rejectedById: string | null;
+  rejectedBy: { id: string; name: string | null; email: string } | null;
 };
 
 /** Serializable receipt / document attachment. Never includes a delivery URL — generate signed URLs server-side. */
@@ -133,7 +139,7 @@ export type GlobalSearchHitDto = {
   originalAmount: string;
   originalCurrency: ExpenseCurrencyCode;
   /** Where the query matched (best-effort). */
-  matchedOn: "title" | "notes" | "category" | "tag";
+  matchedOn: "title" | "notes" | "tag";
 };
 
 export type ServiceError = {

@@ -17,12 +17,13 @@ describe("expenseRowToSnapshot", () => {
       originalCurrency: "USD",
       fromDate: new Date("2025-06-15T00:00:00.000Z"),
       toDate: new Date("2025-06-15T00:00:00.000Z"),
-      categoryId: "cat1",
+      paymentType: "CARD",
       expenseTags: [{ tagId: "b" }, { tagId: "a" }],
     });
     expect(snap.originalAmount).toBe("120.5000");
     expect(snap.tagIds).toEqual(["a", "b"]);
     expect(snap.fromDate).toBe("2025-06-15");
+    expect(snap.paymentType).toBe("CARD");
   });
 });
 
@@ -36,7 +37,7 @@ describe("buildExpenseHistoryRows", () => {
     originalCurrency: "USD",
     fromDate: new Date("2025-01-01T00:00:00.000Z"),
     toDate: new Date("2025-01-01T00:00:00.000Z"),
-    categoryId: null,
+    paymentType: "OTHER",
     expenseTags: [],
   });
 
@@ -77,5 +78,21 @@ describe("buildExpenseHistoryRows", () => {
       after,
     });
     expect(rows.some((r) => r.fieldKey === "tagIds")).toBe(true);
+  });
+
+  it("detects paymentType changes", () => {
+    const before = expenseRowToSnapshot(base());
+    const after = expenseRowToSnapshot({
+      ...base(),
+      paymentType: "BANK_TRANSFER",
+    });
+    const rows = buildExpenseHistoryRows({
+      expenseId: "exp1",
+      batchId: "batch1",
+      changedById: "00000000-0000-4000-8000-000000000003",
+      before,
+      after,
+    });
+    expect(rows.some((r) => r.fieldKey === "paymentType")).toBe(true);
   });
 });

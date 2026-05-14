@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { UserRole } from "@/generated/prisma/client";
 
 export default async function AdminAuditPage() {
-  await requireRole([UserRole.ADMIN, UserRole.USER]);
+  await requireRole([UserRole.ADMIN]);
 
   return (
     <div className="space-y-6">

@@ -6,15 +6,15 @@ export function canDeleteExpense(role: UserRole): boolean {
 }
 
 export function canCreateExpense(role: UserRole): boolean {
-  return role === UserRole.ADMIN || role === UserRole.USER;
+  return role === UserRole.ADMIN || role === UserRole.APPROVER || role === UserRole.USER;
 }
 
 export function canReadExpense(role: UserRole): boolean {
-  return role === UserRole.ADMIN || role === UserRole.USER;
+  return role === UserRole.ADMIN || role === UserRole.APPROVER || role === UserRole.USER;
 }
 
 export function canUpdateExpense(role: UserRole): boolean {
-  return role === UserRole.ADMIN || role === UserRole.USER;
+  return role === UserRole.ADMIN || role === UserRole.APPROVER || role === UserRole.USER;
 }
 
 export function expenseCrudPermissions(role: UserRole) {
@@ -26,24 +26,49 @@ export function expenseCrudPermissions(role: UserRole) {
   } as const;
 }
 
+/** Workflow permissions */
+export function canSubmitForApproval(role: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.APPROVER || role === UserRole.USER;
+}
+
+export function canApproveExpense(role: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.APPROVER;
+}
+
+export function canPayExpense(role: UserRole): boolean {
+  return role === UserRole.ADMIN;
+}
+
+export function canCancelExpense(role: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.APPROVER || role === UserRole.USER;
+}
+
+export function canAccessAdmin(role: UserRole): boolean {
+  return role === UserRole.ADMIN;
+}
+
+export function canAccessApprovals(role: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.APPROVER;
+}
+
 /** Credential vault: any authenticated user may read. */
 export function canReadCredential(role: UserRole): boolean {
-  return role === UserRole.ADMIN || role === UserRole.USER;
+  return role === UserRole.ADMIN || role === UserRole.APPROVER || role === UserRole.USER;
 }
 
 /** Credential vault: any authenticated user may create. */
 export function canCreateCredential(role: UserRole): boolean {
-  return role === UserRole.ADMIN || role === UserRole.USER;
+  return role === UserRole.ADMIN || role === UserRole.APPROVER || role === UserRole.USER;
 }
 
 /** Credential vault: any authenticated user may update. */
 export function canUpdateCredential(role: UserRole): boolean {
-  return role === UserRole.ADMIN || role === UserRole.USER;
+  return role === UserRole.ADMIN || role === UserRole.APPROVER || role === UserRole.USER;
 }
 
 /** Credential vault: any authenticated user may disable. */
 export function canDisableCredential(role: UserRole): boolean {
-  return role === UserRole.ADMIN || role === UserRole.USER;
+  return role === UserRole.ADMIN || role === UserRole.APPROVER || role === UserRole.USER;
 }
 
 /** Credential vault: only ADMIN may re-enable. */

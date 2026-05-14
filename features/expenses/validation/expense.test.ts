@@ -16,10 +16,12 @@ describe("createExpenseSchema", () => {
       fromDate: "2025-04-01",
       toDate: "2025-04-01",
       tagIds: [],
+      paymentType: "CARD",
     });
     expect(r.success).toBe(true);
     if (r.success) {
       expect(r.data.currency).toBe("USD");
+      expect(r.data.paymentType).toBe("CARD");
     }
   });
 
@@ -31,6 +33,7 @@ describe("createExpenseSchema", () => {
       currency: "npr",
       fromDate: "2025-04-01",
       toDate: "2025-04-01",
+      paymentType: "CASH",
     });
     expect(r.success).toBe(true);
     if (r.success) {
@@ -46,6 +49,7 @@ describe("createExpenseSchema", () => {
       currency: "USD",
       fromDate: "2025-04-01",
       toDate: "2025-04-01",
+      paymentType: "OTHER",
     });
     expect(r.success).toBe(false);
   });
@@ -58,6 +62,20 @@ describe("createExpenseSchema", () => {
       currency: "EUR",
       fromDate: "2025-04-01",
       toDate: "2025-04-01",
+      paymentType: "OTHER",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects invalid payment type", () => {
+    const r = createExpenseSchema.safeParse({
+      section: "TECH",
+      title: "X",
+      amount: "10",
+      currency: "USD",
+      fromDate: "2025-04-01",
+      toDate: "2025-04-01",
+      paymentType: "CRYPTO",
     });
     expect(r.success).toBe(false);
   });
@@ -127,5 +145,15 @@ describe("listExpensesQuerySchema", () => {
       amountMax: "50",
     });
     expect(r.success).toBe(false);
+  });
+
+  it("parses paymentType filter", () => {
+    const r = listExpensesQuerySchema.safeParse({
+      paymentType: "BANK_TRANSFER",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.paymentType).toBe("BANK_TRANSFER");
+    }
   });
 });

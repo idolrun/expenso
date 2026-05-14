@@ -22,9 +22,14 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   expenseSectionValues,
   expenseStatusValues,
-  userRecordIdSchema,
+  paymentTypeValues,
 } from "@/features/expenses/validation/primitives";
 import type { ListExpensesQuery } from "@/features/expenses/validation/expense";
+import {
+  sectionLabel,
+  statusLabel,
+  sortFieldLabel,
+} from "@/src/lib/labels";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
@@ -115,7 +120,7 @@ export function ExpenseFilters({
               <NativeSelectOption value="">All sections</NativeSelectOption>
               {expenseSectionValues.map((s) => (
                 <NativeSelectOption key={s} value={s}>
-                  {s.replaceAll("_", " ")}
+                  {sectionLabel(s)}
                 </NativeSelectOption>
               ))}
             </NativeSelect>
@@ -135,7 +140,26 @@ export function ExpenseFilters({
             <NativeSelectOption value="">All statuses</NativeSelectOption>
             {expenseStatusValues.map((s) => (
               <NativeSelectOption key={s} value={s}>
-                {s}
+                {statusLabel(s)}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          <NativeSelect
+            aria-label="Payment Type"
+            className="min-w-32 flex-1"
+            value={query.paymentType ?? ""}
+            onChange={(e) =>
+              setQuery({
+                paymentType: e.target.value
+                  ? (e.target.value as ListExpensesQuery["paymentType"])
+                  : undefined,
+              })
+            }
+          >
+            <NativeSelectOption value="">All payment types</NativeSelectOption>
+            {paymentTypeValues.map((pt) => (
+              <NativeSelectOption key={pt} value={pt}>
+                {pt.replace(/_/g, " ")}
               </NativeSelectOption>
             ))}
           </NativeSelect>
@@ -152,7 +176,7 @@ export function ExpenseFilters({
             >
               {sortFields.map((f) => (
                 <NativeSelectOption key={f} value={f}>
-                  {f}
+                  {sortFieldLabel(f)}
                 </NativeSelectOption>
               ))}
             </NativeSelect>
@@ -194,6 +218,7 @@ export function ExpenseFilters({
               setQuery({
                 section: hideSectionFilter ? query.section : undefined,
                 status: undefined,
+                paymentType: undefined,
                 tagIds: [],
                 amountMin: undefined,
                 amountMax: undefined,

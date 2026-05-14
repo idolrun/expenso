@@ -109,14 +109,4 @@ export const expenseRepository = {
       throw new Error("One or more tags do not exist");
     }
   },
-
-  async assertCategoryExists(db: DbClient, categoryId: string | null) {
-    if (!categoryId) return;
-    const c = await db.category.findFirst({
-      where: { id: categoryId, isActive: true },
-    });
-    if (!c) {
-      throw new Error("Category not found or inactive");
-    }
-  },
 };

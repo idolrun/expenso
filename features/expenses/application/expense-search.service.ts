@@ -11,7 +11,6 @@ function detectMatch(row: ExpenseWithListRelations, q: string): GlobalSearchHitD
   const needle = q.toLowerCase();
   if (row.title.toLowerCase().includes(needle)) return "title";
   if (row.notes?.toLowerCase().includes(needle)) return "notes";
-  if (row.category?.name?.toLowerCase().includes(needle)) return "category";
   for (const et of row.expenseTags) {
     if (
       et.tag.name.toLowerCase().includes(needle) ||
@@ -33,11 +32,6 @@ export async function globalSearchExpenses(
       OR: [
         { title: { contains: q, mode: "insensitive" } },
         { notes: { contains: q, mode: "insensitive" } },
-        {
-          category: {
-            name: { contains: q, mode: "insensitive" },
-          },
-        },
         {
           expenseTags: {
             some: {

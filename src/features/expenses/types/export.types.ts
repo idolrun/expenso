@@ -1,10 +1,11 @@
 export interface ExportRow {
+  id?: string;
   title: string;
   date: string;
   amount: string;
   currency: string;
   status: string;
-  category: string;
+  paymentType: string;
   section: string;
 }
 
