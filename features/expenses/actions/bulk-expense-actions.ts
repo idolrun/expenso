@@ -1,33 +1,35 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AuditAction, ExpenseStatus, UserRole } from "@/generated/prisma/client";
+import { AuditAction, ExpenseStatus } from "@/generated/prisma/client";
 import { getSession, parseUserRole } from "@/lib/auth/session";
 import { sessionToUserId } from "@/lib/auth/actor";
+import { hasPermission, Permission } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/prisma";
 import { auditLogRepository } from "@/features/audit/infrastructure/audit-log.repository";
 import type { ServiceResult } from "@/features/expenses/domain/dto";
 
-async function requireAdmin(): Promise<
-  | { ok: true; userId: string }
-  | { ok: false; error: { code: string; message: string } }
-> {
+async function requireSessionUser() {
   const session = await getSession();
   if (!session) {
-    return { ok: false, error: { code: "UNAUTHORIZED", message: "Sign in required" } };
+    return {
+      ok: false as const,
+      error: { code: "UNAUTHORIZED", message: "Sign in required" },
+    };
   }
-  const role = parseUserRole(session.user.role);
-  if (role !== UserRole.ADMIN) {
-    return { ok: false, error: { code: "FORBIDDEN", message: "Admin only" } };
-  }
-  return { ok: true, userId: sessionToUserId(session) };
+  return { ok: true as const, session, userId: sessionToUserId(session) };
 }
 
-export async function bulkDeleteExpensesAction(
+export async function bulkArchiveExpensesAction(
   ids: string[],
-): Promise<ServiceResult<{ deletedCount: number }>> {
-  const auth = await requireAdmin();
+): Promise<ServiceResult<{ archivedCount: number }>> {
+  const auth = await requireSessionUser();
   if (!auth.ok) return { ok: false, error: auth.error };
+
+  const role = parseUserRole(auth.session.user.role);
+  if (!hasPermission(role, Permission.CAN_BULK_ARCHIVE_EXPENSE)) {
+    return { ok: false, error: { code: "FORBIDDEN", message: "Insufficient permissions" } };
+  }
 
   if (!ids.length) {
     return { ok: false, error: { code: "VALIDATION_ERROR", message: "No items selected" } };
@@ -43,7 +45,7 @@ export async function bulkDeleteExpensesAction(
 
     for (const id of ids) {
       await auditLogRepository.create(tx, {
-        action: AuditAction.EXPENSE_SOFT_DELETED,
+        action: AuditAction.EXPENSE_ARCHIVED,
         entityType: "Expense",
         entityId: id,
         actor: { connect: { id: auth.userId } },
@@ -55,14 +57,19 @@ export async function bulkDeleteExpensesAction(
   revalidatePath("/dashboard/expenses");
   revalidatePath("/dashboard");
 
-  return { ok: true, data: { deletedCount: ids.length } };
+  return { ok: true, data: { archivedCount: ids.length } };
 }
 
 export async function bulkPayExpensesAction(
   ids: string[],
 ): Promise<ServiceResult<{ paidCount: number }>> {
-  const auth = await requireAdmin();
+  const auth = await requireSessionUser();
   if (!auth.ok) return { ok: false, error: auth.error };
+
+  const role = parseUserRole(auth.session.user.role);
+  if (!hasPermission(role, Permission.CAN_BULK_PAY_EXPENSE)) {
+    return { ok: false, error: { code: "FORBIDDEN", message: "Insufficient permissions" } };
+  }
 
   if (!ids.length) {
     return { ok: false, error: { code: "VALIDATION_ERROR", message: "No items selected" } };

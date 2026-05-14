@@ -9,6 +9,7 @@ import { serializeAttachment } from "@/features/expenses/domain/serialize";
 import { auditLogRepository } from "@/features/audit/infrastructure/audit-log.repository";
 import { expenseRepository } from "@/features/expenses/infrastructure/expense.repository";
 import { attachmentRepository } from "@/features/attachments/infrastructure/attachment.repository";
+import type { UserRole } from "@/generated/prisma/client";
 import {
   attachmentValidationMessage,
   sanitizeFilename,
@@ -226,7 +227,7 @@ export async function listAttachmentsService(
       return { ok: false, error: { code: "NOT_FOUND", message: "Expense not found" } };
     }
 
-    const rows = await attachmentRepository.findByExpenseId(prisma, expenseId);
+    const rows = await attachmentRepository.findActiveByExpenseId(prisma, expenseId);
     return { ok: true, data: rows.map(serializeAttachment) };
   } catch (e) {
     const message = e instanceof Error ? e.message : "List failed";
@@ -234,9 +235,9 @@ export async function listAttachmentsService(
   }
 }
 
-// ─── Delete ──────────────────────────────────────────────────────────────────
+// ─── Archive ─────────────────────────────────────────────────────────────────
 
-export async function deleteAttachmentService(
+export async function archiveAttachmentService(
   attachmentId: string,
   actorUserId: string,
 ): Promise<ServiceResult<{ id: string }>> {
@@ -251,31 +252,18 @@ export async function deleteAttachmentService(
     if (!expense) {
       return {
         ok: false,
-        error: { code: "NOT_FOUND", message: "Related expense not found or deleted" },
+        error: { code: "NOT_FOUND", message: "Related expense not found or archived" },
       };
     }
 
-    // Delete from Cloudinary if applicable — best-effort; DB delete proceeds regardless.
-    if (attachment.provider === "CLOUDINARY" && attachment.cloudinaryPublicId) {
-      const resourceType = cloudinaryResourceType(attachment.contentType);
-      try {
-        await cloudinary.uploader.destroy(attachment.cloudinaryPublicId, {
-          type: "authenticated",
-          resource_type: resourceType,
-        });
-      } catch (cloudinaryErr) {
-        // Log but do not surface — the DB record is the source of truth.
-        console.error(
-          "[attachment] Cloudinary destroy failed:",
-          cloudinaryErr instanceof Error ? cloudinaryErr.message : cloudinaryErr,
-        );
-      }
-    }
+    // Note: Cloudinary asset is NOT destroyed. The attachment record is archived
+    // (deletedAt set) but the underlying cloud asset and metadata remain for
+    // audit integrity and recovery. This is a non-destructive operation.
 
     await prisma.$transaction(async (tx) => {
-      await attachmentRepository.delete(tx, attachmentId);
+      await attachmentRepository.archive(tx, attachmentId, actorUserId);
       await auditLogRepository.create(tx, {
-        action: AuditAction.ATTACHMENT_REMOVED,
+        action: AuditAction.ATTACHMENT_ARCHIVED,
         entityType: "Attachment",
         entityId: attachmentId,
         actor: { connect: { id: actorUserId } },
@@ -288,8 +276,8 @@ export async function deleteAttachmentService(
 
     return { ok: true, data: { id: attachmentId } };
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Delete failed";
-    return { ok: false, error: { code: "DELETE_FAILED", message } };
+    const message = e instanceof Error ? e.message : "Archive failed";
+    return { ok: false, error: { code: "ARCHIVE_FAILED", message } };
   }
 }
 

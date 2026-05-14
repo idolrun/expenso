@@ -15,10 +15,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { deleteExpenseAction } from "@/features/expenses/actions/expense-actions";
-import { TrashIcon } from "@phosphor-icons/react";
+import { archiveExpenseAction } from "@/features/expenses/actions/expense-actions";
+import { ArchiveBoxIcon } from "@phosphor-icons/react";
 
-export function AdminDeleteExpense({ expenseId }: { expenseId: string }) {
+export function ArchiveExpenseButton({ expenseId }: { expenseId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -26,39 +26,39 @@ export function AdminDeleteExpense({ expenseId }: { expenseId: string }) {
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button type="button" variant="destructive" size="sm" className="gap-2">
-          <TrashIcon className="size-4" />
-          Delete
+        <Button type="button" variant="outline" size="sm" className="gap-2">
+          <ArchiveBoxIcon className="size-4" />
+          Archive
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete this expense?</AlertDialogTitle>
+          <AlertDialogTitle>Archive this expense?</AlertDialogTitle>
           <AlertDialogDescription>
-            This performs a soft delete. Only administrators can remove expenses.
+            This will archive the expense. It can be restored later from the Archived Expenses page.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <Button
             type="button"
-            variant="destructive"
+            variant="default"
             disabled={pending}
             onClick={() => {
               start(async () => {
-                const res = await deleteExpenseAction({ id: expenseId });
+                const res = await archiveExpenseAction({ id: expenseId });
                 if (!res.ok) {
                   toast.error(res.error.message);
                   return;
                 }
-                toast.success("Expense removed");
+                toast.success("Expense archived");
                 setOpen(false);
                 router.push("/dashboard/expenses");
                 router.refresh();
               });
             }}
           >
-            Confirm delete
+            Confirm archive
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

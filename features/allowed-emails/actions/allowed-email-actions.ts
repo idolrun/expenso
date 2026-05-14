@@ -1,7 +1,5 @@
 "use server";
 
-import { UserRole } from "@/generated/prisma/client";
-
 import { sessionToUserId } from "@/lib/auth/actor";
 import { getSession, parseUserRole } from "@/lib/auth/session";
 import type { ServiceResult } from "@/features/expenses/domain/dto";
@@ -10,7 +8,7 @@ import {
   listAllowedEmails,
   createAllowedEmail,
   updateAllowedEmail,
-  deleteAllowedEmail,
+  deactivateAllowedEmail,
 } from "@/features/allowed-emails/application/allowed-email.service";
 
 async function requireSessionUser() {
@@ -22,36 +20,6 @@ async function requireSessionUser() {
     };
   }
   return { ok: true as const, session, userId: sessionToUserId(session) };
-}
-
-async function requireAdmin() {
-  const auth = await requireSessionUser();
-  if (!auth.ok) {
-    return auth;
-  }
-  const role = parseUserRole(auth.session.user.role);
-  if (role !== UserRole.ADMIN) {
-    return {
-      ok: false as const,
-      error: { code: "FORBIDDEN", message: "Admin only" },
-    };
-  }
-  return auth;
-}
-
-async function requireAllowedEmailManager() {
-  const auth = await requireSessionUser();
-  if (!auth.ok) {
-    return auth;
-  }
-  const role = parseUserRole(auth.session.user.role);
-  if (role !== UserRole.ADMIN && role !== UserRole.USER) {
-    return {
-      ok: false as const,
-      error: { code: "FORBIDDEN", message: "Insufficient permissions" },
-    };
-  }
-  return auth;
 }
 
 export async function listAllowedEmailsAction(): Promise<
@@ -67,7 +35,7 @@ export async function listAllowedEmailsAction(): Promise<
 export async function createAllowedEmailAction(
   raw: unknown,
 ): Promise<ServiceResult<AllowedEmailDto>> {
-  const auth = await requireAllowedEmailManager();
+  const auth = await requireSessionUser();
   if (!auth.ok) {
     return { ok: false, error: auth.error };
   }
@@ -77,19 +45,19 @@ export async function createAllowedEmailAction(
 export async function updateAllowedEmailAction(
   raw: unknown,
 ): Promise<ServiceResult<AllowedEmailDto>> {
-  const auth = await requireAllowedEmailManager();
+  const auth = await requireSessionUser();
   if (!auth.ok) {
     return { ok: false, error: auth.error };
   }
   return updateAllowedEmail(auth.userId, raw);
 }
 
-export async function deleteAllowedEmailAction(
+export async function deactivateAllowedEmailAction(
   raw: unknown,
 ): Promise<ServiceResult<{ id: string }>> {
-  const auth = await requireAdmin();
+  const auth = await requireSessionUser();
   if (!auth.ok) {
     return { ok: false, error: auth.error };
   }
-  return deleteAllowedEmail(auth.userId, raw);
+  return deactivateAllowedEmail(auth.userId, raw);
 }

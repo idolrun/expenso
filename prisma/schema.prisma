@@ -49,7 +49,7 @@ enum AuditAction {
   USER_ROLE_CHANGED
   EXPENSE_CREATED
   EXPENSE_UPDATED
-  EXPENSE_SOFT_DELETED
+  EXPENSE_ARCHIVED
   EXPENSE_RESTORED
   EXPENSE_SUBMITTED
   EXPENSE_APPROVED
@@ -57,9 +57,10 @@ enum AuditAction {
   EXPENSE_PAID
   EXPENSE_CANCELLED
   ATTACHMENT_ADDED
-  ATTACHMENT_REMOVED
+  ATTACHMENT_ARCHIVED
   TAG_ASSIGNED
   TAG_REMOVED
+  TAG_DEACTIVATED
   // CATEGORY_CREATED, CATEGORY_UPDATED, CATEGORY_DELETED — deprecated, no longer emitted
   SALARY_RECORD_CREATED
   SALARY_RECORD_UPDATED
@@ -69,8 +70,10 @@ enum AuditAction {
   CREDENTIAL_ENTRY_REENABLED
   ALLOWED_EMAIL_CREATED
   ALLOWED_EMAIL_UPDATED
-  ALLOWED_EMAIL_DELETED
+  ALLOWED_EMAIL_DEACTIVATED
   FUNDENTRYCREATED
+  FUND_ENTRY_ARCHIVED
+  SETTINGS_UPDATED
   OTHER
 }
 
@@ -236,12 +239,14 @@ model Tag {
   name      String
   slug      String   @unique
   color     String?
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   expenseTags ExpenseTag[]
 
   @@index([name])
+  @@index([isActive])
   @@map("tag")
 }
 
@@ -252,8 +257,8 @@ model ExpenseTag {
   assignedById String?  @db.Uuid
   assignedBy   User?    @relation("ExpenseTagAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
 
-  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
-  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Restrict)
 
   @@id([expenseId, tagId])
   @@index([tagId])
@@ -346,7 +351,7 @@ model Expense {
 model ExpenseHistory {
   id          String   @id @default(cuid())
   expenseId   String
-  expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Restrict)
   batchId     String?
   fieldKey    String
   oldValue    Json?
@@ -367,7 +372,7 @@ model ExpenseHistory {
 model Attachment {
   id        String  @id @default(cuid())
   expenseId String
-  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Restrict)
 
   /// Which storage backend holds the file.
   provider AttachmentProvider @default(LOCAL)
@@ -396,10 +401,12 @@ model Attachment {
   uploadedById String?  @db.Uuid
   uploadedBy   User?    @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
   createdAt    DateTime @default(now())
+  deletedAt    DateTime?
 
   @@index([expenseId])
   @@index([uploadedById])
   @@index([provider, cloudinaryPublicId])
+  @@index([deletedAt])
   @@map("attachment")
 }
 
@@ -426,11 +433,13 @@ model SalaryRecord {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   @@index([payPeriodStart, payPeriodEnd])
   @@index([employeeName])
   @@index([createdById])
   @@index([updatedById])
+  @@index([deletedAt])
   @@map("salary_record")
 }
 
@@ -447,6 +456,7 @@ model FundEntry {
   createdBy   User   @relation("FundEntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
+  deletedAt DateTime?
 
   @@index([createdAt])
   @@index([receivedAt])
@@ -454,6 +464,7 @@ model FundEntry {
   @@index([currency])
   @@index([createdById])
   @@index([amount])
+  @@index([deletedAt])
   @@map("fund_entry")
 }
 
@@ -554,7 +565,7 @@ model CredentialEntry {
 model CredentialHistory {
   id          String          @id @default(cuid())
   entryId     String
-  entry       CredentialEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  entry       CredentialEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
   fieldKey    String
   oldValue    Json?
   newValue    Json?

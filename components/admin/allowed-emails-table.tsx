@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { PencilSimple, Plus, Trash } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, PencilSimple, Plus, Prohibit } from "@phosphor-icons/react";
 
 import type { AllowedEmailDto } from "@/features/allowed-emails/domain/allowed-email";
 import {
   listAllowedEmailsAction,
   createAllowedEmailAction,
   updateAllowedEmailAction,
-  deleteAllowedEmailAction,
+  deactivateAllowedEmailAction,
 } from "@/features/allowed-emails/actions/allowed-email-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,10 +65,8 @@ function formatHistoryDate(value: string): string {
 }
 
 export function AllowedEmailsTable({
-  canManageEntries,
   hiddenEmail,
 }: {
-  canManageEntries: boolean;
   hiddenEmail?: string | null;
 }) {
   const router = useRouter();
@@ -78,7 +76,6 @@ export function AllowedEmailsTable({
 
   const [addOpen, setAddOpen] = useState(false);
   const [editItem, setEditItem] = useState<AllowedEmailDto | null>(null);
-  const [deleteItem, setDeleteItem] = useState<AllowedEmailDto | null>(null);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const normalizedHiddenEmail = hiddenEmail ? normalizeEmail(hiddenEmail) : null;
@@ -180,20 +177,17 @@ export function AllowedEmailsTable({
     router.refresh();
   }
 
-  async function handleDelete() {
-    if (!deleteItem) return;
-
-    setSaving(true);
-    const res = await deleteAllowedEmailAction({ id: deleteItem.id });
-    setSaving(false);
+  async function handleDeactivate(item: AllowedEmailDto) {
+    setTogglingId(item.id);
+    const res = await deactivateAllowedEmailAction({ id: item.id });
+    setTogglingId(null);
 
     if (!res.ok) {
       toast.error(res.error.message);
       return;
     }
 
-    toast.success("Allowed email removed");
-    setDeleteItem(null);
+    toast.success("Allowed email deactivated");
     await fetchEmails();
     router.refresh();
   }
@@ -295,9 +289,7 @@ export function AllowedEmailsTable({
                 <TableHead className="w-[120px]">Active</TableHead>
                 <TableHead>Added by</TableHead>
                 <TableHead>Last updated</TableHead>
-                {canManageEntries ? (
-                  <TableHead className="w-[120px] text-right">Actions</TableHead>
-                ) : null}
+                <TableHead className="w-[120px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -340,29 +332,40 @@ export function AllowedEmailsTable({
                       <p>{formatHistoryDate(item.updatedAt)}</p>
                     </div>
                   </TableCell>
-                  {canManageEntries ? (
-                    <TableCell className="text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => setEditItem(item)}
-                        >
-                          <PencilSimple className="size-4" />
-                          <span className="sr-only">Edit</span>
-                        </Button>
+                  <TableCell className="text-right">
+                    <div className="inline-flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => setEditItem(item)}
+                      >
+                        <PencilSimple className="size-4" />
+                        <span className="sr-only">Edit</span>
+                      </Button>
+                      {item.isActive ? (
                         <Button
                           variant="ghost"
                           size="icon-sm"
                           className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteItem(item)}
+                          disabled={togglingId === item.id}
+                          onClick={() => handleDeactivate(item)}
                         >
-                          <Trash className="size-4" />
-                          <span className="sr-only">Delete</span>
+                          <Prohibit className="size-4" />
+                          <span className="sr-only">Deactivate</span>
                         </Button>
-                      </div>
-                    </TableCell>
-                  ) : null}
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={togglingId === item.id}
+                          onClick={() => handleToggleActive(item, true)}
+                        >
+                          <ArrowCounterClockwise className="size-4" />
+                          <span className="sr-only">Activate</span>
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -434,40 +437,7 @@ export function AllowedEmailsTable({
         ) : null}
       </Dialog>
 
-      {/* Delete Confirmation */}
-      <AlertDialog
-        open={!!deleteItem}
-        onOpenChange={(open) => !open && setDeleteItem(null)}
-      >
-        {deleteItem ? (
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Remove allowed email?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will prevent <strong>{deleteItem.email}</strong> from requesting
-                magic links in the future. Existing sessions are not affected.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={saving}
-              >
-                {saving ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Spinner className="size-4" />
-                    Removing…
-                  </span>
-                ) : (
-                  "Remove"
-                )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        ) : null}
-      </AlertDialog>
+
     </div>
   );
 }

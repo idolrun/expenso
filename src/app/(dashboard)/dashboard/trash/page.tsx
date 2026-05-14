@@ -1,28 +1,26 @@
-import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/auth/guards";
-import { listDeletedExpensesAction } from "@/features/expenses/actions/trash-actions";
+import { requireAuth } from "@/lib/auth/guards";
+import { listArchivedExpensesAction } from "@/features/expenses/actions/trash-actions";
 import { TrashListClient } from "@/components/expenses/trash-list-client";
 
 export const metadata = {
-  title: "Trash | Expenso",
-  description: "Review and restore deleted expenses",
+  title: "Archived Expenses | Expenso",
+  description: "Review and restore archived expenses",
 };
 
 export default async function TrashPage() {
-  const session = await requireRole(["ADMIN"]);
-  if (!session) redirect("/dashboard");
+  await requireAuth();
 
-  const result = await listDeletedExpensesAction();
+  const result = await listArchivedExpensesAction();
   const items = result.ok ? result.data : [];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight md:text-3xl">
-          Trash
+          Archived Expenses
         </h1>
         <p className="text-muted-foreground text-sm">
-          Review, restore, or permanently delete soft-deleted expenses.
+          Review and restore archived expenses. Permanent deletion is not supported.
         </p>
       </div>
       <TrashListClient initialItems={items} />

@@ -1,9 +1,8 @@
 import { AuditLogPanel } from "@/components/admin/audit-log-panel";
-import { requireRole } from "@/lib/auth/guards";
-import { UserRole } from "@/generated/prisma/client";
+import { requireAuth } from "@/lib/auth/guards";
 
 export default async function AdminAuditPage() {
-  await requireRole([UserRole.ADMIN]);
+  await requireAuth();
 
   return (
     <div className="space-y-6">
@@ -12,7 +11,7 @@ export default async function AdminAuditPage() {
           Audit log
         </h1>
         <p className="text-muted-foreground text-sm">
-          Administrative visibility into security-relevant events.
+          Visibility into security-relevant events across the system.
         </p>
       </div>
       <AuditLogPanel />

@@ -52,7 +52,7 @@ import {
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import {
   PaperclipIcon,
-  TrashIcon,
+  XIcon,
   UploadIcon,
   FileIcon,
 } from "@phosphor-icons/react";
@@ -356,7 +356,7 @@ export function ExpenseForm({
         const res = await fetch(
           `/api/expenses/${expense.id}/attachments/${deleteAttachmentId}`,
           {
-            method: "DELETE",
+            method: "PATCH",
             credentials: "same-origin",
           },
         );
@@ -709,11 +709,11 @@ export function ExpenseForm({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="text-destructive hover:text-destructive size-7"
+                  className="text-muted-foreground hover:text-foreground size-7"
                   onClick={() => confirmRemoveExisting(a)}
                   aria-label={`Remove ${a.fileName}`}
                 >
-                  <TrashIcon className="size-3.5" />
+                  <XIcon className="size-3.5" />
                 </Button>
               </li>
             ))}
@@ -738,11 +738,11 @@ export function ExpenseForm({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="text-destructive hover:text-destructive size-7"
+                  className="text-muted-foreground hover:text-foreground size-7"
                   onClick={() => removePendingFile(i)}
                   aria-label={`Remove ${file.name}`}
                 >
-                  <TrashIcon className="size-3.5" />
+                  <XIcon className="size-3.5" />
                 </Button>
               </li>
             ))}

@@ -7,7 +7,7 @@ import { allowedEmailRepository } from "@/features/allowed-emails/infrastructure
 import {
   createAllowedEmailSchema,
   updateAllowedEmailSchema,
-  deleteAllowedEmailSchema,
+  deactivateAllowedEmailSchema,
 } from "@/features/allowed-emails/validation/allowed-email";
 import { prisma } from "@/lib/prisma";
 
@@ -177,11 +177,11 @@ export async function updateAllowedEmail(
   }
 }
 
-export async function deleteAllowedEmail(
+export async function deactivateAllowedEmail(
   actorUserId: string,
   raw: unknown,
 ): Promise<ServiceResult<{ id: string }>> {
-  const parsed = deleteAllowedEmailSchema.safeParse(raw);
+  const parsed = deactivateAllowedEmailSchema.safeParse(raw);
   if (!parsed.success) {
     return {
       ok: false,
@@ -203,10 +203,29 @@ export async function deleteAllowedEmail(
       };
     }
 
+    if (!existing.isActive) {
+      return {
+        ok: false,
+        error: { code: "ALREADY_DEACTIVATED", message: "Allowed email is already deactivated." },
+      };
+    }
+
     await prisma.$transaction(async (tx) => {
-      await allowedEmailRepository.delete(tx, id);
+      const updated = await allowedEmailRepository.update(tx, id, {
+        isActive: false,
+        updatedById: actorUserId,
+      });
+      if (!updated.isActive) {
+        await tx.session.deleteMany({
+          where: {
+            user: {
+              email: updated.email,
+            },
+          },
+        });
+      }
       await auditLogRepository.create(tx, {
-        action: AuditAction.ALLOWED_EMAIL_DELETED,
+        action: AuditAction.ALLOWED_EMAIL_DEACTIVATED,
         entityType: "AllowedEmail",
         entityId: id,
         actor: { connect: { id: actorUserId } },
@@ -215,7 +234,7 @@ export async function deleteAllowedEmail(
     });
     return { ok: true, data: { id } };
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to delete allowed email";
-    return { ok: false, error: { code: "DELETE_FAILED", message } };
+    const message = e instanceof Error ? e.message : "Failed to deactivate allowed email";
+    return { ok: false, error: { code: "DEACTIVATE_FAILED", message } };
   }
 }

@@ -15,12 +15,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  bulkDeleteExpensesAction,
+  bulkArchiveExpensesAction,
   bulkPayExpensesAction,
 } from "@/features/expenses/actions/bulk-expense-actions";
 import { ExportButton } from "@/src/features/expenses/components/ExportButton";
 import type { ExportRow } from "@/src/features/expenses/types/export.types";
-import { XIcon, TrashIcon, CheckCircleIcon } from "@phosphor-icons/react";
+import { XIcon, ArchiveBoxIcon, CheckCircleIcon } from "@phosphor-icons/react";
 
 type BulkActionBarProps = {
   selectedIds: Set<string>;
@@ -38,7 +38,7 @@ export function BulkActionBar({
   allApproved,
 }: BulkActionBarProps) {
   const [pending, startTransition] = useTransition();
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
 
   const count = selectedIds.size;
   if (count === 0) return null;
@@ -47,15 +47,15 @@ export function BulkActionBar({
     selectedIds.has(r.id ?? ""),
   );
 
-  function handleDelete() {
+  function handleArchive() {
     startTransition(async () => {
-      const res = await bulkDeleteExpensesAction([...selectedIds]);
+      const res = await bulkArchiveExpensesAction([...selectedIds]);
       if (!res.ok) {
         toast.error(res.error.message);
         return;
       }
-      toast.success(`${res.data.deletedCount} expense(s) deleted`);
-      setShowDeleteDialog(false);
+      toast.success(`${res.data.archivedCount} expense(s) archived`);
+      setShowArchiveDialog(false);
       onClear();
     });
   }
@@ -106,17 +106,15 @@ export function BulkActionBar({
             </Button>
           )}
 
-          {canAdmin && (
-            <Button
-              size="sm"
-              variant="destructive"
-              disabled={pending}
-              onClick={() => setShowDeleteDialog(true)}
-            >
-              <TrashIcon className="mr-1.5 size-3.5" />
-              Delete
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => setShowArchiveDialog(true)}
+          >
+            <ArchiveBoxIcon className="mr-1.5 size-3.5" />
+            Archive
+          </Button>
 
           <Button
             size="sm"
@@ -130,23 +128,23 @@ export function BulkActionBar({
         </div>
       </div>
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {count} expenses?</AlertDialogTitle>
+            <AlertDialogTitle>Archive {count} expenses?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will soft-delete the selected expenses. Only administrators can restore them.
+              This will archive the selected expenses. They can be restored later from the Archived Expenses page.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
             <Button
-              variant="destructive"
+              variant="default"
               disabled={pending}
-              onClick={handleDelete}
+              onClick={handleArchive}
             >
               {pending && <Spinner className="mr-2 size-4" />}
-              Delete
+              Archive
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

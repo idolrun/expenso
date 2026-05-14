@@ -14,7 +14,18 @@ export const attachmentRepository = {
     return db.attachment.findUnique({ where: { id } });
   },
 
-  /** Fetch all attachments for an expense, newest first. */
+  /** Fetch all non-archived attachments for an expense, newest first. */
+  async findActiveByExpenseId(
+    db: DbClient,
+    expenseId: string,
+  ): Promise<Attachment[]> {
+    return db.attachment.findMany({
+      where: { expenseId, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
+  /** Fetch all attachments for an expense (including archived), newest first. */
   async findByExpenseId(
     db: DbClient,
     expenseId: string,
@@ -25,7 +36,14 @@ export const attachmentRepository = {
     });
   },
 
-  async delete(db: DbClient, id: string): Promise<void> {
-    await db.attachment.delete({ where: { id } });
+  /** Archive an attachment (non-destructive). Sets deletedAt timestamp. */
+  async archive(db: DbClient, id: string, archivedById: string): Promise<Attachment> {
+    return db.attachment.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        uploadedBy: { connect: { id: archivedById } },
+      },
+    });
   },
 };

@@ -1,11 +1,10 @@
-import { requireRole } from "@/lib/auth/guards";
-import { UserRole } from "@/generated/prisma/client";
+import { requireAuth } from "@/lib/auth/guards";
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await requireRole([UserRole.ADMIN]);
+  await requireAuth();
   return <>{children}</>;
 }

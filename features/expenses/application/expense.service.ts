@@ -5,7 +5,7 @@ import type {
   CreateExpenseInput,
   UpdateExpenseInput,
 } from "@/features/expenses/validation/expense";
-import type { DeleteExpenseInput } from "@/features/expenses/validation/expense";
+import type { ArchiveExpenseInput } from "@/features/expenses/validation/expense";
 import type { ExpenseDto, ServiceResult } from "@/features/expenses/domain/dto";
 import {
   buildExpenseHistoryRows,
@@ -268,7 +268,7 @@ export async function updateExpenseService(
         input.section !== "SALARY" &&
         existing.salaryRecord
       ) {
-        data.salaryRecord = { delete: true };
+        data.salaryRecord = { disconnect: true };
       }
 
       await expenseRepository.update(tx, input.id, data);
@@ -315,33 +315,11 @@ export async function updateExpenseService(
   }
 }
 
-export async function softDeleteExpenseService(
-  input: DeleteExpenseInput,
+export async function archiveExpenseService(
+  input: ArchiveExpenseInput,
   actorUserId: string,
-  actorRole: UserRole,
 ): Promise<ServiceResult<{ id: string }>> {
-  if (actorRole !== UserRole.ADMIN) {
-    return {
-      ok: false,
-      error: {
-        code: "FORBIDDEN",
-        message: "Only administrators may delete expenses",
-      },
-    };
-  }
-
   try {
-    const roleFromDb = await userRepository.getRoleById(prisma, actorUserId);
-    if (roleFromDb !== UserRole.ADMIN) {
-      return {
-        ok: false,
-        error: {
-          code: "FORBIDDEN",
-          message: "Only administrators may delete expenses",
-        },
-      };
-    }
-
     const existing = await expenseRepository.findActiveById(prisma, input.id);
     if (!existing) {
       return {
@@ -371,7 +349,7 @@ export async function softDeleteExpenseService(
       ]);
 
       await auditLogRepository.create(tx, {
-        action: AuditAction.EXPENSE_SOFT_DELETED,
+        action: AuditAction.EXPENSE_ARCHIVED,
         entityType: "Expense",
         entityId: input.id,
         actor: { connect: { id: actorUserId } },
@@ -381,7 +359,7 @@ export async function softDeleteExpenseService(
 
     return { ok: true, data: { id: input.id } };
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Delete failed";
-    return { ok: false, error: { code: "DELETE_FAILED", message } };
+    const message = e instanceof Error ? e.message : "Archive failed";
+    return { ok: false, error: { code: "ARCHIVE_FAILED", message } };
   }
 }

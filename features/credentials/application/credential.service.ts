@@ -154,15 +154,7 @@ export async function disableCredentialService(
 export async function reEnableCredentialService(
   id: string,
   userId: string,
-  role: UserRole,
 ): Promise<ServiceResult<CredentialEntryRecord>> {
-  if (role !== UserRole.ADMIN) {
-    return {
-      ok: false,
-      error: { code: "FORBIDDEN", message: "Unauthorized" },
-    };
-  }
-
   try {
     const existing = await credentialRepository.findById(prisma, id);
     if (!existing) {

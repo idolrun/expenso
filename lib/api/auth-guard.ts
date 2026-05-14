@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 
 import { getSession, parseUserRole } from "@/lib/auth/session";
 import {
-  canCreateExpense,
-  canReadExpense,
-  canReadCredential,
+  hasPermission,
+  Permission,
+  type Permission as PermissionType,
 } from "@/lib/auth/permissions";
 import { sessionToUserId } from "@/lib/auth/actor";
 
@@ -23,7 +23,7 @@ export async function requireExpenseReader() {
     };
   }
   const role = parseUserRole(session.user.role);
-  if (!canReadExpense(role)) {
+  if (!hasPermission(role, Permission.CAN_READ_EXPENSE)) {
     return {
       ok: false as const,
       response: NextResponse.json(
@@ -54,6 +54,18 @@ export async function requireFundReader(_request?: Request) {
     };
   }
   const role = parseUserRole(session.user.role);
+  if (!hasPermission(role, Permission.CAN_MANAGE_FUNDS)) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          ok: false,
+          error: { code: "FORBIDDEN", message: "Insufficient permissions" },
+        },
+        { status: 403 },
+      ),
+    };
+  }
   return { ok: true as const, session, role, userId: sessionToUserId(session) };
 }
 
@@ -72,7 +84,7 @@ export async function requireExpenseWriter() {
     };
   }
   const role = parseUserRole(session.user.role);
-  if (!canCreateExpense(role)) {
+  if (!hasPermission(role, Permission.CAN_CREATE_EXPENSE)) {
     return {
       ok: false as const,
       response: NextResponse.json(
@@ -129,7 +141,7 @@ export async function requireCredentialReader() {
     };
   }
   const role = parseUserRole(session.user.role);
-  if (!canReadCredential(role)) {
+  if (!hasPermission(role, Permission.CAN_READ_CREDENTIAL)) {
     return {
       ok: false as const,
       response: NextResponse.json(
@@ -159,5 +171,50 @@ export async function requireAuditReader() {
     };
   }
   const role = parseUserRole(session.user.role);
+  if (!hasPermission(role, Permission.CAN_VIEW_AUDIT_LOGS)) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          ok: false,
+          error: { code: "FORBIDDEN", message: "Insufficient permissions" },
+        },
+        { status: 403 },
+      ),
+    };
+  }
+  return { ok: true as const, session, role, userId: sessionToUserId(session) };
+}
+
+/**
+ * Generic permission guard. Returns typed result for immediate use in route handlers.
+ */
+export async function requirePermissionGuard(permission: PermissionType) {
+  const session = await getSession();
+  if (!session) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          ok: false,
+          error: { code: "UNAUTHORIZED", message: "Sign in required" },
+        },
+        { status: 401 },
+      ),
+    };
+  }
+  const role = parseUserRole(session.user.role);
+  if (!hasPermission(role, permission)) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          ok: false,
+          error: { code: "FORBIDDEN", message: "Insufficient permissions" },
+        },
+        { status: 403 },
+      ),
+    };
+  }
   return { ok: true as const, session, role, userId: sessionToUserId(session) };
 }

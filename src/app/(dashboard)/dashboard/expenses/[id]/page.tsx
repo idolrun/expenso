@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { UserRole } from "@/generated/prisma/client";
 
-import { AdminDeleteExpense } from "@/components/expenses/admin-delete-expense";
+import { ArchiveExpenseButton } from "@/components/expenses/archive-expense-button";
 import { AttachmentSection } from "@/components/expenses/attachment-section";
 import { ExpenseHistoryTimeline } from "@/components/expenses/expense-history-timeline";
 import { ExpenseWorkflowActions } from "@/components/expenses/expense-workflow-actions";
@@ -61,7 +61,7 @@ export default async function ExpenseDetailPage({
     getExpenseById(id),
     listExpenseHistoryForExpense(id),
     prisma.attachment.findMany({
-      where: { expenseId: id },
+      where: { expenseId: id, deletedAt: null },
       orderBy: { createdAt: "desc" },
     }),
   ]);
@@ -123,9 +123,7 @@ export default async function ExpenseDetailPage({
             currentUserId={currentUserId}
             role={role === UserRole.ADMIN ? "ADMIN" : role === UserRole.APPROVER ? "APPROVER" : "USER"}
           />
-          {role === UserRole.ADMIN ? (
-            <AdminDeleteExpense expenseId={id} />
-          ) : null}
+          <ArchiveExpenseButton expenseId={id} />
         </div>
       </div>
 

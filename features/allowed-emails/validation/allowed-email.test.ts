@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createAllowedEmailSchema,
   updateAllowedEmailSchema,
-  deleteAllowedEmailSchema,
+  deactivateAllowedEmailSchema,
 } from "@/features/allowed-emails/validation/allowed-email";
 
 describe("createAllowedEmailSchema", () => {
@@ -76,10 +76,10 @@ describe("updateAllowedEmailSchema", () => {
   });
 });
 
-describe("deleteAllowedEmailSchema", () => {
+describe("deactivateAllowedEmailSchema", () => {
   it("accepts a valid uuid", () => {
     const id = "550e8400-e29b-41d4-a716-446655440000";
-    const r = deleteAllowedEmailSchema.safeParse({ id });
+    const r = deactivateAllowedEmailSchema.safeParse({ id });
     expect(r.success).toBe(true);
     if (r.success) {
       expect(r.data.id).toBe(id);
@@ -87,7 +87,7 @@ describe("deleteAllowedEmailSchema", () => {
   });
 
   it("rejects invalid uuid", () => {
-    const r = deleteAllowedEmailSchema.safeParse({ id: "bad-id" });
+    const r = deactivateAllowedEmailSchema.safeParse({ id: "bad-id" });
     expect(r.success).toBe(false);
   });
 });

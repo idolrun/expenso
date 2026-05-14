@@ -160,7 +160,7 @@ export function ExpenseWorkflowActions({
     }
   }
 
-  if (expense.status === "APPROVED" && isAdmin) {
+  if (expense.status === "APPROVED" && isApprover) {
     buttons.push(
       <Button
         key="pay"

@@ -114,11 +114,14 @@ export const updateExpenseSchema = updateExpenseSchemaBase
 
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 
-export const deleteExpenseSchema = z.object({
+export const archiveExpenseSchema = z.object({
   id: recordId,
 });
 
-export type DeleteExpenseInput = z.infer<typeof deleteExpenseSchema>;
+export type ArchiveExpenseInput = z.infer<typeof archiveExpenseSchema>;
+
+/** @deprecated Use ArchiveExpenseInput */
+export type DeleteExpenseInput = ArchiveExpenseInput;
 
 const sortFieldValues = [
   "createdAt",

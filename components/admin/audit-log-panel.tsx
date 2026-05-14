@@ -19,6 +19,21 @@ import {
 } from "@/features/audit/validation/audit-log-query";
 import { Skeleton } from "@/components/ui/skeleton";
 
+function getAuditActionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    EXPENSE_ARCHIVED: "Expense archived",
+    ATTACHMENT_ARCHIVED: "Attachment archived",
+    ALLOWED_EMAIL_DEACTIVATED: "Allowed email deactivated",
+    TAG_DEACTIVATED: "Tag deactivated",
+    FUND_ENTRY_ARCHIVED: "Fund entry archived",
+    SETTINGS_UPDATED: "Settings updated",
+    EXPENSE_SOFT_DELETED: "Expense soft deleted",
+    ATTACHMENT_REMOVED: "Attachment removed",
+    ALLOWED_EMAIL_DELETED: "Allowed email deleted",
+  };
+  return labels[action] ?? action;
+}
+
 export function AuditLogPanel() {
   const { data, error, isLoading, retry, query, setQuery } = useAuditLog();
 
@@ -127,7 +142,7 @@ export function AuditLogPanel() {
                     <TableCell className="whitespace-nowrap text-xs">
                       {new Date(row.createdAt).toLocaleString()}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{row.action}</TableCell>
+                    <TableCell className="font-mono text-xs">{getAuditActionLabel(row.action)}</TableCell>
                     <TableCell className="text-sm">
                       <span>{row.entityType}</span>
                       {row.entityLabel ? (

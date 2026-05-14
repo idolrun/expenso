@@ -5,7 +5,6 @@ const {
   mockGetById,
   mockCreate,
   mockUpdate,
-  mockDelete,
   mockAuditCreate,
   mockTransaction,
 } = vi.hoisted(() => ({
@@ -13,10 +12,9 @@ const {
   mockGetById: vi.fn(),
   mockCreate: vi.fn(),
   mockUpdate: vi.fn(),
-  mockDelete: vi.fn(),
   mockAuditCreate: vi.fn(),
   mockTransaction: vi.fn(async (callback: (tx: object) => unknown) =>
-    callback({}),
+    callback({ session: { deleteMany: vi.fn() } }),
   ),
 }));
 
@@ -27,7 +25,6 @@ vi.mock("@/features/allowed-emails/infrastructure/allowed-email.repository", () 
     getByEmail: mockGetByEmail,
     create: mockCreate,
     update: mockUpdate,
-    delete: mockDelete,
   },
 }));
 
@@ -45,7 +42,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import {
   createAllowedEmail,
-  deleteAllowedEmail,
+  deactivateAllowedEmail,
 } from "@/features/allowed-emails/application/allowed-email.service";
 
 const actorUserId = "00000000-0000-4000-8000-000000000001";
@@ -73,7 +70,7 @@ describe("allowed email service", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockTransaction.mockImplementation(async (callback: (tx: object) => unknown) =>
-      callback({}),
+      callback({ session: { deleteMany: vi.fn() } }),
     );
   });
 
@@ -133,22 +130,27 @@ describe("allowed email service", () => {
     expect(mockAuditCreate).not.toHaveBeenCalled();
   });
 
-  it("deletes an allowed email and writes an audit log", async () => {
-    const existing = allowedEmailRow({ isActive: false });
+  it("deactivates an allowed email and writes an audit log", async () => {
+    const existing = allowedEmailRow({ isActive: true });
     mockGetById.mockResolvedValueOnce(existing);
-    mockDelete.mockResolvedValueOnce({ id: existing.id });
+    mockUpdate.mockResolvedValueOnce({ ...existing, isActive: false });
     mockAuditCreate.mockResolvedValueOnce({ id: "audit_1" });
 
-    const result = await deleteAllowedEmail(actorUserId, { id: existing.id });
+    const result = await deactivateAllowedEmail(actorUserId, { id: existing.id });
 
     expect(result).toEqual({ ok: true, data: { id: existing.id } });
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.anything(),
+      existing.id,
+      expect.objectContaining({ isActive: false }),
+    );
     expect(mockAuditCreate).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        action: "ALLOWED_EMAIL_DELETED",
+        action: "ALLOWED_EMAIL_DEACTIVATED",
         entityType: "AllowedEmail",
         entityId: existing.id,
-        metadata: { email: existing.email, wasActive: false },
+        metadata: { email: existing.email, wasActive: true },
       }),
     );
   });

@@ -2,33 +2,53 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireExpenseWriter } from "@/lib/api/auth-guard";
-import { deleteAttachmentService } from "@/features/attachments/application/attachment.service";
+import { archiveAttachmentService } from "@/features/attachments/application/attachment.service";
 
 export const runtime = "nodejs";
 
 const idSchema = z.string().trim().min(1).max(128);
 
-/** DELETE /api/expenses/:id/attachments/:attachmentId */
+/**
+ * @deprecated DELETE is no longer supported. Use PATCH to archive attachments.
+ * Returns 405 Method Not Allowed.
+ */
 export async function DELETE(
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string; attachmentId: string }> },
+) {
+  void ctx; // acknowledge parameter to satisfy linter
+  return NextResponse.json(
+    {
+      ok: false,
+      error: {
+        code: "METHOD_NOT_ALLOWED",
+        message: "DELETE is not supported. Use PATCH to archive attachments.",
+      },
+    },
+    { status: 405 },
+  );
+}
+
+/** PATCH /api/expenses/:id/attachments/:attachmentId — archive an attachment */
+export async function PATCH(
   _req: NextRequest,
   ctx: { params: Promise<{ id: string; attachmentId: string }> },
 ) {
   const auth = await requireExpenseWriter();
   if (!auth.ok) return auth.response;
 
-  const { id: rawExpenseId, attachmentId: rawAttachmentId } = await ctx.params;
+  const { attachmentId: rawAttachmentId } = await ctx.params;
 
-  const expenseIdParsed = idSchema.safeParse(rawExpenseId);
   const attachmentIdParsed = idSchema.safeParse(rawAttachmentId);
 
-  if (!expenseIdParsed.success || !attachmentIdParsed.success) {
+  if (!attachmentIdParsed.success) {
     return NextResponse.json(
-      { ok: false, error: { code: "VALIDATION_ERROR", message: "Invalid id" } },
+      { ok: false, error: { code: "VALIDATION_ERROR", message: "Invalid attachment id" } },
       { status: 400 },
     );
   }
 
-  const result = await deleteAttachmentService(
+  const result = await archiveAttachmentService(
     attachmentIdParsed.data,
     auth.userId,
   );

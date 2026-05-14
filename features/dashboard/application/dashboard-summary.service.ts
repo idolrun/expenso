@@ -34,18 +34,18 @@ function userLabel(
  *   2. USD expenses with FX snapshots (amountNpr where originalCurrency=USD, amountNpr != null)
  */
 function mergeNprSectionSpend(
-  directRows: { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null } }[],
-  snapshotRows: { section: ExpenseSection; _sum: { amountNpr: Prisma.Decimal | null } }[],
+  directRows: { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null } | null }[],
+  snapshotRows: { section: ExpenseSection; _sum: { amountNpr: Prisma.Decimal | null } | null }[],
 ): Partial<Record<ExpenseSection, string>> {
   const map = new Map<ExpenseSection, Prisma.Decimal>();
 
   for (const row of directRows) {
-    if (row._sum.originalAmount) {
+    if (row._sum?.originalAmount) {
       map.set(row.section, row._sum.originalAmount);
     }
   }
   for (const row of snapshotRows) {
-    if (row._sum.amountNpr) {
+    if (row._sum?.amountNpr) {
       const prev = map.get(row.section) ?? new Prisma.Decimal(0);
       map.set(row.section, prev.add(row._sum.amountNpr));
     }
@@ -59,9 +59,9 @@ function mergeNprSectionSpend(
 }
 
 function buildSectionSpendDetail(
-  usdRows: { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null }; _count: { _all: number } }[],
-  nprRows: { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null }; _count: { _all: number } }[],
-  usdFxRows: { section: ExpenseSection; _sum: { amountNpr: Prisma.Decimal | null; originalAmount: Prisma.Decimal | null }; _avg: { fxRateUsdNpr: Prisma.Decimal | null } }[],
+  usdRows: { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null } | null; _count: { _all: number } }[],
+  nprRows: { section: ExpenseSection; _sum: { originalAmount: Prisma.Decimal | null } | null; _count: { _all: number } }[],
+  usdFxRows: { section: ExpenseSection; _sum: { amountNpr: Prisma.Decimal | null; originalAmount: Prisma.Decimal | null } | null; _avg: { fxRateUsdNpr: Prisma.Decimal | null } | null }[],
 ): Partial<Record<ExpenseSection, import("@/features/dashboard/domain/types").SectionSpendDetail>> {
   const map = new Map<ExpenseSection, {
     usdTotal: Prisma.Decimal;
@@ -83,7 +83,7 @@ function buildSectionSpendDetail(
       rateCount: 0,
       expenseCount: 0,
     };
-    const amt = row._sum.originalAmount ?? new Prisma.Decimal(0);
+    const amt = row._sum?.originalAmount ?? new Prisma.Decimal(0);
     existing.usdTotal = existing.usdTotal.add(amt);
     existing.originalUsdTotal = existing.originalUsdTotal.add(amt);
     existing.expenseCount += row._count._all;
@@ -100,7 +100,7 @@ function buildSectionSpendDetail(
       rateCount: 0,
       expenseCount: 0,
     };
-    const amt = row._sum.originalAmount ?? new Prisma.Decimal(0);
+    const amt = row._sum?.originalAmount ?? new Prisma.Decimal(0);
     existing.nprTotal = existing.nprTotal.add(amt);
     existing.originalNprTotal = existing.originalNprTotal.add(amt);
     existing.expenseCount += row._count._all;
@@ -117,9 +117,9 @@ function buildSectionSpendDetail(
       rateCount: 0,
       expenseCount: 0,
     };
-    const nprAmt = row._sum.amountNpr ?? new Prisma.Decimal(0);
+    const nprAmt = row._sum?.amountNpr ?? new Prisma.Decimal(0);
     existing.nprTotal = existing.nprTotal.add(nprAmt);
-    if (row._avg.fxRateUsdNpr) {
+    if (row._avg?.fxRateUsdNpr) {
       existing.rateSum = existing.rateSum.add(row._avg.fxRateUsdNpr);
       existing.rateCount += 1;
     }
@@ -306,8 +306,8 @@ export async function getDashboardSummary(): Promise<
       monthKey: spec.monthKey,
       label: spec.label,
       amount:
-        (monthAggs[idx] as { _sum: { originalAmount: { toString(): string } | null } } | undefined)
-          ?._sum.originalAmount?.toString() ?? "0",
+        (monthAggs[idx] as { _sum: { originalAmount: { toString(): string } | null } | null } | undefined)
+          ?._sum?.originalAmount?.toString() ?? "0",
     }));
     const previousMonthSpendUsd = monthlySpendUsdLast6[4]?.amount ?? "0";
 
@@ -319,14 +319,14 @@ export async function getDashboardSummary(): Promise<
 
     const spendBySectionUsd: Partial<Record<ExpenseSection, string>> = {};
     for (const row of sectionSpendGroups) {
-      spendBySectionUsd[row.section] = row._sum.originalAmount?.toString() ?? "0";
+      spendBySectionUsd[row.section] = row._sum?.originalAmount?.toString() ?? "0";
     }
 
     const mapSectionSpend = (
-      rows: { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } }[],
+      rows: { section: ExpenseSection; _sum: { originalAmount: { toString(): string } | null } | null }[],
     ): Partial<Record<ExpenseSection, string>> => {
       const m: Partial<Record<ExpenseSection, string>> = {};
-      for (const row of rows) m[row.section] = row._sum.originalAmount?.toString() ?? "0";
+      for (const row of rows) m[row.section] = row._sum?.originalAmount?.toString() ?? "0";
       return m;
     };
 

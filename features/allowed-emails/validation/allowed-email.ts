@@ -25,10 +25,13 @@ export const updateAllowedEmailSchema = z.object({
   isActive: z.boolean(),
 });
 
-export const deleteAllowedEmailSchema = z.object({
+export const deactivateAllowedEmailSchema = z.object({
   id: allowedEmailRecordIdSchema,
 });
 
 export type CreateAllowedEmailInput = z.infer<typeof createAllowedEmailSchema>;
 export type UpdateAllowedEmailInput = z.infer<typeof updateAllowedEmailSchema>;
-export type DeleteAllowedEmailInput = z.infer<typeof deleteAllowedEmailSchema>;
+export type DeactivateAllowedEmailInput = z.infer<typeof deactivateAllowedEmailSchema>;
+
+/** @deprecated Use DeactivateAllowedEmailInput */
+export type DeleteAllowedEmailInput = DeactivateAllowedEmailInput;

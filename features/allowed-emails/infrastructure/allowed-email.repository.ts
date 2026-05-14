@@ -124,10 +124,4 @@ export const allowedEmailRepository = {
     });
   },
 
-  async delete(db: DbClient, id: string) {
-    return db.allowedEmail.delete({
-      where: { id },
-      select: { id: true },
-    });
-  },
 };

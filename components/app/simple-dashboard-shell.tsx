@@ -237,7 +237,7 @@ export function SimpleDashboardShell({
 }) {
   const [open, setOpen] = useState(false);
   const { displayCurrency, setDisplayCurrency } = useDisplayCurrency();
-  useAppKeyboardShortcuts(role);
+  useAppKeyboardShortcuts();
 
   return (
     <div className="bg-background flex  min-h-full flex-1">
@@ -270,8 +270,8 @@ export function SimpleDashboardShell({
           <p className="font-semibold text-muted-foreground px-3 pt-4 pb-1 text-xs uppercase">
             Tools
           </p>
-          {(role === "ADMIN" || role === "APPROVER") && <ApprovalsNav count={pendingApprovalCount} />}
-          {role === "ADMIN" && <AdminNav />}
+          <ApprovalsNav count={pendingApprovalCount} />
+          <AdminNav />
         </ScrollArea>
         <div className="text-muted-foreground border-t border-sidebar-border p-3 text-xs">
           {userEmail ?? "Signed in"}
@@ -311,10 +311,8 @@ export function SimpleDashboardShell({
                 <p className="font-semibold text-muted-foreground px-3 pt-4 pb-1 text-xs uppercase">
                   Tools
                 </p>
-                {(role === "ADMIN" || role === "APPROVER") && (
-                  <ApprovalsNav onNavigate={() => setOpen(false)} count={pendingApprovalCount} />
-                )}
-                {role === "ADMIN" && <AdminNav onNavigate={() => setOpen(false)} />}
+                <ApprovalsNav onNavigate={() => setOpen(false)} count={pendingApprovalCount} />
+                <AdminNav onNavigate={() => setOpen(false)} />
               </ScrollArea>
             </SheetContent>
           </Sheet>

@@ -23,7 +23,7 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/features/attachments/application/attachment.service", () => ({
   uploadAttachmentService: vi.fn(),
   listAttachmentsService: vi.fn(),
-  deleteAttachmentService: vi.fn(),
+  archiveAttachmentService: vi.fn(),
   getSignedAttachmentUrlService: vi.fn(),
 }));
 
@@ -31,7 +31,7 @@ import { getSession } from "@/lib/auth/session";
 import {
   uploadAttachmentService,
   listAttachmentsService,
-  deleteAttachmentService,
+  archiveAttachmentService,
   getSignedAttachmentUrlService,
 } from "@/features/attachments/application/attachment.service";
 
@@ -40,7 +40,7 @@ import {
   GET as getAttachments,
   POST as postAttachment,
 } from "@/src/app/api/expenses/[id]/attachments/route";
-import { DELETE as deleteAttachment } from "@/src/app/api/expenses/[id]/attachments/[attachmentId]/route";
+import { DELETE as deleteAttachment, PATCH as archiveAttachment } from "@/src/app/api/expenses/[id]/attachments/[attachmentId]/route";
 import { GET as viewAttachment } from "@/src/app/api/attachments/[id]/view/route";
 
 // ── Test helpers ──────────────────────────────────────────────────────────
@@ -266,49 +266,72 @@ describe("POST /api/expenses/:id/attachments", () => {
 describe("DELETE /api/expenses/:id/attachments/:attachmentId", () => {
   beforeEach(() => {
     vi.mocked(getSession).mockReset();
-    vi.mocked(deleteAttachmentService).mockReset();
+  });
+
+  it("returns 405 Method Not Allowed", async () => {
+    vi.mocked(getSession).mockResolvedValueOnce(sessionUser());
+    const req = new NextRequest(
+      `http://localhost/api/expenses/${EXPENSE_ID}/attachments/${ATTACHMENT_ID}`,
+      { method: "DELETE" },
+    );
+    const res = await deleteAttachment(req, {
+      params: Promise.resolve({ id: EXPENSE_ID, attachmentId: ATTACHMENT_ID }),
+    });
+    expect(res.status).toBe(405);
+    const body = await res.json() as { ok: boolean; error: { code: string } };
+    expect(body.ok).toBe(false);
+    expect(body.error.code).toBe("METHOD_NOT_ALLOWED");
+  });
+});
+
+// ── PATCH /api/expenses/:id/attachments/:attachmentId ─────────────────────
+
+describe("PATCH /api/expenses/:id/attachments/:attachmentId", () => {
+  beforeEach(() => {
+    vi.mocked(getSession).mockReset();
+    vi.mocked(archiveAttachmentService).mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
     vi.mocked(getSession).mockResolvedValueOnce(null);
     const req = new NextRequest(
       `http://localhost/api/expenses/${EXPENSE_ID}/attachments/${ATTACHMENT_ID}`,
-      { method: "DELETE" },
+      { method: "PATCH" },
     );
-    const res = await deleteAttachment(req, {
+    const res = await archiveAttachment(req, {
       params: Promise.resolve({ id: EXPENSE_ID, attachmentId: ATTACHMENT_ID }),
     });
     expect(res.status).toBe(401);
-    expect(deleteAttachmentService).not.toHaveBeenCalled();
+    expect(archiveAttachmentService).not.toHaveBeenCalled();
   });
 
   it("returns 404 when attachment does not exist", async () => {
     vi.mocked(getSession).mockResolvedValueOnce(sessionUser());
-    vi.mocked(deleteAttachmentService).mockResolvedValueOnce({
+    vi.mocked(archiveAttachmentService).mockResolvedValueOnce({
       ok: false,
       error: { code: "NOT_FOUND", message: "Attachment not found" },
     });
     const req = new NextRequest(
       `http://localhost/api/expenses/${EXPENSE_ID}/attachments/${ATTACHMENT_ID}`,
-      { method: "DELETE" },
+      { method: "PATCH" },
     );
-    const res = await deleteAttachment(req, {
+    const res = await archiveAttachment(req, {
       params: Promise.resolve({ id: EXPENSE_ID, attachmentId: ATTACHMENT_ID }),
     });
     expect(res.status).toBe(404);
   });
 
-  it("returns 200 on successful delete", async () => {
+  it("returns 200 on successful archive", async () => {
     vi.mocked(getSession).mockResolvedValueOnce(sessionUser());
-    vi.mocked(deleteAttachmentService).mockResolvedValueOnce({
+    vi.mocked(archiveAttachmentService).mockResolvedValueOnce({
       ok: true,
       data: { id: ATTACHMENT_ID },
     });
     const req = new NextRequest(
       `http://localhost/api/expenses/${EXPENSE_ID}/attachments/${ATTACHMENT_ID}`,
-      { method: "DELETE" },
+      { method: "PATCH" },
     );
-    const res = await deleteAttachment(req, {
+    const res = await archiveAttachment(req, {
       params: Promise.resolve({ id: EXPENSE_ID, attachmentId: ATTACHMENT_ID }),
     });
     expect(res.status).toBe(200);

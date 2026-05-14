@@ -102,7 +102,7 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]) {
   }, [shortcuts]);
 }
 
-export function useAppKeyboardShortcuts(userRole?: string) {
+export function useAppKeyboardShortcuts() {
   const router = useRouter();
 
   const shortcuts: ShortcutConfig[] = [
@@ -142,16 +142,12 @@ export function useAppKeyboardShortcuts(userRole?: string) {
       allowInInput: false,
       description: "Go to Credentials",
     },
-    ...(userRole === "ADMIN"
-      ? [
-          {
-            sequence: "g t",
-            action: () => router.push("/dashboard/trash"),
-            allowInInput: false,
-            description: "Go to Trash",
-          } as ShortcutConfig,
-        ]
-      : []),
+    {
+      sequence: "g t",
+      action: () => router.push("/dashboard/trash"),
+      allowInInput: false,
+      description: "Go to Trash",
+    },
   ];
 
   useKeyboardShortcuts(shortcuts);

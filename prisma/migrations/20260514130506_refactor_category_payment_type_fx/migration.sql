@@ -17,17 +17,17 @@ ALTER TABLE "expense"
 -- ---------------------------------------------------------------------------
 UPDATE "expense" e
 SET "paymentType" = CASE f.source
-    WHEN 'BANK_TRANSFER' THEN 'BANK_TRANSFER'
-    WHEN 'CASH'          THEN 'CASH'
-    WHEN 'WALLET'        THEN 'MOBILE_WALLET'
-    ELSE 'OTHER'
+    WHEN 'BANK_TRANSFER' THEN 'BANK_TRANSFER'::"PaymentType"
+    WHEN 'CASH'          THEN 'CASH'::"PaymentType"
+    WHEN 'WALLET'        THEN 'MOBILE_WALLET'::"PaymentType"
+    ELSE 'OTHER'::"PaymentType"
 END
 FROM "fund_entry" f
 WHERE e."allocatedFundEntryId" = f.id;
 
 -- For expenses without a linked fund entry, default to OTHER
 UPDATE "expense"
-SET "paymentType" = 'OTHER'
+SET "paymentType" = 'OTHER'::"PaymentType"
 WHERE "paymentType" IS NULL;
 
 -- Make paymentType non-nullable after backfill
@@ -36,7 +36,7 @@ ALTER TABLE "expense"
 
 -- Default for future inserts
 ALTER TABLE "expense"
-    ALTER COLUMN "paymentType" SET DEFAULT 'OTHER';
+    ALTER COLUMN "paymentType" SET DEFAULT 'OTHER'::"PaymentType";
 
 -- ---------------------------------------------------------------------------
 -- 4. Drop fund allocation columns from Expense

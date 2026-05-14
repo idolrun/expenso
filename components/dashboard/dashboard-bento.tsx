@@ -40,13 +40,19 @@ import { FundVaultWidget } from "@/components/funds/fund-vault-widget";
 const ACTIVITY_BADGE_TONES: Record<string, string> = {
   EXPENSE_CREATED: "badge-tone-green",
   EXPENSE_UPDATED: "badge-tone-blue",
+  EXPENSE_ARCHIVED: "badge-tone-red",
   EXPENSE_SOFT_DELETED: "badge-tone-red",
   EXPENSE_RESTORED: "badge-tone-green",
   TAG_ASSIGNED: "badge-tone-violet",
   TAG_REMOVED: "badge-tone-amber",
+  TAG_DEACTIVATED: "badge-tone-amber",
   USER_ROLE_CHANGED: "badge-tone-amber",
   ATTACHMENT_ADDED: "badge-tone-violet",
+  ATTACHMENT_ARCHIVED: "badge-tone-amber",
   ATTACHMENT_REMOVED: "badge-tone-amber",
+  ALLOWED_EMAIL_DEACTIVATED: "badge-tone-amber",
+  FUND_ENTRY_ARCHIVED: "badge-tone-red",
+  SETTINGS_UPDATED: "badge-tone-blue",
 };
 
 const FIELD_BADGE_TONES: Record<string, string> = {
@@ -71,9 +77,14 @@ const FIELD_LABELS: Record<string, string> = {
 const ACTIVITY_LABELS: Record<string, string> = {
   EXPENSE_CREATED: "Expense created",
   EXPENSE_UPDATED: "Expense updated",
+  EXPENSE_ARCHIVED: "Expense archived",
   EXPENSE_SOFT_DELETED: "Expense deleted",
   EXPENSE_RESTORED: "Expense restored",
   FUNDENTRYCREATED: "Fund entry created",
+  FUND_ENTRY_ARCHIVED: "Fund entry archived",
+  ATTACHMENT_ARCHIVED: "Attachment archived",
+  ALLOWED_EMAIL_DEACTIVATED: "Allowed email deactivated",
+  SETTINGS_UPDATED: "Settings updated",
 };
 
 type ExpenseHistoryActivity = Extract<
@@ -445,20 +456,18 @@ export function DashboardBento({
                 →
               </span>
             </Link>
-            {isAdmin ? (
-              <Link
-                href="/dashboard/admin/audit"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                  "w-full justify-between",
-                )}
-              >
-                Audit log
-                <span className="opacity-70" aria-hidden>
-                  →
-                </span>
-              </Link>
-            ) : null}
+            <Link
+              href="/dashboard/admin/audit"
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "w-full justify-between",
+              )}
+            >
+              Audit log
+              <span className="opacity-70" aria-hidden>
+                →
+              </span>
+            </Link>
           </CardContent>
         </Card>
 

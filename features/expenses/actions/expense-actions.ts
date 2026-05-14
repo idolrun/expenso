@@ -4,7 +4,6 @@ import { sessionToUserId } from "@/lib/auth/actor";
 import { getSession, parseUserRole } from "@/lib/auth/session";
 import {
   canCreateExpense,
-  canDeleteExpense,
   canUpdateExpense,
   canSubmitForApproval,
   canApproveExpense,
@@ -16,7 +15,7 @@ import type { ServiceResult } from "@/features/expenses/domain/dto";
 import type { ExpenseDto } from "@/features/expenses/domain/dto";
 import {
   createExpenseSchema,
-  deleteExpenseSchema,
+  archiveExpenseSchema,
   updateExpenseSchema,
 } from "@/features/expenses/validation/expense";
 import {
@@ -29,7 +28,7 @@ import {
 import type { ListExpensesQuery } from "@/features/expenses/validation/expense";
 import {
   createExpenseService,
-  softDeleteExpenseService,
+  archiveExpenseService,
   updateExpenseService,
 } from "@/features/expenses/application/expense.service";
 import {
@@ -229,19 +228,15 @@ export async function updateExpenseWithAttachmentsAction(
   return updateExpenseService(parsed.data, auth.userId, files);
 }
 
-export async function deleteExpenseAction(
+export async function archiveExpenseAction(
   raw: unknown,
 ): Promise<ServiceResult<{ id: string }>> {
   const auth = await requireSessionUser();
   if (!auth.ok) {
     return { ok: false, error: auth.error };
   }
-  const role = parseUserRole(auth.session.user.role);
-  if (!canDeleteExpense(role)) {
-    return { ok: false, error: { code: "FORBIDDEN", message: "Cannot delete" } };
-  }
 
-  const parsed = deleteExpenseSchema.safeParse(raw);
+  const parsed = archiveExpenseSchema.safeParse(raw);
   if (!parsed.success) {
     return {
       ok: false,
@@ -252,7 +247,7 @@ export async function deleteExpenseAction(
     };
   }
 
-  return softDeleteExpenseService(parsed.data, auth.userId, role);
+  return archiveExpenseService(parsed.data, auth.userId);
 }
 
 // ---------------------------------------------------------------------------

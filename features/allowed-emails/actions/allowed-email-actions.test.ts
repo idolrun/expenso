@@ -5,13 +5,13 @@ const {
   mockListAllowedEmails,
   mockCreateAllowedEmail,
   mockUpdateAllowedEmail,
-  mockDeleteAllowedEmail,
+  mockDeactivateAllowedEmail,
 } = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
   mockListAllowedEmails: vi.fn(),
   mockCreateAllowedEmail: vi.fn(),
   mockUpdateAllowedEmail: vi.fn(),
-  mockDeleteAllowedEmail: vi.fn(),
+  mockDeactivateAllowedEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -23,12 +23,12 @@ vi.mock("@/features/allowed-emails/application/allowed-email.service", () => ({
   listAllowedEmails: mockListAllowedEmails,
   createAllowedEmail: mockCreateAllowedEmail,
   updateAllowedEmail: mockUpdateAllowedEmail,
-  deleteAllowedEmail: mockDeleteAllowedEmail,
+  deactivateAllowedEmail: mockDeactivateAllowedEmail,
 }));
 
 import {
   createAllowedEmailAction,
-  deleteAllowedEmailAction,
+  deactivateAllowedEmailAction,
   listAllowedEmailsAction,
   updateAllowedEmailAction,
 } from "@/features/allowed-emails/actions/allowed-email-actions";
@@ -98,17 +98,21 @@ describe("allowed email actions", () => {
     );
   });
 
-  it("blocks USER from deleting allowed emails", async () => {
+  it("allows USER to deactivate allowed emails", async () => {
     mockGetSession.mockResolvedValueOnce(sessionUser("USER"));
+    mockDeactivateAllowedEmail.mockResolvedValueOnce({
+      ok: true,
+      data: { id: "00000000-0000-4000-8000-000000000002" },
+    });
 
-    const result = await deleteAllowedEmailAction({
+    const result = await deactivateAllowedEmailAction({
       id: "00000000-0000-4000-8000-000000000002",
     });
 
-    expect(result).toEqual({
-      ok: false,
-      error: { code: "FORBIDDEN", message: "Admin only" },
-    });
-    expect(mockDeleteAllowedEmail).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+    expect(mockDeactivateAllowedEmail).toHaveBeenCalledWith(
+      "00000000-0000-4000-8000-000000000001",
+      { id: "00000000-0000-4000-8000-000000000002" },
+    );
   });
 });

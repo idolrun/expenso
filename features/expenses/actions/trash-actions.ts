@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Prisma, AuditAction, UserRole } from "@/generated/prisma/client";
-import { requireRole } from "@/lib/auth/guards";
+import { Prisma, AuditAction } from "@/generated/prisma/client";
+import { getSession, parseUserRole } from "@/lib/auth/session";
+import { sessionToUserId } from "@/lib/auth/actor";
 import { prisma } from "@/lib/prisma";
 import { auditLogRepository } from "@/features/audit/infrastructure/audit-log.repository";
 import { expenseHistoryRepository } from "@/features/expenses/infrastructure/expense-history.repository";
@@ -23,9 +24,20 @@ export type TrashActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: { code: string; message: string } };
 
-export async function listDeletedExpensesAction(): Promise<TrashActionResult<TrashExpenseItem[]>> {
-  const { session } = await requireRole([UserRole.ADMIN]);
-  const userId = session.session.userId;
+async function requireSessionUser() {
+  const session = await getSession();
+  if (!session) {
+    return {
+      ok: false as const,
+      error: { code: "UNAUTHORIZED", message: "Sign in required" },
+    };
+  }
+  return { ok: true as const, session, userId: sessionToUserId(session) };
+}
+
+export async function listArchivedExpensesAction(): Promise<TrashActionResult<TrashExpenseItem[]>> {
+  const auth = await requireSessionUser();
+  if (!auth.ok) return { ok: false, error: auth.error };
 
   const rows = await prisma.expense.findMany({
     where: { deletedAt: { not: null } },
@@ -53,15 +65,16 @@ export async function listDeletedExpensesAction(): Promise<TrashActionResult<Tra
 }
 
 export async function restoreExpenseAction(id: string): Promise<TrashActionResult<{ id: string }>> {
-  const { session } = await requireRole([UserRole.ADMIN]);
-  const userId = session.session.userId;
+  const auth = await requireSessionUser();
+  if (!auth.ok) return { ok: false, error: auth.error };
+  const userId = auth.userId;
 
   const existing = await prisma.expense.findFirst({
     where: { id, deletedAt: { not: null } },
   });
 
   if (!existing) {
-    return { ok: false, error: { code: "NOT_FOUND", message: "Deleted expense not found" } };
+    return { ok: false, error: { code: "NOT_FOUND", message: "Archived expense not found" } };
   }
 
   const batchId = randomUUID();
@@ -98,38 +111,16 @@ export async function restoreExpenseAction(id: string): Promise<TrashActionResul
   return { ok: true, data: { id } };
 }
 
-export async function purgeExpenseAction(id: string): Promise<TrashActionResult<{ id: string }>> {
-  const { session } = await requireRole([UserRole.ADMIN]);
-  const userId = session.session.userId;
-
-  const existing = await prisma.expense.findFirst({
-    where: { id, deletedAt: { not: null } },
-  });
-
-  if (!existing) {
-    return { ok: false, error: { code: "NOT_FOUND", message: "Deleted expense not found" } };
-  }
-
-  await prisma.$transaction(async (tx) => {
-    // Delete related records first
-    await tx.attachment.deleteMany({ where: { expenseId: id } });
-    await tx.expenseHistory.deleteMany({ where: { expenseId: id } });
-    await tx.expenseTag.deleteMany({ where: { expenseId: id } });
-    await tx.salaryRecord.deleteMany({ where: { expenseId: id } });
-
-    // Hard delete the expense
-    await tx.expense.delete({ where: { id } });
-
-    await auditLogRepository.create(tx, {
-      action: AuditAction.OTHER,
-      entityType: "Expense",
-      entityId: id,
-      actor: { connect: { id: userId } },
-      metadata: { action: "HARD_DELETED", title: existing.title },
-    });
-  });
-
-  revalidatePath("/dashboard/trash");
-
-  return { ok: true, data: { id } };
+/**
+ * @deprecated Hard delete is no longer supported. Use archive/restore instead.
+ * This function now returns a 405-style error.
+ */
+export async function purgeExpenseAction(_id: string): Promise<TrashActionResult<{ id: string }>> {
+  return {
+    ok: false,
+    error: {
+      code: "METHOD_NOT_ALLOWED",
+      message: "Permanent deletion is not supported. Use archive/restore instead.",
+    },
+  };
 }

@@ -150,7 +150,6 @@ export async function reEnableCredential(data: {
   const result = await reEnableCredentialService(
     parsed.data.id,
     auth.userId,
-    auth.role,
   );
   if (!result.ok) {
     return { success: false, error: result.error.message };
