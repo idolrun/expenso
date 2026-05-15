@@ -58,14 +58,7 @@ export type ExpenseDto = {
   submittedById: string | null;
   submittedBy: { id: string; name: string | null; email: string } | null;
 
-  approvedAt: string | null;
-  approvedById: string | null;
-  approvedBy: { id: string; name: string | null; email: string } | null;
-  approvalComment: string | null;
 
-  rejectedAt: string | null;
-  rejectedById: string | null;
-  rejectedBy: { id: string; name: string | null; email: string } | null;
 };
 
 /** Serializable receipt / document attachment. Never includes a delivery URL — generate signed URLs server-side. */

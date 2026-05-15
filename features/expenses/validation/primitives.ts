@@ -16,8 +16,8 @@ export const expenseSectionValues = [
 export const expenseStatusValues = [
   "DRAFT",
   "SUBMITTED",
-  "APPROVED",
-  "REJECTED",
+  
+  
   "PAID",
   "CANCELLED",
 ] as const satisfies readonly ExpenseStatus[];

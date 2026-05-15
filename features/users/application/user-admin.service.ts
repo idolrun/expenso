@@ -11,7 +11,7 @@ export async function adminListUsers(
 ): Promise<ServiceResult<UserSummaryDto[]>> {
   try {
     const rows = await userRepository.listSummaries(prisma, {
-      includeAdmins: actorRole === UserRole.ADMIN,
+      includeAdmins: actorRole === UserRole.USER,
     });
     return { ok: true, data: rows };
   } catch (e) {
@@ -25,7 +25,7 @@ export async function adminSetUserRole(
   actorUserId: string,
   raw: unknown,
 ): Promise<ServiceResult<UserSummaryDto>> {
-  if (actorRole !== UserRole.ADMIN) {
+  if (actorRole !== UserRole.USER) {
     return { ok: false, error: { code: "FORBIDDEN", message: "Admin only" } };
   }
 
@@ -42,7 +42,7 @@ export async function adminSetUserRole(
 
   const { userId, role } = parsed.data;
 
-  if (userId === actorUserId && role !== UserRole.ADMIN) {
+  if (userId === actorUserId && role !== UserRole.USER) {
     return {
       ok: false,
       error: { code: "FORBIDDEN", message: "You cannot remove your own admin role" },

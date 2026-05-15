@@ -155,7 +155,6 @@ export function ExpenseListClient({
   userRole?: AppUserRole;
 }) {
   const router = useRouter();
-  const isAdmin = userRole === "ADMIN";
 
   const mergedInitialQuery = useMemo<Partial<ListExpensesQuery>>(
     () => ({
@@ -488,10 +487,6 @@ export function ExpenseListClient({
           selectedIds={selectedIds}
           onClear={clearSelection}
           exportRows={exportRows.filter((r) => r.id && selectedIds.has(r.id))}
-          canAdmin={isAdmin}
-          allApproved={data.items
-            .filter((i) => selectedIds.has(i.id))
-            .every((i) => i.status === "APPROVED")}
         />
       )}
     </div>

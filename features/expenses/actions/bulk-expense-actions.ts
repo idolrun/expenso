@@ -79,7 +79,7 @@ export async function bulkPayExpensesAction(
     await tx.expense.updateMany({
       where: {
         id: { in: ids },
-        status: ExpenseStatus.APPROVED,
+        status: ExpenseStatus.SUBMITTED,
         deletedAt: null,
       },
       data: { status: ExpenseStatus.PAID, updatedById: auth.userId },

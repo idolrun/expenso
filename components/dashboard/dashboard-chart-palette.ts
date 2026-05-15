@@ -4,8 +4,6 @@ import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
 export const DASHBOARD_STATUS_CHART_COLORS: Record<ExpenseStatus, string> = {
   DRAFT: "hsl(220 12% 48%)",
   SUBMITTED: "hsl(217 55% 58%)",
-  APPROVED: "hsl(152 40% 48%)",
-  REJECTED: "hsl(0 45% 55%)",
   PAID: "hsl(265 45% 58%)",
   CANCELLED: "hsl(220 10% 42%)",
 };
@@ -14,8 +12,6 @@ export const DASHBOARD_STATUS_CHART_COLORS: Record<ExpenseStatus, string> = {
 export const DASHBOARD_STATUS_CHART_ORDER: ExpenseStatus[] = [
   "DRAFT",
   "SUBMITTED",
-  "APPROVED",
-  "REJECTED",
   "PAID",
   "CANCELLED",
 ];

@@ -20,5 +20,5 @@ export default async function DashboardHomePage() {
     );
   }
 
-  return <DashboardBento data={summary.data} isAdmin={role === UserRole.ADMIN} />;
+  return <DashboardBento data={summary.data} isAdmin={role === UserRole.USER} />;
 }

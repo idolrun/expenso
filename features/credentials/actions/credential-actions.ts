@@ -5,10 +5,10 @@ import { revalidatePath } from "next/cache";
 import { getSession, parseUserRole } from "@/lib/auth/session";
 import { sessionToUserId } from "@/lib/auth/actor";
 import {
-  canCreateCredential,
-  canUpdateCredential,
-  canDisableCredential,
-  canReEnableCredential,
+  hasPermission, Permission,
+  
+  
+  
 } from "@/lib/auth/permissions";
 import {
   createCredentialSchema,
@@ -51,9 +51,7 @@ export async function createCredential(
   if (!auth.ok) {
     return { success: false, error: auth.error };
   }
-  if (!canCreateCredential(auth.role)) {
-    return { success: false, error: "Cannot create credential entries" };
-  }
+  
 
   const parsed = createCredentialSchema.safeParse(formData);
   if (!parsed.success) {
@@ -79,9 +77,7 @@ export async function updateCredential(
   if (!auth.ok) {
     return { success: false, error: auth.error };
   }
-  if (!canUpdateCredential(auth.role)) {
-    return { success: false, error: "Cannot update credential entries" };
-  }
+  
 
   const parsed = updateCredentialSchema.safeParse(formData);
   if (!parsed.success) {
@@ -107,9 +103,7 @@ export async function disableCredential(data: {
   if (!auth.ok) {
     return { success: false, error: auth.error };
   }
-  if (!canDisableCredential(auth.role)) {
-    return { success: false, error: "Cannot disable credential entries" };
-  }
+  
 
   const parsed = disableCredentialSchema.safeParse(data);
   if (!parsed.success) {
@@ -135,9 +129,7 @@ export async function reEnableCredential(data: {
   if (!auth.ok) {
     return { success: false, error: auth.error };
   }
-  if (!canReEnableCredential(auth.role)) {
-    return { success: false, error: "Cannot re-enable credential entries" };
-  }
+  
 
   const parsed = reEnableCredentialSchema.safeParse(data);
   if (!parsed.success) {

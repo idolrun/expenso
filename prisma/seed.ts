@@ -64,13 +64,13 @@ async function main() {
       where: { email: ADMIN_EMAIL },
       update: {
         name: "Seed Admin",
-        role: UserRole.ADMIN,
+        role: UserRole.USER,
         emailVerified: true,
       },
       create: {
         email: ADMIN_EMAIL,
         name: "Seed Admin",
-        role: UserRole.ADMIN,
+        role: UserRole.USER,
         emailVerified: true,
       },
     });
@@ -87,7 +87,7 @@ async function main() {
     "user2@seed.expenso.local",
   ] as const;
 
-  const roles: UserRole[] = [UserRole.ADMIN, UserRole.USER, UserRole.USER];
+  const roles: UserRole[] = [UserRole.USER, UserRole.USER, UserRole.USER];
   const names = ["Seed Admin", "Seed User One", "Seed User Two"];
 
   const users = await Promise.all(
@@ -168,7 +168,7 @@ async function main() {
       section: ExpenseSection.TECH,
       title: "Capacity reservation",
       amount: "4200.0000",
-      status: ExpenseStatus.APPROVED,
+      status: ExpenseStatus.SUBMITTED,
       createdById: admin.id,
       notesExtra: "Cloud commit for Q1.",
     },
@@ -176,7 +176,7 @@ async function main() {
       section: ExpenseSection.SALARY,
       title: "Biweekly payroll run",
       amount: "54000.0000",
-      status: ExpenseStatus.APPROVED,
+      status: ExpenseStatus.SUBMITTED,
       createdById: admin.id,
       notesExtra: "March payroll batch.",
     },

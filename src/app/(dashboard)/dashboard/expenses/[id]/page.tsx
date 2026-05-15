@@ -6,7 +6,6 @@ import { UserRole } from "@/generated/prisma/client";
 import { ArchiveExpenseButton } from "@/components/expenses/archive-expense-button";
 import { AttachmentSection } from "@/components/expenses/attachment-section";
 import { ExpenseHistoryTimeline } from "@/components/expenses/expense-history-timeline";
-import { ExpenseWorkflowActions } from "@/components/expenses/expense-workflow-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -118,11 +117,6 @@ export default async function ExpenseDetailPage({
           <Button asChild variant="secondary" size="sm">
             <Link href={`/dashboard/expenses/${id}/edit`}>Edit</Link>
           </Button>
-          <ExpenseWorkflowActions
-            expense={expense}
-            currentUserId={currentUserId}
-            role={role === UserRole.ADMIN ? "ADMIN" : role === UserRole.APPROVER ? "APPROVER" : "USER"}
-          />
           <ArchiveExpenseButton expenseId={id} />
         </div>
       </div>
@@ -251,49 +245,22 @@ export default async function ExpenseDetailPage({
       </div>
 
       {/* Approval History */}
-      {(expense.submittedAt || expense.approvedAt || expense.rejectedAt) && (
+            {expense.submittedAt && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Approval History</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            {expense.submittedAt && (
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary">Submitted</Badge>
-                <span className="text-muted-foreground">
-                  by {expense.submittedBy?.name || expense.submittedBy?.email || "unknown"} on{" "}
-                  {new Date(expense.submittedAt).toLocaleString()}
-                </span>
-              </div>
-            )}
-            {expense.approvedAt && (
-              <div className="flex items-center gap-2">
-                <Badge variant="default">Approved</Badge>
-                <span className="text-muted-foreground">
-                  by {expense.approvedBy?.name || expense.approvedBy?.email || "unknown"} on{" "}
-                  {new Date(expense.approvedAt).toLocaleString()}
-                </span>
-                {expense.approvalComment && (
-                  <span className="text-muted-foreground italic">
-                    — "{expense.approvalComment}"
-                  </span>
-                )}
-              </div>
-            )}
-            {expense.rejectedAt && (
-              <div className="flex items-center gap-2">
-                <Badge variant="destructive">Rejected</Badge>
-                <span className="text-muted-foreground">
-                  by {expense.rejectedBy?.name || expense.rejectedBy?.email || "unknown"} on{" "}
-                  {new Date(expense.rejectedAt).toLocaleString()}
-                </span>
-                {expense.approvalComment && (
-                  <span className="text-muted-foreground italic">
-                    — "{expense.approvalComment}"
-                  </span>
-                )}
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">Submitted</Badge>
+              <span className="text-muted-foreground">
+                by{" "}
+                {expense.submittedBy?.name ||
+                  expense.submittedBy?.email ||
+                  "unknown"}{" "}
+                on {new Date(expense.submittedAt).toLocaleString()}
+              </span>
+            </div>
           </CardContent>
         </Card>
       )}

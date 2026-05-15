@@ -26,16 +26,12 @@ type BulkActionBarProps = {
   selectedIds: Set<string>;
   onClear: () => void;
   exportRows: ExportRow[];
-  canAdmin: boolean;
-  allApproved: boolean;
 };
 
 export function BulkActionBar({
   selectedIds,
   onClear,
   exportRows,
-  canAdmin,
-  allApproved,
 }: BulkActionBarProps) {
   const [pending, startTransition] = useTransition();
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
@@ -93,18 +89,16 @@ export function BulkActionBar({
             />
           )}
 
-          {canAdmin && allApproved && (
-            <Button
-              size="sm"
-              variant="default"
-              disabled={pending}
-              onClick={handlePay}
-            >
-              {pending && <Spinner className="mr-2 size-4" />}
-              <CheckCircleIcon className="mr-1.5 size-3.5" />
-              Mark as paid
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="default"
+            disabled={pending}
+            onClick={handlePay}
+          >
+            {pending && <Spinner className="mr-2 size-4" />}
+            <CheckCircleIcon className="mr-1.5 size-3.5" />
+            Mark as paid
+          </Button>
 
           <Button
             size="sm"

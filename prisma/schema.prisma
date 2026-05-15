@@ -19,8 +19,6 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 enum UserRole {
-  ADMIN
-  APPROVER
   USER
 }
 
@@ -39,8 +37,6 @@ enum ExpenseSection {
 enum ExpenseStatus {
   DRAFT
   SUBMITTED
-  APPROVED
-  REJECTED
   PAID
   CANCELLED
 }
@@ -52,8 +48,6 @@ enum AuditAction {
   EXPENSE_ARCHIVED
   EXPENSE_RESTORED
   EXPENSE_SUBMITTED
-  EXPENSE_APPROVED
-  EXPENSE_REJECTED
   EXPENSE_PAID
   EXPENSE_CANCELLED
   ATTACHMENT_ADDED
@@ -144,8 +138,6 @@ model User {
   expensesCreated          Expense[]           @relation("ExpenseCreatedBy")
   expensesUpdated          Expense[]           @relation("ExpenseUpdatedBy")
   expensesSubmitted        Expense[]           @relation("ExpenseSubmittedBy")
-  expensesApproved         Expense[]           @relation("ExpenseApprovedBy")
-  expensesRejected         Expense[]           @relation("ExpenseRejectedBy")
   expenseHistoryChanges    ExpenseHistory[]    @relation("ExpenseHistoryChangedBy")
   expenseTagsAssigned      ExpenseTag[]        @relation("ExpenseTagAssignedBy")
   attachmentsUploaded      Attachment[]        @relation("AttachmentUploadedBy")
@@ -305,20 +297,9 @@ model Expense {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Approval workflow
   submittedAt   DateTime?
   submittedById String?   @db.Uuid
   submittedBy   User?     @relation("ExpenseSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
-
-  approvedAt   DateTime?
-  approvedById String?   @db.Uuid
-  approvedBy   User?     @relation("ExpenseApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
-
-  rejectedAt   DateTime?
-  rejectedById String?   @db.Uuid
-  rejectedBy   User?     @relation("ExpenseRejectedBy", fields: [rejectedById], references: [id], onDelete: SetNull)
-
-  approvalComment String?
 
   history     ExpenseHistory[]
   expenseTags ExpenseTag[]
@@ -342,8 +323,6 @@ model Expense {
   @@index([deletedAt])
   @@index([paymentType])
   @@index([submittedById])
-  @@index([approvedById])
-  @@index([rejectedById])
   @@map("expense")
 }
 
