@@ -8,8 +8,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Pie,
-  PieChart,
   XAxis,
   YAxis,
 } from "recharts";
@@ -22,7 +20,7 @@ import type {
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { sectionLabel, type ExpenseSectionId } from "@/src/lib/expense-sections";
 import { cn } from "@/lib/utils";
-import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
+import type { ExpenseSection } from "@/generated/prisma/client";
 
 import {
   ChartContainer,
@@ -31,8 +29,6 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
-  DASHBOARD_STATUS_CHART_COLORS,
-  DASHBOARD_STATUS_CHART_ORDER,
   sectionChartColor,
 } from "@/components/dashboard/dashboard-chart-palette";
 
@@ -239,152 +235,6 @@ export const SECTION_BREAKDOWN_PERIOD_LABELS: Record<DashboardSectionBreakdownPe
   "2m": "Last two months section breakdown",
   "3m": "Last three months section breakdown",
 };
-
-function statusLabel(status: ExpenseStatus): string {
-  return status
-    .split("_")
-    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
-    .join(" ");
-}
-
-export function StatusMixDonutChart({
-  byStatus,
-  totalActiveCount,
-  accessibleView = false,
-}: {
-  byStatus: Partial<Record<ExpenseStatus, number>>;
-  totalActiveCount: number;
-  accessibleView?: boolean;
-}) {
-  const captionId = React.useId();
-
-  const data = DASHBOARD_STATUS_CHART_ORDER.map((status) => ({
-    status,
-    name: statusLabel(status),
-    value: byStatus[status] ?? 0,
-    fill: DASHBOARD_STATUS_CHART_COLORS[status],
-  })).filter((d) => d.value > 0);
-
-  const chartConfig = React.useMemo(() => {
-    const cfg: ChartConfig = {};
-    for (const row of data) {
-      cfg[row.status] = {
-        label: row.name,
-        color: row.fill,
-      };
-    }
-    return cfg;
-  }, [data]);
-
-  if (data.length === 0) {
-    return <p className="text-muted-foreground text-sm">No data.</p>;
-  }
-
-  if (accessibleView) {
-    return (
-      <div className="w-full">
-        <p className="text-muted-foreground mb-2 text-xs font-medium">Active expenses by status</p>
-        <div className="overflow-hidden rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">Status</th>
-                <th className="px-3 py-2 text-right font-medium">Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((row) => (
-                <tr key={row.status} className="border-t">
-                  <td className="px-3 py-2">{row.name}</td>
-                  <td className="px-3 py-2 text-right font-numeric tabular-nums">{row.value}</td>
-                </tr>
-              ))}
-              <tr className="border-t bg-muted/30">
-                <td className="px-3 py-2 font-medium">Total active</td>
-                <td className="px-3 py-2 text-right font-numeric tabular-nums font-medium">{totalActiveCount}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <figure className="flex w-full flex-col items-center gap-3" aria-labelledby={captionId}>
-      <p id={captionId} className="sr-only">
-        Donut chart of active expenses by workflow status. Center shows total active expense count. Tabular data
-        follows.
-      </p>
-      <table className="sr-only">
-        <caption>Active expenses by status</caption>
-        <thead>
-          <tr>
-            <th scope="col">Status</th>
-            <th scope="col">Count</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row) => (
-            <tr key={row.status}>
-              <td>{row.name}</td>
-              <td>{row.value}</td>
-            </tr>
-          ))}
-          <tr>
-            <th scope="row">Total active</th>
-            <td>{totalActiveCount}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div className="relative w-full max-w-[280px]">
-        <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[220px] w-full max-w-[280px]">
-          <PieChart>
-            <ChartTooltip content={<ChartTooltipContent nameKey="status" hideIndicator />} />
-            <Pie
-              data={data}
-              dataKey="value"
-              nameKey="status"
-              innerRadius="58%"
-              outerRadius="82%"
-              stroke="var(--background)"
-              strokeWidth={2}
-            />
-          </PieChart>
-        </ChartContainer>
-        <div
-          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
-          aria-hidden
-        >
-          <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-wide">Total</span>
-          <span className="font-numeric text-2xl font-semibold tabular-nums">{totalActiveCount}</span>
-        </div>
-      </div>
-      <ul
-        className="flex w-full flex-wrap items-center justify-center gap-2"
-        aria-hidden
-      >
-        {data.map((row) => (
-          <li key={row.status}>
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/30 px-2.5 py-1 text-xs font-medium text-foreground",
-                "dark:bg-muted/20",
-              )}
-            >
-              <span
-                className="size-2.5 shrink-0 rounded-full border border-border/40 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
-                style={{ backgroundColor: row.fill }}
-              />
-              <span>{row.name}</span>
-              <span className="text-muted-foreground font-normal tabular-nums">{row.value}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </figure>
-  );
-}
 
 export function TotalSpendSparkline({
   months,

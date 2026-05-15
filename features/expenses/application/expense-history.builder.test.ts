@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
+import { ExpenseSection } from "@/generated/prisma/client";
 import {
   buildExpenseHistoryRows,
   expenseRowToSnapshot,
@@ -10,7 +10,7 @@ describe("expenseRowToSnapshot", () => {
   it("normalizes amount and tag order", () => {
     const snap = expenseRowToSnapshot({
       section: ExpenseSection.TECH,
-      status: ExpenseStatus.DRAFT,
+
       title: "AWS bill",
       notes: null,
       originalAmount: { toString: () => "120.5000" },
@@ -30,7 +30,7 @@ describe("expenseRowToSnapshot", () => {
 describe("buildExpenseHistoryRows", () => {
   const base = (): Parameters<typeof expenseRowToSnapshot>[0] => ({
     section: ExpenseSection.TECH,
-    status: ExpenseStatus.DRAFT,
+
     title: "T",
     notes: null,
     originalAmount: { toString: () => "10" },

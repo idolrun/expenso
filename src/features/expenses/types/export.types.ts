@@ -4,7 +4,6 @@ export interface ExportRow {
   date: string;
   amount: string;
   currency: string;
-  status: string;
   paymentType: string;
   section: string;
 }

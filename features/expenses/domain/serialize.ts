@@ -13,7 +13,6 @@ export type ExpenseRow = Prisma.ExpenseGetPayload<{
   include: {
     expenseTags: { include: { tag: true } };
     salaryRecord: true;
-    submittedBy: { select: { id: true; name: true; email: true } };
   };
 }>;
 
@@ -29,7 +28,7 @@ export function serializeExpense(row: ExpenseRow): ExpenseDto {
   return {
     id: row.id,
     section: row.section,
-    status: row.status,
+
     title: row.title,
     notes: row.notes ?? null,
     originalAmount: row.originalAmount.toString(),
@@ -61,12 +60,6 @@ export function serializeExpense(row: ExpenseRow): ExpenseDto {
           payPeriodEnd: toIsoDate(row.salaryRecord.payPeriodEnd),
         }
       : null,
-
-    submittedAt: row.submittedAt ? toIsoDateTime(row.submittedAt) : null,
-    submittedById: row.submittedById ?? null,
-    submittedBy: row.submittedBy ?? null,
-
-
   };
 }
 

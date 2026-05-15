@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AuditAction, ExpenseStatus } from "@/generated/prisma/client";
+import { AuditAction } from "@/generated/prisma/client";
 import { getSession, parseUserRole } from "@/lib/auth/session";
 import { sessionToUserId } from "@/lib/auth/actor";
 import { hasPermission, Permission } from "@/lib/auth/permissions";
@@ -28,11 +28,17 @@ export async function bulkArchiveExpensesAction(
 
   const role = parseUserRole(auth.session.user.role);
   if (!hasPermission(role, Permission.CAN_BULK_ARCHIVE_EXPENSE)) {
-    return { ok: false, error: { code: "FORBIDDEN", message: "Insufficient permissions" } };
+    return {
+      ok: false,
+      error: { code: "FORBIDDEN", message: "Insufficient permissions" },
+    };
   }
 
   if (!ids.length) {
-    return { ok: false, error: { code: "VALIDATION_ERROR", message: "No items selected" } };
+    return {
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: "No items selected" },
+    };
   }
 
   const now = new Date();
@@ -58,46 +64,4 @@ export async function bulkArchiveExpensesAction(
   revalidatePath("/dashboard");
 
   return { ok: true, data: { archivedCount: ids.length } };
-}
-
-export async function bulkPayExpensesAction(
-  ids: string[],
-): Promise<ServiceResult<{ paidCount: number }>> {
-  const auth = await requireSessionUser();
-  if (!auth.ok) return { ok: false, error: auth.error };
-
-  const role = parseUserRole(auth.session.user.role);
-  if (!hasPermission(role, Permission.CAN_BULK_PAY_EXPENSE)) {
-    return { ok: false, error: { code: "FORBIDDEN", message: "Insufficient permissions" } };
-  }
-
-  if (!ids.length) {
-    return { ok: false, error: { code: "VALIDATION_ERROR", message: "No items selected" } };
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.expense.updateMany({
-      where: {
-        id: { in: ids },
-        status: ExpenseStatus.SUBMITTED,
-        deletedAt: null,
-      },
-      data: { status: ExpenseStatus.PAID, updatedById: auth.userId },
-    });
-
-    for (const id of ids) {
-      await auditLogRepository.create(tx, {
-        action: AuditAction.EXPENSE_PAID,
-        entityType: "Expense",
-        entityId: id,
-        actor: { connect: { id: auth.userId } },
-        metadata: { bulk: true, count: ids.length },
-      });
-    }
-  });
-
-  revalidatePath("/dashboard/expenses");
-  revalidatePath("/dashboard");
-
-  return { ok: true, data: { paidCount: ids.length } };
 }

@@ -1,4 +1,4 @@
-import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
+import type { ExpenseSection } from "@/generated/prisma/client";
 
 import type { ExpenseDto, ExpenseHistoryWithExpenseDto } from "@/features/expenses/domain/dto";
 
@@ -73,7 +73,6 @@ export type DashboardSummaryDto = {
   /** Same NPR total for the current calendar month. */
   monthSpendNpr: string;
 
-  byStatus: Partial<Record<ExpenseStatus, number>>;
   bySection: Partial<Record<ExpenseSection, number>>;
 
   /** USD spend per section. */

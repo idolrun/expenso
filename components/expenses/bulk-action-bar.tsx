@@ -16,11 +16,10 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import {
   bulkArchiveExpensesAction,
-  bulkPayExpensesAction,
 } from "@/features/expenses/actions/bulk-expense-actions";
 import { ExportButton } from "@/src/features/expenses/components/ExportButton";
 import type { ExportRow } from "@/src/features/expenses/types/export.types";
-import { XIcon, ArchiveBoxIcon, CheckCircleIcon } from "@phosphor-icons/react";
+import { XIcon, ArchiveBoxIcon } from "@phosphor-icons/react";
 
 type BulkActionBarProps = {
   selectedIds: Set<string>;
@@ -56,18 +55,6 @@ export function BulkActionBar({
     });
   }
 
-  function handlePay() {
-    startTransition(async () => {
-      const res = await bulkPayExpensesAction([...selectedIds]);
-      if (!res.ok) {
-        toast.error(res.error.message);
-        return;
-      }
-      toast.success(`${res.data.paidCount} expense(s) marked as paid`);
-      onClear();
-    });
-  }
-
   return (
     <>
       <div
@@ -85,20 +72,16 @@ export function BulkActionBar({
               rows={selectedExportRows}
               section="selected"
               activeFilters={{}}
-              allColumns={["title", "date", "amount", "currency", "status", "paymentType", "section"]}
+              allColumns={[
+                "title",
+                "date",
+                "amount",
+                "currency",
+                "paymentType",
+                "section",
+              ]}
             />
           )}
-
-          <Button
-            size="sm"
-            variant="default"
-            disabled={pending}
-            onClick={handlePay}
-          >
-            {pending && <Spinner className="mr-2 size-4" />}
-            <CheckCircleIcon className="mr-1.5 size-3.5" />
-            Mark as paid
-          </Button>
 
           <Button
             size="sm"
@@ -127,7 +110,8 @@ export function BulkActionBar({
           <AlertDialogHeader>
             <AlertDialogTitle>Archive {count} expenses?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will archive the selected expenses. They can be restored later from the Archived Expenses page.
+              This will archive the selected expenses. They can be restored
+              later from the Archived Expenses page.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

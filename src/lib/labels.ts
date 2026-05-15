@@ -6,23 +6,6 @@
 import { expenseSectionValues } from "@/features/expenses/validation/primitives";
 
 // ---------------------------------------------------------------------------
-// Expense status
-// ---------------------------------------------------------------------------
-
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Draft",
-  SUBMITTED: "Submitted",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  PAID: "Paid",
-  CANCELLED: "Cancelled",
-};
-
-export function statusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? status;
-}
-
-// ---------------------------------------------------------------------------
 // Sort fields
 // ---------------------------------------------------------------------------
 

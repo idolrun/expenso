@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Spinner } from "@/components/ui/spinner";
 import { restoreExpenseAction } from "@/features/expenses/actions/trash-actions";
-import { sectionLabel, statusLabel } from "@/src/lib/labels";
+import { sectionLabel } from "@/src/lib/labels";
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import { format } from "date-fns";
 import { ArchiveBoxIcon, ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
@@ -23,7 +23,6 @@ type TrashItem = {
   id: string;
   title: string;
   section: string;
-  status: string;
   originalAmount: string;
   originalCurrency: string;
   deletedAt: string | null;
@@ -66,7 +65,6 @@ export function TrashListClient({ initialItems }: { initialItems: TrashItem[] })
           <TableRow>
             <TableHead>Title</TableHead>
             <TableHead>Section</TableHead>
-            <TableHead>Status</TableHead>
             <TableHead className="text-right">Amount</TableHead>
             <TableHead>Archived</TableHead>
             <TableHead className="w-40">Actions</TableHead>
@@ -79,7 +77,6 @@ export function TrashListClient({ initialItems }: { initialItems: TrashItem[] })
               <TableCell className="text-muted-foreground text-sm">
                 {sectionLabel(item.section)}
               </TableCell>
-              <TableCell className="text-sm">{statusLabel(item.status)}</TableCell>
               <TableCell className="text-right text-sm font-numeric">
                 {formatMoneyAmount(item.originalAmount, item.originalCurrency)}
               </TableCell>

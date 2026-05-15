@@ -34,13 +34,6 @@ enum ExpenseSection {
   MERCHANDISE
 }
 
-enum ExpenseStatus {
-  DRAFT
-  SUBMITTED
-  PAID
-  CANCELLED
-}
-
 enum AuditAction {
   USER_ROLE_CHANGED
   EXPENSE_CREATED
@@ -137,7 +130,6 @@ model User {
 
   expensesCreated          Expense[]           @relation("ExpenseCreatedBy")
   expensesUpdated          Expense[]           @relation("ExpenseUpdatedBy")
-  expensesSubmitted        Expense[]           @relation("ExpenseSubmittedBy")
   expenseHistoryChanges    ExpenseHistory[]    @relation("ExpenseHistoryChangedBy")
   expenseTagsAssigned      ExpenseTag[]        @relation("ExpenseTagAssignedBy")
   attachmentsUploaded      Attachment[]        @relation("AttachmentUploadedBy")
@@ -265,7 +257,6 @@ model ExpenseTag {
 model Expense {
   id       String         @id @default(cuid())
   section  ExpenseSection
-  status   ExpenseStatus  @default(DRAFT)
   title    String
   notes    String?
   fromDate DateTime       @db.Date
@@ -297,10 +288,6 @@ model Expense {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  submittedAt   DateTime?
-  submittedById String?   @db.Uuid
-  submittedBy   User?     @relation("ExpenseSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
-
   history     ExpenseHistory[]
   expenseTags ExpenseTag[]
   attachments Attachment[]
@@ -308,7 +295,6 @@ model Expense {
   salaryRecord     SalaryRecord?
 
   @@index([section, deletedAt])
-  @@index([status, deletedAt])
   @@index([originalCurrency, deletedAt])
   @@index([originalCurrency, fromDate, toDate, deletedAt])
   @@index([section, deletedAt, originalCurrency])
@@ -322,7 +308,6 @@ model Expense {
   @@index([title])
   @@index([deletedAt])
   @@index([paymentType])
-  @@index([submittedById])
   @@map("expense")
 }
 

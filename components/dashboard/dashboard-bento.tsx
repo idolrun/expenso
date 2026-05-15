@@ -30,7 +30,6 @@ import {
   SECTION_BREAKDOWN_PERIOD_LABELS,
   MonthOverMonthIndicator,
   SectionBreakdownBarChart,
-  StatusMixDonutChart,
   TotalSpendSparkline,
 } from "@/components/dashboard/dashboard-charts";
 import { CredentialVaultWidget } from "@/components/credentials/credential-vault-widget";
@@ -57,7 +56,6 @@ const ACTIVITY_BADGE_TONES: Record<string, string> = {
 
 const FIELD_BADGE_TONES: Record<string, string> = {
   tagIds: "badge-tone-violet",
-  status: "badge-tone-blue",
   originalAmount: "badge-tone-amber",
   title: "badge-tone-green",
 };
@@ -69,7 +67,6 @@ const FIELD_LABELS: Record<string, string> = {
   originalAmount: "Amount",
   originalCurrency: "Currency",
   section: "Section",
-  status: "Status",
   tagIds: "Tags",
   title: "Title",
 };
@@ -536,34 +533,6 @@ export function DashboardBento({
         {/* Credential Vault */}
         <CredentialVaultWidget className="md:col-span-3" />
 
-        {/* Status mix */}
-        <Card className="md:col-span-3">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Status mix</CardTitle>
-            <CardDescription>
-              Active expenses by workflow state.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-[10px]"
-                onClick={() => setAccessibleView((v) => !v)}
-              >
-                {accessibleView ? "View chart" : "View table"}
-              </Button>
-            </div>
-            <StatusMixDonutChart
-              byStatus={data.byStatus}
-              totalActiveCount={data.totalCount}
-              accessibleView={accessibleView}
-            />
-          </CardContent>
-        </Card>
-
         {/* Last transactions */}
         <Card className="md:col-span-3">
           <CardHeader className="pb-2">
@@ -592,7 +561,7 @@ export function DashboardBento({
                             {e.title}
                           </p>
                           <p className="text-muted-foreground truncate text-xs">
-                            {sectionLabel(e.section)} · {e.status}
+                            {sectionLabel(e.section)}
                           </p>
                         </div>
                         <span className="flex shrink-0 flex-col items-end gap-0.5">

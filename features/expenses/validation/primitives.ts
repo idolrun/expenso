@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
+import type { ExpenseSection } from "@/generated/prisma/client";
 import { expenseCurrencyValues } from "@/features/expenses/domain/currency";
 
 export const expenseSectionValues = [
@@ -13,15 +13,6 @@ export const expenseSectionValues = [
   "TRAVEL",
 ] as const satisfies readonly ExpenseSection[];
 
-export const expenseStatusValues = [
-  "DRAFT",
-  "SUBMITTED",
-  
-  
-  "PAID",
-  "CANCELLED",
-] as const satisfies readonly ExpenseStatus[];
-
 export const paymentTypeValues = [
   "CASH",
   "BANK_TRANSFER",
@@ -32,7 +23,6 @@ export const paymentTypeValues = [
 ] as const;
 
 export const expenseSectionSchema = z.enum(expenseSectionValues);
-export const expenseStatusSchema = z.enum(expenseStatusValues);
 export const expenseCurrencySchema = z.enum(expenseCurrencyValues);
 export const paymentTypeSchema = z.enum(paymentTypeValues);
 

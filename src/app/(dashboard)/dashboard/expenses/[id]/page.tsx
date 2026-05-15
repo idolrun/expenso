@@ -103,7 +103,6 @@ export default async function ExpenseDetailPage({
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{sectionLabel(expense.section)}</Badge>
-            <Badge variant="outline">{expense.status}</Badge>
           </div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight md:text-3xl">
             {expense.title}
@@ -243,27 +242,6 @@ export default async function ExpenseDetailPage({
           </CardContent>
         </Card>
       </div>
-
-      {/* Approval History */}
-            {expense.submittedAt && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Approval History</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">Submitted</Badge>
-              <span className="text-muted-foreground">
-                by{" "}
-                {expense.submittedBy?.name ||
-                  expense.submittedBy?.email ||
-                  "unknown"}{" "}
-                on {new Date(expense.submittedAt).toLocaleString()}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* History */}
       <ExpenseHistoryTimeline entries={history} tagNameById={tagNameById} />

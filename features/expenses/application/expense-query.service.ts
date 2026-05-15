@@ -34,9 +34,6 @@ export function buildExpenseListWhere(
   if (query.section) {
     andParts.push({ section: query.section });
   }
-  if (query.status) {
-    andParts.push({ status: query.status });
-  }
   if (query.paymentType) {
     andParts.push({ paymentType: query.paymentType });
   }

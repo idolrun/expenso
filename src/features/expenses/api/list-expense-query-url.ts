@@ -34,7 +34,6 @@ export function serializeListExpensesQueryToSearchParams(
   if (query.page !== DEFAULT_PAGE) p.set("page", String(query.page));
   if (query.pageSize !== DEFAULT_PAGE_SIZE) p.set("pageSize", String(query.pageSize));
   if (query.section) p.set("section", query.section);
-  if (query.status) p.set("status", query.status);
   if (query.tagIds.length) p.set("tagIds", query.tagIds.join(","));
   if (query.amountMin?.trim()) p.set("amountMin", query.amountMin.trim());
   if (query.amountMax?.trim()) p.set("amountMax", query.amountMax.trim());

@@ -21,13 +21,11 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   expenseSectionValues,
-  expenseStatusValues,
   paymentTypeValues,
 } from "@/features/expenses/validation/primitives";
 import type { ListExpensesQuery } from "@/features/expenses/validation/expense";
 import {
   sectionLabel,
-  statusLabel,
   sortFieldLabel,
 } from "@/src/lib/labels";
 import { CaretDownIcon } from "@phosphor-icons/react";
@@ -126,25 +124,6 @@ export function ExpenseFilters({
             </NativeSelect>
           ) : null}
           <NativeSelect
-            aria-label="Status"
-            className="min-w-32 flex-1"
-            value={query.status ?? ""}
-            onChange={(e) =>
-              setQuery({
-                status: e.target.value
-                  ? (e.target.value as ListExpensesQuery["status"])
-                  : undefined,
-              })
-            }
-          >
-            <NativeSelectOption value="">All statuses</NativeSelectOption>
-            {expenseStatusValues.map((s) => (
-              <NativeSelectOption key={s} value={s}>
-                {statusLabel(s)}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <NativeSelect
             aria-label="Payment Type"
             className="min-w-32 flex-1"
             value={query.paymentType ?? ""}
@@ -217,7 +196,6 @@ export function ExpenseFilters({
               setSearch("");
               setQuery({
                 section: hideSectionFilter ? query.section : undefined,
-                status: undefined,
                 paymentType: undefined,
                 tagIds: [],
                 amountMin: undefined,

@@ -1,7 +1,7 @@
 import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 
 import { Prisma } from "@/generated/prisma/client";
-import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
+import type { ExpenseSection } from "@/generated/prisma/client";
 
 import type {
   DashboardActivityItemDto,
@@ -235,7 +235,6 @@ export async function getDashboardSummary(): Promise<
       // NPR: USD expenses with stored amountNpr snapshot
       nprTotalSnapshotAgg,
       nprMonthSnapshotAgg,
-      statusGroups,
       sectionCountGroups,
       sectionSpendGroups,
       // NPR section breakdown
@@ -290,11 +289,6 @@ export async function getDashboardSummary(): Promise<
           ...expensePeriodOverlapsRange(monthStart, monthEnd),
         },
         _sum: { amountNpr: true },
-      }),
-      prisma.expense.groupBy({
-        by: ["status"],
-        where: { deletedAt: null },
-        _count: { _all: true },
       }),
       prisma.expense.groupBy({
         by: ["section"],
@@ -405,9 +399,6 @@ export async function getDashboardSummary(): Promise<
         )?._sum?.originalAmount?.toString() ?? "0",
     }));
     const previousMonthSpendUsd = monthlySpendUsdLast6[4]?.amount ?? "0";
-
-    const byStatus: Partial<Record<ExpenseStatus, number>> = {};
-    for (const row of statusGroups) byStatus[row.status] = row._count._all;
 
     const bySection: Partial<Record<ExpenseSection, number>> = {};
     for (const row of sectionCountGroups)
@@ -522,7 +513,6 @@ export async function getDashboardSummary(): Promise<
         previousMonthSpendUsd,
         totalSpendNpr: totalNprDec.toString(),
         monthSpendNpr: monthNprDec.toString(),
-        byStatus,
         bySection,
         spendBySectionUsd,
         spendBySectionUsdByPeriod: {

@@ -1,7 +1,6 @@
 import type {
   AttachmentProvider,
   ExpenseSection,
-  ExpenseStatus,
   PaymentType,
 } from "@/generated/prisma/client";
 
@@ -19,7 +18,6 @@ export type ExpenseTagDto = {
 export type ExpenseDto = {
   id: string;
   section: ExpenseSection;
-  status: ExpenseStatus;
   title: string;
   notes: string | null;
 
@@ -52,12 +50,6 @@ export type ExpenseDto = {
     payPeriodStart: string;
     payPeriodEnd: string;
   } | null;
-
-  // Approval workflow
-  submittedAt: string | null;
-  submittedById: string | null;
-  submittedBy: { id: string; name: string | null; email: string } | null;
-
 
 };
 

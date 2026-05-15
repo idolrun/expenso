@@ -1,8 +1,7 @@
 "use server";
 
 import { sessionToUserId } from "@/lib/auth/actor";
-import { getSession, parseUserRole } from "@/lib/auth/session";
-import { hasPermission, Permission } from "@/lib/auth/permissions";
+import { getSession } from "@/lib/auth/session";
 import type { ServiceResult } from "@/features/expenses/domain/dto";
 import type { ExpenseDto } from "@/features/expenses/domain/dto";
 import {
@@ -10,20 +9,12 @@ import {
   archiveExpenseSchema,
   updateExpenseSchema,
 } from "@/features/expenses/validation/expense";
-import {
-  payExpenseSchema,
-  cancelExpenseSchema,
-} from "@/features/expenses/validation/workflow";
 import type { ListExpensesQuery } from "@/features/expenses/validation/expense";
 import {
   createExpenseService,
   archiveExpenseService,
   updateExpenseService,
 } from "@/features/expenses/application/expense.service";
-import {
-  payExpenseService,
-  cancelExpenseService,
-} from "@/features/expenses/application/expense-workflow.service";
 import { listExpenses } from "@/features/expenses/application/expense-query.service";
 import { validateReceiptFile } from "@/features/attachments/validation/attachment";
 
@@ -219,51 +210,3 @@ export async function archiveExpenseAction(
 
   return archiveExpenseService(parsed.data, auth.userId);
 }
-
-// ---------------------------------------------------------------------------
-// Workflow actions
-// ---------------------------------------------------------------------------
-
-
-
-
-export async function payExpenseAction(
-  raw: unknown,
-): Promise<ServiceResult<{ id: string }>> {
-  const auth = await requireSessionUser();
-  if (!auth.ok) return { ok: false, error: auth.error };
-
-  const parsed = payExpenseSchema.safeParse(raw);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: parsed.error.issues.map((i) => i.message).join("; "),
-      },
-    };
-  }
-
-  return payExpenseService(parsed.data, auth.userId);
-}
-
-export async function cancelExpenseAction(
-  raw: unknown,
-): Promise<ServiceResult<{ id: string }>> {
-  const auth = await requireSessionUser();
-  if (!auth.ok) return { ok: false, error: auth.error };
-
-  const parsed = cancelExpenseSchema.safeParse(raw);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: parsed.error.issues.map((i) => i.message).join("; "),
-      },
-    };
-  }
-
-  return cancelExpenseService(parsed.data, auth.userId);
-}
-

@@ -41,8 +41,6 @@ import { useDisplayCurrency } from "@/src/features/display-currency/display-curr
 import { formatMoneyAmount } from "@/src/lib/format-money";
 import {
   sectionLabel,
-  statusLabel,
-  paymentTypeLabel,
   type ExpenseSectionId,
 } from "@/src/lib/labels";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -56,7 +54,6 @@ const expenseExportColumns: (keyof ExportRow)[] = [
   "date",
   "amount",
   "currency",
-  "status",
   "paymentType",
   "section",
 ];
@@ -123,7 +120,6 @@ function getActiveFilters(
   const filters: Record<string, string> = {};
 
   if (!lockedSection && query.section) filters.section = query.section;
-  if (query.status) filters.status = query.status;
   if (query.paymentType) filters.paymentType = query.paymentType;
   if (query.tagIds.length > 0) filters.tagIds = query.tagIds.join(",");
   if (query.amountMin?.trim()) filters.amountMin = query.amountMin.trim();
@@ -212,7 +208,7 @@ export function ExpenseListClient({
   // Clear selection when data changes (page/filter)
   useEffect(() => {
     clearSelection();
-  }, [data?.page, query.section, query.status, query.tagIds, query.search]);
+  }, [data?.page, query.section, query.tagIds, query.search]);
 
   const exportRows = useMemo<ExportRow[]>(
     () =>
@@ -228,7 +224,6 @@ export function ExpenseListClient({
           date: expense.fromDate,
           amount,
           currency,
-          status: expense.status,
           paymentType: expense.paymentType,
           section: expense.section,
         };
@@ -387,7 +382,6 @@ export function ExpenseListClient({
                     </TableHead>
                     <TableHead>Title</TableHead>
                     <TableHead>Section</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead className="w-25" />
                   </TableRow>
@@ -429,7 +423,6 @@ export function ExpenseListClient({
                         <TableCell className="text-muted-foreground text-sm">
                           {sectionLabel(e.section)}
                         </TableCell>
-                        <TableCell className="text-sm">{statusLabel(e.status)}</TableCell>
                         <TableCell className="text-right text-sm">
                           <AmountCell expense={e} />
                         </TableCell>
@@ -460,7 +453,7 @@ export function ExpenseListClient({
                         {e.title}
                       </CardTitle>
                       <CardDescription>
-                        {sectionLabel(e.section)} · {statusLabel(e.status)}
+                        {sectionLabel(e.section)}
                       </CardDescription>
                     </div>
                     <Checkbox

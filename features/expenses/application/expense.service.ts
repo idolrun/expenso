@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { AuditAction, ExpenseStatus, Prisma, UserRole } from "@/generated/prisma/client";
+import { AuditAction, Prisma } from "@/generated/prisma/client";
 import type {
   CreateExpenseInput,
   UpdateExpenseInput,
@@ -50,7 +50,7 @@ export async function createExpenseService(
     const expense = await prisma.$transaction(async (tx) => {
       const created = await expenseRepository.create(tx, {
         section: input.section,
-        status: ExpenseStatus.DRAFT,
+
         title: resolvedTitle,
         notes: input.notes ?? undefined,
         originalAmount,
@@ -146,7 +146,7 @@ export async function updateExpenseService(
 
     const after: ExpenseScalarSnapshot = {
       section: input.section ?? before.section,
-      status: before.status,
+
       title: input.title ?? before.title,
       notes: input.notes !== undefined ? input.notes : before.notes,
       originalAmount: input.amount ?? before.originalAmount,

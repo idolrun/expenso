@@ -5,7 +5,6 @@ import {
   dateYmdSchema,
   expenseRecordIdSchema,
   expenseSectionValues,
-  expenseStatusValues,
   moneyStringSchema,
   paymentTypeSchema,
 } from "@/features/expenses/validation/primitives";
@@ -154,7 +153,6 @@ export const listExpensesQuerySchema = z
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
     section: z.enum(expenseSectionValues).optional(),
-    status: z.enum(expenseStatusValues).optional(),
     paymentType: paymentTypeSchema.optional(),
     tagIds: z.preprocess(normalizeTagIdsQueryInput, z.array(recordId).max(50)),
     amountMin: z.string().trim().optional(),

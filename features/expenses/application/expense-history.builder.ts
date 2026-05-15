@@ -1,5 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
-import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
+import type { ExpenseSection } from "@/generated/prisma/client";
 import {
   defaultExpenseCurrency,
   expenseCurrencyValues,
@@ -10,7 +10,6 @@ import type { PaymentType } from "@/generated/prisma/client";
 
 export type ExpenseScalarSnapshot = {
   section: ExpenseSection;
-  status: ExpenseStatus;
   title: string;
   notes: string | null;
   originalAmount: string;
@@ -43,7 +42,6 @@ function toPaymentType(paymentType: string): PaymentType {
 
 export function expenseRowToSnapshot(row: {
   section: ExpenseSection;
-  status: ExpenseStatus;
   title: string;
   notes: string | null;
   originalAmount: { toString(): string };
@@ -55,7 +53,6 @@ export function expenseRowToSnapshot(row: {
 }): ExpenseScalarSnapshot {
   return {
     section: row.section,
-    status: row.status,
     title: row.title,
     notes: row.notes,
     originalAmount: row.originalAmount.toString(),
@@ -77,7 +74,6 @@ export function buildExpenseHistoryRows(args: {
   const rows: Prisma.ExpenseHistoryCreateManyInput[] = [];
   const keys: (keyof ExpenseScalarSnapshot)[] = [
     "section",
-    "status",
     "title",
     "notes",
     "originalAmount",

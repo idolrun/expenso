@@ -5,7 +5,6 @@
 import {
   AuditAction,
   ExpenseSection,
-  ExpenseStatus,
   Prisma,
   UserRole,
 } from "../src/generated/prisma/client";
@@ -168,7 +167,6 @@ async function main() {
       section: ExpenseSection.TECH,
       title: "Capacity reservation",
       amount: "4200.0000",
-      status: ExpenseStatus.SUBMITTED,
       createdById: admin.id,
       notesExtra: "Cloud commit for Q1.",
     },
@@ -176,7 +174,6 @@ async function main() {
       section: ExpenseSection.SALARY,
       title: "Biweekly payroll run",
       amount: "54000.0000",
-      status: ExpenseStatus.SUBMITTED,
       createdById: admin.id,
       notesExtra: "March payroll batch.",
     },
@@ -184,7 +181,6 @@ async function main() {
       section: ExpenseSection.TRAVEL,
       title: "Regional travel block",
       amount: "3100.5000",
-      status: ExpenseStatus.PAID,
       createdById: user1.id,
       notesExtra: "Flights and lodging.",
     },
@@ -195,7 +191,7 @@ async function main() {
       prisma.expense.create({
         data: {
           section: plan.section,
-          status: plan.status,
+
           title: plan.title,
           notes: [plan.notesExtra, SEED_MARKER].join("\n"),
           originalAmount: new Prisma.Decimal(plan.amount),
@@ -236,14 +232,7 @@ async function main() {
         newValue: expensePlans[0]!.amount,
         changedById: admin.id,
       },
-      {
-        expenseId: expenses[1]!.id,
-        batchId: "seed-batch-2",
-        fieldKey: "status",
-        oldValue: "DRAFT",
-        newValue: "APPROVED",
-        changedById: admin.id,
-      },
+
     ],
   });
 

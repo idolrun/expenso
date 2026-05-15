@@ -1,20 +1,4 @@
-import type { ExpenseSection, ExpenseStatus } from "@/generated/prisma/client";
-
-/** Muted, accessible fills for status distribution (dark-theme friendly). */
-export const DASHBOARD_STATUS_CHART_COLORS: Record<ExpenseStatus, string> = {
-  DRAFT: "hsl(220 12% 48%)",
-  SUBMITTED: "hsl(217 55% 58%)",
-  PAID: "hsl(265 45% 58%)",
-  CANCELLED: "hsl(220 10% 42%)",
-};
-
-/** Display order for status segments and legend. */
-export const DASHBOARD_STATUS_CHART_ORDER: ExpenseStatus[] = [
-  "DRAFT",
-  "SUBMITTED",
-  "PAID",
-  "CANCELLED",
-];
+import type { ExpenseSection } from "@/generated/prisma/client";
 
 export function sectionChartColor(section: ExpenseSection): string {
   // Stable colors for section charts (high contrast on dark backgrounds)

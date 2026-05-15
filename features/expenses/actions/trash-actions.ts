@@ -13,7 +13,6 @@ export type TrashExpenseItem = {
   id: string;
   title: string;
   section: string;
-  status: string;
   originalAmount: string;
   originalCurrency: string;
   deletedAt: string | null;
@@ -55,7 +54,7 @@ export async function listArchivedExpensesAction(): Promise<TrashActionResult<Tr
       id: row.id,
       title: row.title,
       section: row.section,
-      status: row.status,
+
       originalAmount: row.originalAmount.toString(),
       originalCurrency: row.originalCurrency,
       deletedAt: row.deletedAt?.toISOString() ?? null,
