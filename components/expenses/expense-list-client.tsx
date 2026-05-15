@@ -205,9 +205,9 @@ export function ExpenseListClient({
 
   const clearSelection = () => setSelectedIds(new Set());
 
-  // Clear selection when data changes (page/filter)
+  // Clear selection when page/filters change (deferred to avoid cascading renders)
   useEffect(() => {
-    clearSelection();
+    queueMicrotask(() => setSelectedIds(new Set()));
   }, [data?.page, query.section, query.tagIds, query.search]);
 
   const exportRows = useMemo<ExportRow[]>(

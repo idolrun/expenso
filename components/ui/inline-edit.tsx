@@ -27,7 +27,11 @@ export function InlineEdit({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const [pending, startTransition] = useTransition();
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+  const assignInputRef = (el: HTMLInputElement | HTMLTextAreaElement | null) => {
+    inputRef.current = el;
+  };
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -65,23 +69,36 @@ export function InlineEdit({
   };
 
   if (isEditing) {
-    const Input = multiline ? "textarea" : "input";
+    const fieldClassName = cn(
+      "min-w-0 flex-1 rounded border bg-background px-2 py-1 text-sm outline-none ring-ring focus:ring-2",
+      multiline && "min-h-[3rem] resize-y",
+      inputClassName,
+    );
     return (
       <div className={cn("flex items-center gap-2", className)}>
-        <Input
-          ref={inputRef as any}
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleSave}
-          disabled={pending}
-          maxLength={maxLength}
-          className={cn(
-            "min-w-0 flex-1 rounded border bg-background px-2 py-1 text-sm outline-none ring-ring focus:ring-2",
-            multiline && "min-h-[3rem] resize-y",
-            inputClassName,
-          )}
-        />
+        {multiline ? (
+          <textarea
+            ref={assignInputRef}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleSave}
+            disabled={pending}
+            maxLength={maxLength}
+            className={fieldClassName}
+          />
+        ) : (
+          <input
+            ref={assignInputRef}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleSave}
+            disabled={pending}
+            maxLength={maxLength}
+            className={fieldClassName}
+          />
+        )}
         {pending && <Spinner className="size-3.5 shrink-0" />}
       </div>
     );
