@@ -228,17 +228,15 @@ export default async function ExpenseDetailPage({
               <span className="text-muted-foreground">Payment Type: </span>
               <span>{expense.paymentType.replace(/_/g, " ")}</span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {expense.tags.length === 0 ? (
-                <span className="text-muted-foreground">No tags</span>
-              ) : (
-                expense.tags.map((t) => (
+            {expense.tags.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {expense.tags.map((t) => (
                   <Badge key={t.id} variant="outline">
                     {t.name}
                   </Badge>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </div>

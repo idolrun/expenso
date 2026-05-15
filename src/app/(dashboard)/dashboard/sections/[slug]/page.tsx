@@ -38,7 +38,11 @@ export default async function SectionExpensesPage({
         section={section}
         initialQuery={parsed.success ? parsed.data : { section }}
         title="Expenses"
-        description="Filtered to this section. You can still adjust other filters."
+        description={
+          section === "OVERVIEW"
+            ? "All sections. You can still narrow results with other filters."
+            : "Filtered to this section. You can still adjust other filters."
+        }
         userRole={role}
       />
     </div>

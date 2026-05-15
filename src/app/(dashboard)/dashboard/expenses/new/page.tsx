@@ -1,7 +1,9 @@
+import { Suspense } from "react";
+
 import { ExpenseForm } from "@/components/expenses/expense-form";
 import { requireAuth } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
-import { expenseSectionValues } from "@/features/expenses/validation/primitives";
+import { parseExpenseSectionParam } from "@/src/lib/labels";
 import type { ExpenseSectionId } from "@/src/lib/expense-sections";
 
 export default async function NewExpensePage({
@@ -13,9 +15,7 @@ export default async function NewExpensePage({
   const sp = await searchParams;
   const sectionParam = typeof sp.section === "string" ? sp.section : undefined;
   const defaultSection: ExpenseSectionId | undefined =
-    sectionParam && (expenseSectionValues as readonly string[]).includes(sectionParam)
-      ? (sectionParam as ExpenseSectionId)
-      : undefined;
+    parseExpenseSectionParam(sectionParam) ?? undefined;
 
   const tags = await prisma.tag.findMany({
     orderBy: { name: "asc" },
@@ -31,7 +31,22 @@ export default async function NewExpensePage({
           conversion cached on the server.
         </p>
       </div>
-      <ExpenseForm mode="create" tags={tags} defaultSection={defaultSection} />
+      <Suspense
+        fallback={
+          <div
+            className="bg-card min-h-112 rounded-xl border p-4 shadow-xs sm:p-6"
+            aria-busy
+            aria-label="Loading expense form"
+          />
+        }
+      >
+        <ExpenseForm
+          mode="create"
+          tags={tags}
+          defaultSection={defaultSection}
+          serverSectionSearchParam={sectionParam ?? null}
+        />
+      </Suspense>
     </div>
   );
 }

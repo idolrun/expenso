@@ -20,7 +20,7 @@ export const createExpenseSchemaBase = z.object({
   fromDate: dateYmdSchema,
   toDate: dateYmdSchema,
   tagIds: z.array(recordId).max(50).optional().default([]),
-  employeeName: z.string().trim().min(1).max(255).optional(),
+  employeeName: z.string().trim().max(255).optional(),
   paymentType: paymentTypeSchema,
 });
 
@@ -66,7 +66,7 @@ export const updateExpenseSchemaBase = z.object({
   fromDate: dateYmdSchema.optional(),
   toDate: dateYmdSchema.optional(),
   tagIds: z.array(recordId).max(50).optional(),
-  employeeName: z.string().trim().min(1).max(255).optional(),
+  employeeName: z.string().trim().max(255).optional(),
   paymentType: paymentTypeSchema.optional(),
 });
 

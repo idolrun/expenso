@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   useEffect,
   useMemo,
@@ -45,7 +45,8 @@ import type {
 } from "@/features/expenses/domain/dto";
 import { apiAxios } from "@/src/lib/axios";
 import {
-  slugForSection,
+  dashboardSectionExpensesHref,
+  resolvePostCreateExpenseSectionRedirect,
   sectionLabel,
   type ExpenseSectionId,
 } from "@/src/lib/labels";
@@ -113,6 +114,16 @@ function isExchangeRatePayload(value: unknown): value is ExchangeRatePayload {
   );
 }
 
+/** API returns `{ ok: true, data: { rate, lastUpdated } }`; accept that or a flat payload. */
+function exchangeRateFromJsonBody(body: unknown): ExchangeRatePayload | null {
+  if (!body || typeof body !== "object") return null;
+  const wrap = body as { ok?: unknown; data?: unknown };
+  if (wrap.ok === true && isExchangeRatePayload(wrap.data)) {
+    return wrap.data;
+  }
+  return isExchangeRatePayload(body) ? body : null;
+}
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -128,15 +139,23 @@ export function ExpenseForm({
   expense,
   tags,
   defaultSection,
+  serverSectionSearchParam,
   initialAttachments = [],
 }: {
   mode: "create" | "edit";
   expense?: ExpenseDto;
   tags: TagOption[];
   defaultSection?: ExpenseSectionId;
+  /**
+   * Raw `section` search param from the server-rendered create URL. Prefer this over
+   * `useSearchParams()` so post-create redirects stay correct when the client hook is
+   * empty or delayed during navigation/hydration.
+   */
+  serverSectionSearchParam?: string | null;
   initialAttachments?: SafeAttachmentDto[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [pending, start] = useTransition();
   const [removingAttachment, startRemoving] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -247,21 +266,19 @@ export function ExpenseForm({
           signal: controller.signal,
         });
 
-        const body = (await response.json().catch(() => null)) as
-          | ExchangeRatePayload
-          | { error?: { message?: string } }
-          | null;
+        const body = await response.json().catch(() => null);
 
         if (!response.ok) {
           throw new Error("Unable to load the exchange rate");
         }
 
-        if (!isExchangeRatePayload(body)) {
+        const payload = exchangeRateFromJsonBody(body);
+        if (!payload) {
           throw new Error("Exchange rate payload was invalid");
         }
 
         if (cancelled) return;
-        setExchangeRate(body.rate);
+        setExchangeRate(payload.rate);
         setExchangeRateError(null);
       } catch (error) {
         if (
@@ -399,9 +416,16 @@ export function ExpenseForm({
         return;
       }
       toast.success("Expense created");
-      router.push(
-        `/dashboard/sections/${slugForSection(values.section as ExpenseSectionId)}`,
-      );
+      const submittedSection = values.section as ExpenseSectionId;
+      const sectionSearchParamFromUrl =
+        serverSectionSearchParam !== undefined
+          ? (serverSectionSearchParam ?? searchParams.get("section"))
+          : searchParams.get("section");
+      const targetSection = resolvePostCreateExpenseSectionRedirect({
+        sectionSearchParam: sectionSearchParamFromUrl,
+        submittedSection,
+      });
+      router.push(dashboardSectionExpensesHref(targetSection));
       router.refresh();
       return;
     }
@@ -437,7 +461,7 @@ export function ExpenseForm({
       className="bg-card space-y-4 rounded-xl border p-4 shadow-xs sm:space-y-6 sm:p-6"
     >
       <div className="space-y-4 sm:space-y-6">
-        <FormSection title="Basic Info" step={1} totalSteps={4}>
+        <FormSection title="Basic Info" step={1}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field data-invalid={!!errors.section}>
           <FieldLabel htmlFor="section">
@@ -524,7 +548,7 @@ export function ExpenseForm({
           </div>
         </FormSection>
 
-        <FormSection title="Amount & Dates" step={2} totalSteps={4}>
+        <FormSection title="Amount & Dates" step={2}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field data-invalid={!!errors.currency}>
           <FieldLabel htmlFor="currency">
@@ -607,7 +631,7 @@ export function ExpenseForm({
           </div>
         </FormSection>
 
-        <FormSection title="Classification" step={3} totalSteps={4}>
+        <FormSection title="Classification" step={3}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field data-invalid={!!errors.paymentType} className="sm:col-span-2">
               <FieldLabel htmlFor="paymentType">
@@ -635,8 +659,7 @@ export function ExpenseForm({
             </Field>
           </div>
           <div className="mt-4">
-            <Field>
-              <FieldLabel>Tags</FieldLabel>
+            <Field aria-label="Tags">
               <div className="flex flex-wrap gap-2">
                 {tags.map((t) => (
                   <label
@@ -657,7 +680,7 @@ export function ExpenseForm({
           </div>
         </FormSection>
 
-        <FormSection title="Attachments" step={4} totalSteps={4}>
+        <FormSection title="Attachments" step={4}>
           {/* Receipts */}
           <div className="space-y-3 rounded-lg border p-4 sm:border-0 sm:p-0">
         <div className="flex items-center justify-between gap-2">
@@ -682,7 +705,7 @@ export function ExpenseForm({
             onChange={handleFileChange}
           />
         </div>
-        <p className="text-muted-foreground text-xs">
+        <p className="mb-4 text-muted-foreground text-xs">
           Accepted: PNG, JPEG, PDF. Max 3 MB per file.
         </p>
         {exchangeRateError && (

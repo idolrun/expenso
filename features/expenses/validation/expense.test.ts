@@ -79,6 +79,21 @@ describe("createExpenseSchema", () => {
     });
     expect(r.success).toBe(false);
   });
+
+  it("accepts non-SALARY payloads with empty employeeName (form default)", () => {
+    const r = createExpenseSchema.safeParse({
+      section: "TECH",
+      title: "Office supplies",
+      amount: "42",
+      currency: "USD",
+      fromDate: "2025-04-01",
+      toDate: "2025-04-01",
+      tagIds: [],
+      employeeName: "",
+      paymentType: "OTHER",
+    });
+    expect(r.success).toBe(true);
+  });
 });
 
 describe("updateExpenseSchema", () => {

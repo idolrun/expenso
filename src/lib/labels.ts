@@ -48,8 +48,54 @@ export function sectionFromSlug(slug: string): ExpenseSectionId | null {
   return EXPENSE_SECTION_NAV.find((s) => s.slug === slug)?.section ?? null;
 }
 
+/**
+ * Maps a validated expense section id to the `[slug]` segment under `/dashboard/sections/`.
+ * Derived from the enum shape (underscores → hyphens, lowercased) so new sections get
+ * correct routes without manually duplicating slugs.
+ */
+export function expenseSectionIdToRouteSlug(section: ExpenseSectionId): string {
+  return section.toLowerCase().replaceAll("_", "-");
+}
+
+/** Resolve a URL slug for a section-like string; unknown values fall back to `overview`. */
 export function slugForSection(section: string): string {
-  return EXPENSE_SECTION_NAV.find((s) => s.section === section)?.slug ?? "overview";
+  return isExpenseSectionId(section) ? expenseSectionIdToRouteSlug(section) : "overview";
+}
+
+export function isExpenseSectionId(value: string): value is ExpenseSectionId {
+  return (expenseSectionValues as readonly string[]).includes(value);
+}
+
+/**
+ * Parse a `section` query param or other user-provided string into a section id.
+ * Returns null for missing, blank, or unknown values.
+ */
+export function parseExpenseSectionParam(
+  value: string | null | undefined,
+): ExpenseSectionId | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return isExpenseSectionId(trimmed) ? trimmed : null;
+}
+
+/** Dashboard URL for a section's expense list, including `?section=` for filters and deep links. */
+export function dashboardSectionExpensesHref(section: ExpenseSectionId): string {
+  const slug = slugForSection(section);
+  return `/dashboard/sections/${slug}?${new URLSearchParams({ section }).toString()}`;
+}
+
+/**
+ * Target section after creating an expense: prefer a valid `?section=` on the current URL
+ * (deep link), otherwise the section submitted on the form (always valid from schema).
+ */
+export function resolvePostCreateExpenseSectionRedirect(args: {
+  sectionSearchParam: string | null | undefined;
+  submittedSection: ExpenseSectionId;
+}): ExpenseSectionId {
+  const fromQuery = parseExpenseSectionParam(args.sectionSearchParam);
+  if (fromQuery) return fromQuery;
+  return args.submittedSection;
 }
 
 export function sectionLabel(section: string): string {

@@ -7,7 +7,6 @@ import { CaretDownIcon } from "@phosphor-icons/react";
 interface FormSectionProps {
   title: string;
   step: number;
-  totalSteps: number;
   children: React.ReactNode;
   defaultOpen?: boolean;
   className?: string;
@@ -16,7 +15,6 @@ interface FormSectionProps {
 export function FormSection({
   title,
   step,
-  totalSteps,
   children,
   defaultOpen = true,
   className,
@@ -49,17 +47,6 @@ export function FormSection({
           )}
         />
       </button>
-
-      {/* Desktop section label (subtle) */}
-      <div className="mb-3 hidden items-center gap-2 sm:flex">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-          {step}
-        </span>
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {title}
-        </span>
-        <div className="h-px flex-1 bg-border/60" />
-      </div>
 
       <div
         className={cn(

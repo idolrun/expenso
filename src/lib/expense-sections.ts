@@ -1,6 +1,11 @@
 // Re-export from centralized labels module for backward compatibility.
 export {
   EXPENSE_SECTION_NAV,
+  dashboardSectionExpensesHref,
+  expenseSectionIdToRouteSlug,
+  isExpenseSectionId,
+  parseExpenseSectionParam,
+  resolvePostCreateExpenseSectionRedirect,
   sectionFromSlug,
   sectionLabel,
   slugForSection,

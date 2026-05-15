@@ -31,7 +31,8 @@ export function buildExpenseListWhere(
 ): Prisma.ExpenseWhereInput {
   const andParts: Prisma.ExpenseWhereInput[] = [{ deletedAt: null }];
 
-  if (query.section) {
+  // Overview tab lists every section; other section values filter the `section` column.
+  if (query.section && query.section !== "OVERVIEW") {
     andParts.push({ section: query.section });
   }
   if (query.paymentType) {
