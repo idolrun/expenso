@@ -11,12 +11,8 @@ export const userRepository = {
     return row?.role ?? null;
   },
 
-  async listSummaries(
-    db: DbClient,
-    { includeAdmins = true }: { includeAdmins?: boolean } = {},
-  ) {
+  async listSummaries(db: DbClient) {
     return db.user.findMany({
-      where: includeAdmins ? undefined : { role: "USER" },
       orderBy: { email: "asc" },
       select: { id: true, email: true, name: true, role: true },
     });

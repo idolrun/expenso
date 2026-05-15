@@ -1,5 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { UserRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { hasPermission, Permission } from "@/lib/auth/permissions";
 import type {
   UnifiedSearchHit,
   UnifiedSearchQuery,
@@ -31,8 +33,11 @@ function detectExpenseMatch(
 
 export async function unifiedSearch(
   query: UnifiedSearchQuery,
-  userRole?: string,
+  _userRole?: string,
 ): Promise<ServiceResult<{ hits: UnifiedSearchHit[]; actions: QuickAction[] }>> {
+  const role = UserRole.USER;
+  const canViewUsers = hasPermission(role, Permission.CAN_VIEW_USERS);
+  const canViewTrash = hasPermission(role, Permission.CAN_VIEW_TRASH);
   try {
     const q = query.q.trim();
     const limit = query.limit ?? 25;
@@ -93,8 +98,7 @@ export async function unifiedSearch(
         orderBy: { createdAt: "desc" },
       }),
 
-      // Users (admin only)
-      userRole === "ADMIN"
+      canViewUsers
         ? prisma.user.findMany({
             where: {
               OR: [
@@ -208,38 +212,34 @@ export async function unifiedSearch(
       },
     ];
 
-    const adminActions: QuickAction[] =
-      userRole === "ADMIN"
+    const adminActions: QuickAction[] = [
+      ...(canViewUsers
         ? [
             {
-              type: "action",
+              type: "action" as const,
               id: "go-admin-users",
-              title: "Admin: Users",
-              subtitle: "Manage users",
-              icon: "UsersIcon",
+              title: "Users",
+              subtitle: "View team and allowlist",
+              icon: "UsersIcon" as const,
               href: "/dashboard/admin/users",
               shortcut: "G U",
             },
+          ]
+        : []),
+      ...(canViewTrash
+        ? [
             {
-              type: "action",
-              id: "go-admin-audit",
-              title: "Admin: Audit Log",
-              subtitle: "View audit trail",
-              icon: "ScrollIcon",
-              href: "/dashboard/admin/audit",
-              shortcut: "G L",
-            },
-            {
-              type: "action",
+              type: "action" as const,
               id: "go-trash",
               title: "Trash",
               subtitle: "Review deleted records",
-              icon: "TrashIcon",
+              icon: "TrashIcon" as const,
               href: "/dashboard/trash",
               shortcut: "G T",
             },
           ]
-        : [];
+        : []),
+    ];
 
     const actions = [...baseActions, ...adminActions].filter((a) =>
       a.title.toLowerCase().includes(q.toLowerCase()) ||

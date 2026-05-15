@@ -16,7 +16,7 @@ const {
 
 vi.mock("@/lib/auth/session", () => ({
   getSession: mockGetSession,
-  parseUserRole: (role: unknown) => (role === "ADMIN" ? "ADMIN" : "USER"),
+  parseUserRole: () => "USER",
 }));
 
 vi.mock("@/features/allowed-emails/application/allowed-email.service", () => ({
@@ -33,9 +33,11 @@ import {
   updateAllowedEmailAction,
 } from "@/features/allowed-emails/actions/allowed-email-actions";
 
-function sessionUser(role: "USER" | "ADMIN") {
+const actorUserId = "00000000-0000-4000-8000-000000000001";
+
+function sessionUser() {
   return {
-    user: { id: "00000000-0000-4000-8000-000000000001", role },
+    user: { id: actorUserId, role: "USER" },
     session: {},
   } as never;
 }
@@ -46,7 +48,7 @@ describe("allowed email actions", () => {
   });
 
   it("allows USER to list allowed emails", async () => {
-    mockGetSession.mockResolvedValueOnce(sessionUser("USER"));
+    mockGetSession.mockResolvedValueOnce(sessionUser());
     mockListAllowedEmails.mockResolvedValueOnce({ ok: true, data: [] });
 
     const result = await listAllowedEmailsAction();
@@ -56,7 +58,7 @@ describe("allowed email actions", () => {
   });
 
   it("allows USER to create allowed emails", async () => {
-    mockGetSession.mockResolvedValueOnce(sessionUser("USER"));
+    mockGetSession.mockResolvedValueOnce(sessionUser());
     mockCreateAllowedEmail.mockResolvedValueOnce({
       ok: true,
       data: { id: "allowed_1" },
@@ -68,14 +70,14 @@ describe("allowed email actions", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(mockCreateAllowedEmail).toHaveBeenCalledWith(
-      "00000000-0000-4000-8000-000000000001",
-      { email: "person@example.com", isActive: true },
-    );
+    expect(mockCreateAllowedEmail).toHaveBeenCalledWith(actorUserId, {
+      email: "person@example.com",
+      isActive: true,
+    });
   });
 
   it("allows USER to update allowed emails", async () => {
-    mockGetSession.mockResolvedValueOnce(sessionUser("USER"));
+    mockGetSession.mockResolvedValueOnce(sessionUser());
     mockUpdateAllowedEmail.mockResolvedValueOnce({
       ok: true,
       data: { id: "00000000-0000-4000-8000-000000000002" },
@@ -88,18 +90,15 @@ describe("allowed email actions", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(mockUpdateAllowedEmail).toHaveBeenCalledWith(
-      "00000000-0000-4000-8000-000000000001",
-      {
-        id: "00000000-0000-4000-8000-000000000002",
-        email: "person@example.com",
-        isActive: false,
-      },
-    );
+    expect(mockUpdateAllowedEmail).toHaveBeenCalledWith(actorUserId, {
+      id: "00000000-0000-4000-8000-000000000002",
+      email: "person@example.com",
+      isActive: false,
+    });
   });
 
   it("allows USER to deactivate allowed emails", async () => {
-    mockGetSession.mockResolvedValueOnce(sessionUser("USER"));
+    mockGetSession.mockResolvedValueOnce(sessionUser());
     mockDeactivateAllowedEmail.mockResolvedValueOnce({
       ok: true,
       data: { id: "00000000-0000-4000-8000-000000000002" },
@@ -110,9 +109,20 @@ describe("allowed email actions", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(mockDeactivateAllowedEmail).toHaveBeenCalledWith(
-      "00000000-0000-4000-8000-000000000001",
-      { id: "00000000-0000-4000-8000-000000000002" },
-    );
+    expect(mockDeactivateAllowedEmail).toHaveBeenCalledWith(actorUserId, {
+      id: "00000000-0000-4000-8000-000000000002",
+    });
+  });
+
+  it("returns unauthorized when there is no session", async () => {
+    mockGetSession.mockResolvedValueOnce(null);
+
+    const result = await listAllowedEmailsAction();
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "UNAUTHORIZED", message: "Sign in required" },
+    });
+    expect(mockListAllowedEmails).not.toHaveBeenCalled();
   });
 });

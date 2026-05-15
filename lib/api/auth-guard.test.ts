@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth/session", () => ({
   getSession: vi.fn(),
-  parseUserRole: (role: unknown) => (role === "ADMIN" ? "ADMIN" : "USER"),
+  parseUserRole: () => "USER",
 }));
 
 import { getSession } from "@/lib/auth/session";
@@ -38,12 +38,4 @@ describe("requireAuditReader", () => {
     expect(res.ok).toBe(true);
   });
 
-  it("allows ADMIN", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce({
-      user: { id: "00000000-0000-4000-8000-000000000001", role: "ADMIN" },
-      session: {},
-    } as never);
-    const res = await requireAuditReader();
-    expect(res.ok).toBe(true);
-  });
 });

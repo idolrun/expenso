@@ -41,8 +41,6 @@ import {
   UserGearIcon,
   UsersIcon,
   XIcon,
-  CheckCircleIcon,
-  TrashIcon,
 } from "@phosphor-icons/react";
 
 const mainLinks = [
@@ -65,12 +63,42 @@ const sectionIconMap: Record<
   // INVENTORY and MERCHANDISE removed — not implemented (see UX audit CR-05)
 };
 
+function AdminNav({
+  onNavigate,
+  showUsers,
+}: {
+  onNavigate?: () => void;
+  showUsers?: boolean;
+}) {
+  const pathname = usePathname();
+  if (!showUsers) return null;
+
+  return (
+    <Link
+        href="/dashboard/admin/users"
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          pathname === "/dashboard/admin/users" ||
+            pathname.startsWith("/dashboard/admin/users/")
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+        )}
+      >
+        <UserGearIcon className="size-4" />
+        Users
+      </Link>
+  );
+}
+
 function NavItems({
   onNavigate,
   className,
+  showUsers,
 }: {
   onNavigate?: () => void;
   className?: string;
+  showUsers?: boolean;
 }) {
   const pathname = usePathname();
   return (
@@ -136,6 +164,7 @@ function NavItems({
         <KeyIcon className="size-4" />
         Credentials
       </Link>
+      <AdminNav onNavigate={onNavigate} showUsers={showUsers} />
     </nav>
   );
 }
@@ -143,10 +172,12 @@ function NavItems({
 export function SimpleDashboardShell({
   role,
   userEmail,
+  showUsers = false,
   children,
 }: {
   role: AppUserRole;
   userEmail: string | null;
+  showUsers?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -180,7 +211,7 @@ export function SimpleDashboardShell({
           </Link>
         </div>
         <ScrollArea className="flex-1 px-2 py-3">
-          <NavItems />
+          <NavItems showUsers={showUsers} />
         </ScrollArea>
         <div className="text-muted-foreground border-t border-sidebar-border p-3 text-xs">
           {userEmail ?? "Signed in"}
@@ -216,7 +247,7 @@ export function SimpleDashboardShell({
                 </SheetTitle>
               </SheetHeader>
               <ScrollArea className="h-[calc(100dvh-5rem)] px-2 py-3">
-                <NavItems onNavigate={() => setOpen(false)} />
+                <NavItems onNavigate={() => setOpen(false)} showUsers={showUsers} />
               </ScrollArea>
             </SheetContent>
           </Sheet>
