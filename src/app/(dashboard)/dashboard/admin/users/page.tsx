@@ -24,7 +24,7 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="space-y-10">
-      <div className="space-y-6">
+      {/* <div className="space-y-6">
         <div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight md:text-3xl">
             Users
@@ -37,7 +37,7 @@ export default async function AdminUsersPage() {
           users={res.data}
           currentUserId={sessionToUserId(session)}
         />
-      </div>
+      </div> */}
 
       {canManageEmails ? (
         <AllowedEmailsTable hiddenEmail={session.user.email} />
