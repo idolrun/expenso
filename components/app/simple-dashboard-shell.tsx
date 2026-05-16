@@ -20,7 +20,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import type { AppUserRole } from "@/src/lib/app-user-role";
 import {
   EXPENSE_SECTION_NAV,
   type ExpenseSectionId,
@@ -36,7 +35,6 @@ import {
   MegaphoneIcon,
   MoneyIcon,
   ReceiptIcon,
-  ScrollIcon,
   SquaresFourIcon,
   UserGearIcon,
   UsersIcon,
@@ -170,12 +168,10 @@ function NavItems({
 }
 
 export function SimpleDashboardShell({
-  role,
   userEmail,
   showUsers = false,
   children,
 }: {
-  role: AppUserRole;
   userEmail: string | null;
   showUsers?: boolean;
   children: React.ReactNode;
