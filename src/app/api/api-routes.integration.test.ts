@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 
 vi.mock("@/lib/auth/session", () => ({
   getSession: vi.fn(),
-  parseUserRole: (role: unknown) => (role === "ADMIN" ? "ADMIN" : "USER"),
+  parseUserRole: () => "USER",
 }));
 
 vi.mock("@/features/expenses/application/expense-query.service", () => ({
@@ -35,12 +35,9 @@ import { GET as getSearch } from "@/src/app/api/search/route";
 import { GET as getAuditLog } from "@/src/app/api/audit-log/route";
 import { GET as getDashboard } from "@/src/app/api/dashboard/route";
 
-function sessionUser(
-  role: "USER" | "ADMIN",
-  id = "00000000-0000-4000-8000-000000000001",
-) {
+function sessionUser(id = "00000000-0000-4000-8000-000000000001") {
   return {
-    user: { id, role },
+    user: { id, role: "USER" },
     session: {},
   } as never;
 }
@@ -59,7 +56,7 @@ describe("GET /api/expenses", () => {
   });
 
   it("returns 400 for invalid list query when authenticated", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(sessionUser("USER"));
+    vi.mocked(getSession).mockResolvedValueOnce(sessionUser());
     const req = new NextRequest("http://localhost/api/expenses?section=NOT_A_SECTION");
     const res = await getExpensesList(req);
     expect(res.status).toBe(400);
@@ -67,7 +64,7 @@ describe("GET /api/expenses", () => {
   });
 
   it("calls listExpenses and returns 200 on success", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(sessionUser("ADMIN"));
+    vi.mocked(getSession).mockResolvedValueOnce(sessionUser());
     vi.mocked(listExpenses).mockResolvedValueOnce({
       ok: true,
       data: { items: [], total: 0, page: 1, pageSize: 20 },
@@ -87,7 +84,7 @@ describe("GET /api/expenses/[id]", () => {
   });
 
   it("returns 400 for blank id", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(sessionUser("USER"));
+    vi.mocked(getSession).mockResolvedValueOnce(sessionUser());
     const req = new NextRequest("http://localhost/api/expenses/   ");
     const res = await getExpenseByIdRoute(req, { params: Promise.resolve({ id: "   " }) });
     expect(res.status).toBe(400);
@@ -95,7 +92,7 @@ describe("GET /api/expenses/[id]", () => {
   });
 
   it("returns 404 when service reports not found", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(sessionUser("USER"));
+    vi.mocked(getSession).mockResolvedValueOnce(sessionUser());
     vi.mocked(getExpenseById).mockResolvedValueOnce({
       ok: false,
       error: { code: "NOT_FOUND", message: "Expense not found" },
@@ -112,7 +109,7 @@ describe("GET /api/search", () => {
   });
 
   it("returns 400 when q is too short", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(sessionUser("USER"));
+    vi.mocked(getSession).mockResolvedValueOnce(sessionUser());
     const req = new NextRequest("http://localhost/api/search?q=a");
     const res = await getSearch(req);
     expect(res.status).toBe(400);
@@ -120,7 +117,7 @@ describe("GET /api/search", () => {
   });
 
   it("calls globalSearchExpenses when q is valid", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(sessionUser("USER"));
+    vi.mocked(getSession).mockResolvedValueOnce(sessionUser());
     vi.mocked(globalSearchExpenses).mockResolvedValueOnce({ ok: true, data: [] });
     const req = new NextRequest("http://localhost/api/search?q=amazon");
     const res = await getSearch(req);
@@ -136,36 +133,16 @@ describe("GET /api/audit-log", () => {
     vi.mocked(listAuditLogs).mockReset();
   });
 
-  it("returns 400 for invalid query when authenticated user", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(sessionUser("USER"));
+  it("returns 400 for invalid query when authenticated", async () => {
+    vi.mocked(getSession).mockResolvedValueOnce(sessionUser());
     const req = new NextRequest("http://localhost/api/audit-log?page=not-a-number");
     const res = await getAuditLog(req);
     expect(res.status).toBe(400);
     expect(listAuditLogs).not.toHaveBeenCalled();
   });
 
-  it("returns 400 for invalid query when admin", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(sessionUser("ADMIN"));
-    const req = new NextRequest("http://localhost/api/audit-log?page=not-a-number");
-    const res = await getAuditLog(req);
-    expect(res.status).toBe(400);
-    expect(listAuditLogs).not.toHaveBeenCalled();
-  });
-
-  it("returns 200 when admin and query is valid", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(sessionUser("ADMIN"));
-    vi.mocked(listAuditLogs).mockResolvedValueOnce({
-      ok: true,
-      data: { items: [], total: 0, page: 1, pageSize: 20 },
-    });
-    const req = new NextRequest("http://localhost/api/audit-log");
-    const res = await getAuditLog(req);
-    expect(res.status).toBe(200);
-    expect(listAuditLogs).toHaveBeenCalled();
-  });
-
-  it("returns 200 when user and query is valid", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(sessionUser("USER"));
+  it("returns 200 when query is valid", async () => {
+    vi.mocked(getSession).mockResolvedValueOnce(sessionUser());
     vi.mocked(listAuditLogs).mockResolvedValueOnce({
       ok: true,
       data: { items: [], total: 0, page: 1, pageSize: 20 },
@@ -190,7 +167,7 @@ describe("GET /api/dashboard", () => {
   });
 
   it("returns 200 when authenticated", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(sessionUser("USER"));
+    vi.mocked(getSession).mockResolvedValueOnce(sessionUser());
     vi.mocked(getDashboardSummary).mockResolvedValueOnce({
       ok: true,
       data: {
