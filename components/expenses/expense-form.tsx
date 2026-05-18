@@ -51,12 +51,15 @@ import {
   type ExpenseSectionId,
 } from "@/src/lib/labels";
 import { formatMoneyAmount } from "@/src/lib/format-money";
+import { PaperclipIcon, XIcon, UploadIcon } from "@phosphor-icons/react";
+import { PendingReceiptPreview } from "@/components/expenses/pending-receipt-preview";
 import {
-  PaperclipIcon,
-  XIcon,
-  UploadIcon,
-  FileIcon,
-} from "@phosphor-icons/react";
+  attachmentValidationMessage,
+  RECEIPT_UPLOAD_ACCEPT,
+  RECEIPT_UPLOAD_TYPES_LABEL,
+  validateReceiptFile,
+} from "@/features/attachments/validation/attachment";
+import { MAX_UPLOAD_BYTES } from "@/lib/receipt-upload";
 import { FormSection } from "@/components/ui/form-section";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -64,9 +67,6 @@ import {
   FieldError,
   FieldLabel,
 } from "@/components/ui/field";
-const MAX_FILE_BYTES = 3 * 1024 * 1024;
-const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
-
 type TagOption = { id: string; name: string; slug: string };
 
 type ApiOk<T> = { ok: true; data: T };
@@ -334,16 +334,9 @@ export function ExpenseForm({
     const validFiles: File[] = [];
 
     for (const file of files) {
-      if (file.size > MAX_FILE_BYTES) {
-        errors.push(
-          `${file.name} exceeds the 3 MB limit (${formatBytes(file.size)})`,
-        );
-        continue;
-      }
-      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-        errors.push(
-          `${file.name}: unsupported type (${file.type || "unknown"})`,
-        );
+      const validationError = validateReceiptFile(file);
+      if (validationError) {
+        errors.push(`${file.name}: ${attachmentValidationMessage(validationError)}`);
         continue;
       }
       validFiles.push(file);
@@ -700,13 +693,14 @@ export function ExpenseForm({
             ref={fileInputRef}
             type="file"
             multiple
-            accept=".pdf,.png,.jpg,.jpeg"
+            accept={RECEIPT_UPLOAD_ACCEPT}
             className="sr-only"
             onChange={handleFileChange}
           />
         </div>
         <p className="mb-4 text-muted-foreground text-xs">
-          Accepted: PNG, JPEG, PDF. Max 3 MB per file.
+          Accepted: {RECEIPT_UPLOAD_TYPES_LABEL}. Max{" "}
+          {Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))} MB per file.
         </p>
         {exchangeRateError && (
           <p className="text-destructive text-xs">{exchangeRateError}</p>
@@ -746,34 +740,17 @@ export function ExpenseForm({
         {pendingFiles.length > 0 && (
           <ul className="space-y-2">
             {pendingFiles.map((file, i) => (
-              <li
-                key={`${file.name}-${i}`}
-                className="flex items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-sm"
-              >
-                <FileIcon className="text-muted-foreground size-4 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{file.name}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {formatBytes(file.size)} · {file.type || "Unknown type"}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground hover:text-foreground size-7"
-                  onClick={() => removePendingFile(i)}
-                  aria-label={`Remove ${file.name}`}
-                >
-                  <XIcon className="size-3.5" />
-                </Button>
-              </li>
+              <PendingReceiptPreview
+                key={`${file.name}-${file.size}-${i}`}
+                file={file}
+                onRemove={() => removePendingFile(i)}
+              />
             ))}
           </ul>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 my-4">
         <Button type="submit" disabled={pending || isSubmitting}>
           {(pending || isSubmitting) && <Spinner className="mr-2 size-4" />}
           {mode === "create" ? "Create expense" : "Save changes"}

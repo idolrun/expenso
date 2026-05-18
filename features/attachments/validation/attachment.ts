@@ -1,4 +1,4 @@
-import { ALLOWED_MIME_TYPES, MAX_UPLOAD_BYTES } from "@/lib/cloudinary";
+import { ALLOWED_MIME_TYPES, MAX_UPLOAD_BYTES } from "@/lib/receipt-upload";
 
 // ─── Extension ↔ MIME mapping ──────────────────────────────────────────────
 // Used to detect MIME spoofing — e.g., an executable renamed to .jpg.
@@ -9,7 +9,20 @@ const EXTENSIONS_BY_MIME: Readonly<Record<string, readonly string[]>> = {
   "image/jpeg": [".jpg", ".jpeg", ".jpe"],
   "image/png": [".png"],
   "application/pdf": [".pdf"],
+  "text/csv": [".csv"],
 };
+
+/** Browser-reported types that are normalized to `text/csv` when the extension is `.csv`. */
+const CSV_INFERABLE_MIMES = new Set([
+  "",
+  "application/octet-stream",
+  "application/vnd.ms-excel",
+  "text/plain",
+]);
+
+export const RECEIPT_UPLOAD_ACCEPT = ".pdf,.png,.jpg,.jpeg,.csv";
+
+export const RECEIPT_UPLOAD_TYPES_LABEL = "PNG, JPEG, PDF, CSV";
 
 // ─── Error types ────────────────────────────────────────────────────────────
 
@@ -60,6 +73,21 @@ function fileExtension(name: string): string {
   return dot >= 0 ? lower.slice(dot) : "";
 }
 
+/**
+ * Resolve the effective MIME type for receipt validation.
+ * Browsers often omit or mislabel CSV uploads (e.g. `application/vnd.ms-excel`).
+ */
+export function resolveReceiptContentType(file: {
+  name: string;
+  type: string;
+}): string {
+  const ext = fileExtension(file.name);
+  if (ext === ".csv" && CSV_INFERABLE_MIMES.has(file.type)) {
+    return "text/csv";
+  }
+  return file.type;
+}
+
 // ─── Primary validator ───────────────────────────────────────────────────────
 
 /**
@@ -88,21 +116,26 @@ export function validateReceiptFile(
     };
   }
 
+  const contentType = resolveReceiptContentType(file);
+
   if (
     !ALLOWED_MIME_TYPES.includes(
-      file.type as (typeof ALLOWED_MIME_TYPES)[number],
+      contentType as (typeof ALLOWED_MIME_TYPES)[number],
     )
   ) {
-    return { code: "UNSUPPORTED_TYPE", contentType: file.type };
+    return {
+      code: "UNSUPPORTED_TYPE",
+      contentType: file.type || contentType,
+    };
   }
 
   // Extension ↔ MIME check — only enforced when:
   //   - An extension is present on the filename, AND
   //   - The MIME type maps to a known extension set.
   const ext = fileExtension(file.name);
-  const allowedExts = EXTENSIONS_BY_MIME[file.type];
+  const allowedExts = EXTENSIONS_BY_MIME[contentType];
   if (ext && allowedExts && !allowedExts.includes(ext)) {
-    return { code: "EXTENSION_MISMATCH", extension: ext, contentType: file.type };
+    return { code: "EXTENSION_MISMATCH", extension: ext, contentType };
   }
 
   return null;
@@ -119,7 +152,7 @@ export function attachmentValidationMessage(
     case "FILE_TOO_LARGE":
       return `File exceeds the maximum allowed size of ${Math.round(err.maxBytes / (1024 * 1024))} MB`;
     case "UNSUPPORTED_TYPE":
-      return `Unsupported file type${err.contentType ? ` (${err.contentType})` : ""}. Allowed: PNG, JPEG, PDF`;
+      return `Unsupported file type${err.contentType ? ` (${err.contentType})` : ""}. Allowed: ${RECEIPT_UPLOAD_TYPES_LABEL}`;
     case "EXTENSION_MISMATCH":
       return `File extension "${err.extension}" does not match the declared type (${err.contentType}). Please verify the file is not renamed`;
   }

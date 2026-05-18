@@ -134,8 +134,19 @@ describe("validateReceiptFile", () => {
     ["receipt.jpeg", "image/jpeg"],
     ["scan.png", "image/png"],
     ["invoice.pdf", "application/pdf"],
+    ["expenses.csv", "text/csv"],
   ])("accepts %s with MIME %s", (name, type) => {
     const file = makeFile(name, type, 1024);
+    expect(validateReceiptFile(file)).toBeNull();
+  });
+
+  it("accepts .csv when the browser omits MIME type", () => {
+    const file = makeFile("report.csv", "", 1024);
+    expect(validateReceiptFile(file)).toBeNull();
+  });
+
+  it("accepts .csv when the browser reports application/vnd.ms-excel", () => {
+    const file = makeFile("report.csv", "application/vnd.ms-excel", 1024);
     expect(validateReceiptFile(file)).toBeNull();
   });
 

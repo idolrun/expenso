@@ -15,7 +15,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { CsvPreviewTable } from "@/components/expenses/csv-preview-table";
 import type { SafeAttachmentDto } from "@/features/expenses/domain/dto";
+import {
+  parseCsvPreviewText,
+  type CsvPreviewResult,
+} from "@/features/attachments/utils/csv-preview";
 
 function formatBytes(bytes: number | null): string {
   if (bytes === null) return "—";
@@ -28,11 +33,17 @@ function getFileTypeLabel(contentType: string | null): string {
   if (!contentType) return "File";
   if (contentType === "image/jpeg" || contentType === "image/png") return "Image";
   if (contentType === "application/pdf") return "PDF";
+  if (contentType === "text/csv") return "CSV";
   return "Document";
 }
 
 function isImageAttachment(contentType: string | null): boolean {
   return contentType === "image/jpeg" || contentType === "image/png";
+}
+
+function isCsvAttachment(contentType: string | null, fileName: string): boolean {
+  if (contentType === "text/csv") return true;
+  return fileName.toLowerCase().endsWith(".csv");
 }
 
 function ImageLightbox({
@@ -137,6 +148,93 @@ function AttachmentThumbnail({
   );
 }
 
+function CsvAttachmentPreview({
+  attachment,
+}: {
+  attachment: SafeAttachmentDto;
+}) {
+  const [preview, setPreview] = useState<
+    | { status: "loading" }
+    | { status: "ready"; data: Extract<CsvPreviewResult, { ok: true }> }
+    | { status: "error"; message: string }
+  >({ status: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetch(`/api/attachments/${attachment.id}/view`, {
+          credentials: "same-origin",
+        });
+        const body = (await res.json()) as {
+          ok: boolean;
+          data?: { signedUrl: string };
+        };
+        if (cancelled) return;
+        if (!res.ok || !body.ok || !body.data?.signedUrl) {
+          setPreview({ status: "error", message: "Preview unavailable" });
+          return;
+        }
+
+        const fileRes = await fetch(body.data.signedUrl);
+        if (cancelled) return;
+        if (!fileRes.ok) {
+          setPreview({ status: "error", message: "Could not load CSV" });
+          return;
+        }
+
+        const text = await fileRes.text();
+        if (cancelled) return;
+        const parsed = parseCsvPreviewText(text);
+        if (!parsed.ok) {
+          setPreview({ status: "error", message: parsed.message });
+          return;
+        }
+        setPreview({ status: "ready", data: parsed });
+      } catch {
+        if (!cancelled) {
+          setPreview({ status: "error", message: "Could not load CSV preview" });
+        }
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [attachment.id]);
+
+  return (
+    <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+      <div className="flex items-center gap-2">
+        <FileIcon className="text-muted-foreground size-5 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{attachment.fileName}</p>
+          <p className="text-muted-foreground text-xs">
+            CSV · {formatBytes(attachment.sizeBytes)}
+          </p>
+        </div>
+      </div>
+      {preview.status === "loading" ? (
+        <div className="flex h-24 items-center justify-center">
+          <Spinner className="size-4" />
+        </div>
+      ) : null}
+      {preview.status === "error" ? (
+        <p className="text-muted-foreground text-xs">{preview.message}</p>
+      ) : null}
+      {preview.status === "ready" ? (
+        <CsvPreviewTable
+          headers={preview.data.headers}
+          rows={preview.data.rows}
+          truncated={preview.data.truncated}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function DocumentCard({
   attachment,
 }: {
@@ -200,7 +298,14 @@ export function AttachmentSection({
   attachments: SafeAttachmentDto[];
 }) {
   const images = attachments.filter((a) => isImageAttachment(a.contentType));
-  const documents = attachments.filter((a) => !isImageAttachment(a.contentType));
+  const csvFiles = attachments.filter(
+    (a) => !isImageAttachment(a.contentType) && isCsvAttachment(a.contentType, a.fileName),
+  );
+  const documents = attachments.filter(
+    (a) =>
+      !isImageAttachment(a.contentType) &&
+      !isCsvAttachment(a.contentType, a.fileName),
+  );
 
   if (attachments.length === 0) {
     return (
@@ -230,6 +335,13 @@ export function AttachmentSection({
                   {a.fileName}
                 </p>
               </div>
+            ))}
+          </div>
+        )}
+        {csvFiles.length > 0 && (
+          <div className="space-y-2">
+            {csvFiles.map((a) => (
+              <CsvAttachmentPreview key={a.id} attachment={a} />
             ))}
           </div>
         )}

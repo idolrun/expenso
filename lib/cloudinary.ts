@@ -1,5 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 
+export { ALLOWED_MIME_TYPES, MAX_UPLOAD_BYTES } from "@/lib/receipt-upload";
+
 cloudinary.config({
   cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
   api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
@@ -21,15 +23,5 @@ export function cloudinaryResourceType(
   if (mimeType.startsWith("video/")) return "video";
   return "raw"; // PDF, docx, etc.
 }
-
-/** Max allowed upload size in bytes (3 MB). */
-export const MAX_UPLOAD_BYTES = 3 * 1024 * 1024;
-
-/** MIME types accepted for receipt attachments. */
-export const ALLOWED_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "application/pdf",
-] as const;
 
 
