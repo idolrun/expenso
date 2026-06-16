@@ -83,13 +83,7 @@ export function ExpenseFilters({
 
   return (
     <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-      <div
-        className={cn(
-          "rounded-lg border border-border px-5 py-5",
-          "bg-muted/40 text-foreground",
-          "dark:border-zinc-800 dark:bg-zinc-950/80 dark:text-zinc-50",
-        )}
-      >
+      <div>
         <div className="filter-row flex flex-wrap items-center gap-3">
           <Input
             id="expense-search"
@@ -213,7 +207,7 @@ export function ExpenseFilters({
         <CollapsibleContent className="overflow-hidden">
           <div
             className={cn(
-              "advanced-row flex flex-wrap gap-3 border-t border-border pt-4",
+              "advanced-row flex flex-wrap gap-3  pt-4",
               "dark:border-zinc-800",
             )}
           >
