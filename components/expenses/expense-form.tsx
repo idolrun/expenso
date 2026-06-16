@@ -542,7 +542,7 @@ export function ExpenseForm({
         </FormSection>
 
         <FormSection title="Amount & Dates" step={2}>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <Field data-invalid={!!errors.currency}>
           <FieldLabel htmlFor="currency">
             Saved currency<span className="text-destructive" aria-hidden> *</span>
@@ -596,6 +596,31 @@ export function ExpenseForm({
           </div>
         </Field>
 
+        <Field data-invalid={!!errors.paymentType}>
+          <FieldLabel htmlFor="paymentType">
+            Payment Type<span className="text-destructive" aria-hidden> *</span>
+          </FieldLabel>
+          <Controller
+            control={control}
+            name="paymentType"
+            render={({ field }) => (
+              <NativeSelect
+                id="paymentType"
+                className="w-full min-w-0"
+                value={field.value}
+                onChange={(e) => field.onChange(e.target.value)}
+              >
+                {paymentTypeValues.map((pt) => (
+                  <NativeSelectOption key={pt} value={pt}>
+                    {pt.replace(/_/g, " ")}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            )}
+          />
+          <FieldError>{errors.paymentType?.message}</FieldError>
+        </Field>
+
         <Field data-invalid={!!errors.fromDate}>
           <FieldLabel htmlFor="fromDate">
             From Date<span className="text-destructive" aria-hidden> *</span>
@@ -625,33 +650,7 @@ export function ExpenseForm({
         </FormSection>
 
         <FormSection title="Classification" step={3}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field data-invalid={!!errors.paymentType} className="sm:col-span-2">
-              <FieldLabel htmlFor="paymentType">
-                Payment Type<span className="text-destructive" aria-hidden> *</span>
-              </FieldLabel>
-              <Controller
-                control={control}
-                name="paymentType"
-                render={({ field }) => (
-                  <NativeSelect
-                    id="paymentType"
-                    className="w-full min-w-0"
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.target.value)}
-                  >
-                    {paymentTypeValues.map((pt) => (
-                      <NativeSelectOption key={pt} value={pt}>
-                        {pt.replace(/_/g, " ")}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
-                )}
-              />
-              <FieldError>{errors.paymentType?.message}</FieldError>
-            </Field>
-          </div>
-          <div className="mt-4">
+          <div>
             <Field aria-label="Tags">
               <div className="flex flex-wrap gap-2">
                 {tags.map((t) => (

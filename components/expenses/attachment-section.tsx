@@ -41,39 +41,56 @@ function isImageAttachment(contentType: string | null): boolean {
   return contentType === "image/jpeg" || contentType === "image/png";
 }
 
+function isPdfAttachment(contentType: string | null, fileName: string): boolean {
+  if (contentType === "application/pdf") return true;
+  return fileName.toLowerCase().endsWith(".pdf");
+}
+
 function isCsvAttachment(contentType: string | null, fileName: string): boolean {
   if (contentType === "text/csv") return true;
   return fileName.toLowerCase().endsWith(".csv");
 }
 
-function ImageLightbox({
-  src,
-  alt,
-  open,
-  onClose,
-}: {
-  src: string;
-  alt: string;
-  open: boolean;
-  onClose: () => void;
-}) {
-  if (!open) return null;
+/** A previewable receipt renders an inline image (photo or PDF first page). */
+function isThumbnailAttachment(
+  contentType: string | null,
+  fileName: string,
+): boolean {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={alt}
-        className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      />
-    </div>
+    isImageAttachment(contentType) || isPdfAttachment(contentType, fileName)
   );
+}
+
+/**
+ * Stream the receipt from our download proxy and trigger a browser save.
+ * The route serves the file as an attachment with its original name; fetching
+ * it as a same-origin blob lets the `download` attribute keep that name.
+ */
+async function downloadAttachment(
+  attachment: SafeAttachmentDto,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/attachments/${attachment.id}/download`, {
+      credentials: "same-origin",
+    });
+    if (!res.ok) {
+      toast.error("Could not download receipt");
+      return false;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = attachment.fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    return true;
+  } catch {
+    toast.error("Network error while downloading receipt");
+    return false;
+  }
 }
 
 function AttachmentThumbnail({
@@ -84,7 +101,7 @@ function AttachmentThumbnail({
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,6 +129,15 @@ function AttachmentThumbnail({
     };
   }, [attachment.id]);
 
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      await downloadAttachment(attachment);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   if (error) {
     return (
       <div className="flex h-32 items-center justify-center rounded-lg border bg-muted/20">
@@ -129,22 +155,29 @@ function AttachmentThumbnail({
   }
 
   return (
-    <>
+    <button
+      type="button"
+      onClick={handleDownload}
+      disabled={downloading}
+      className="group relative block h-32 w-full overflow-hidden rounded-lg border"
+      aria-label={`Download ${attachment.fileName}`}
+      title="Click to download"
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={signedUrl}
         alt={attachment.fileName}
-        className="h-32 w-full cursor-pointer rounded-lg border object-contain transition-opacity hover:opacity-90"
+        className="h-full w-full object-contain transition-opacity group-hover:opacity-60"
         onError={() => setError(true)}
-        onClick={() => setLightboxOpen(true)}
       />
-      <ImageLightbox
-        src={signedUrl}
-        alt={attachment.fileName}
-        open={lightboxOpen}
-        onClose={() => setLightboxOpen(false)}
-      />
-    </>
+      <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity group-hover:bg-black/30 group-hover:opacity-100">
+        {downloading ? (
+          <Spinner className="size-5 text-white" />
+        ) : (
+          <DownloadIcon className="size-5 text-white" weight="bold" />
+        )}
+      </span>
+    </button>
   );
 }
 
@@ -205,6 +238,16 @@ function CsvAttachmentPreview({
     };
   }, [attachment.id]);
 
+  const [downloading, setDownloading] = useState(false);
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      await downloadAttachment(attachment);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
       <div className="flex items-center gap-2">
@@ -215,6 +258,21 @@ function CsvAttachmentPreview({
             CSV · {formatBytes(attachment.sizeBytes)}
           </p>
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7 shrink-0"
+          onClick={handleDownload}
+          disabled={downloading}
+          aria-label={`Download ${attachment.fileName}`}
+        >
+          {downloading ? (
+            <Spinner className="size-3.5" />
+          ) : (
+            <DownloadIcon className="size-3.5" />
+          )}
+        </Button>
       </div>
       {preview.status === "loading" ? (
         <div className="flex h-24 items-center justify-center">
@@ -245,17 +303,7 @@ function DocumentCard({
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const res = await fetch(`/api/attachments/${attachment.id}/view`, {
-        credentials: "same-origin",
-      });
-      const body = await res.json();
-      if (!res.ok || !body.ok || !body.data?.signedUrl) {
-        toast.error("Could not generate download link");
-        return;
-      }
-      window.open(body.data.signedUrl, "_blank", "noopener,noreferrer");
-    } catch {
-      toast.error("Network error while generating download link");
+      await downloadAttachment(attachment);
     } finally {
       setDownloading(false);
     }
@@ -297,13 +345,17 @@ export function AttachmentSection({
 }: {
   attachments: SafeAttachmentDto[];
 }) {
-  const images = attachments.filter((a) => isImageAttachment(a.contentType));
+  const thumbnails = attachments.filter((a) =>
+    isThumbnailAttachment(a.contentType, a.fileName),
+  );
   const csvFiles = attachments.filter(
-    (a) => !isImageAttachment(a.contentType) && isCsvAttachment(a.contentType, a.fileName),
+    (a) =>
+      !isThumbnailAttachment(a.contentType, a.fileName) &&
+      isCsvAttachment(a.contentType, a.fileName),
   );
   const documents = attachments.filter(
     (a) =>
-      !isImageAttachment(a.contentType) &&
+      !isThumbnailAttachment(a.contentType, a.fileName) &&
       !isCsvAttachment(a.contentType, a.fileName),
   );
 
@@ -326,9 +378,9 @@ export function AttachmentSection({
         <CardTitle className="text-base">Attachments</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {images.length > 0 && (
+        {thumbnails.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {images.map((a) => (
+            {thumbnails.map((a) => (
               <div key={a.id} className="space-y-1">
                 <AttachmentThumbnail attachment={a} />
                 <p className="truncate text-xs text-muted-foreground">

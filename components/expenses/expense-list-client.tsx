@@ -87,6 +87,12 @@ function resolveDisplayAmount(
   };
 }
 
+/** Show the username portion of an email (the part before "@"). */
+function addedByLabel(email: string | null): string {
+  if (!email) return "—";
+  return email.split("@")[0] || email;
+}
+
 function AmountCell({ expense }: { expense: ExpenseDto }) {
   const { displayCurrency } = useDisplayCurrency();
   const { amount, currency, isConverted } = resolveDisplayAmount(
@@ -382,6 +388,7 @@ export function ExpenseListClient({
                     </TableHead>
                     <TableHead>Title</TableHead>
                     <TableHead>Section</TableHead>
+                    <TableHead>Added By</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead className="w-25" />
                   </TableRow>
@@ -423,6 +430,9 @@ export function ExpenseListClient({
                         <TableCell className="text-muted-foreground text-sm">
                           {sectionLabel(e.section)}
                         </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {addedByLabel(e.createdByEmail)}
+                        </TableCell>
                         <TableCell className="text-right text-sm">
                           <AmountCell expense={e} />
                         </TableCell>
@@ -453,7 +463,8 @@ export function ExpenseListClient({
                         {e.title}
                       </CardTitle>
                       <CardDescription>
-                        {sectionLabel(e.section)}
+                        {sectionLabel(e.section)} · Added by{" "}
+                        {addedByLabel(e.createdByEmail)}
                       </CardDescription>
                     </div>
                     <Checkbox

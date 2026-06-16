@@ -40,6 +40,8 @@ export type ExpenseDto = {
   paymentType: PaymentType;
   tags: ExpenseTagDto[];
   createdById: string;
+  /** Email of the user who created the expense, when available. */
+  createdByEmail: string | null;
   updatedById: string | null;
   createdAt: string;
   updatedAt: string;

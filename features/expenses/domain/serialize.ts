@@ -13,6 +13,7 @@ export type ExpenseRow = Prisma.ExpenseGetPayload<{
   include: {
     expenseTags: { include: { tag: true } };
     salaryRecord: true;
+    createdBy: { select: { email: true; name: true } };
   };
 }>;
 
@@ -49,6 +50,7 @@ export function serializeExpense(row: ExpenseRow): ExpenseDto {
       color: et.tag.color ?? null,
     })),
     createdById: row.createdById,
+    createdByEmail: row.createdBy?.email ?? null,
     updatedById: row.updatedById,
     createdAt: toIsoDateTime(row.createdAt),
     updatedAt: toIsoDateTime(row.updatedAt),

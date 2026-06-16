@@ -292,14 +292,37 @@ export type SignedUrlPayload = {
   expiresAt: number;
 };
 
+/** Resolve the file extension to use when constructing a Cloudinary URL. */
+function cloudinaryFormatFor(
+  attachment: { cloudinaryFormat: string | null; contentType: string | null },
+  resourceType: "image" | "raw" | "video",
+): string {
+  if (attachment.cloudinaryFormat) {
+    return attachment.cloudinaryFormat.replace(/^\./, "");
+  }
+  // Raw assets (e.g. CSV) are stored without a format extension.
+  if (resourceType === "raw") return "";
+  switch (attachment.contentType?.toLowerCase()) {
+    case "application/pdf":
+      return "pdf";
+    case "image/png":
+      return "png";
+    case "image/jpeg":
+      return "jpg";
+    default:
+      return "";
+  }
+}
+
 /**
- * Generate a short-lived signed Cloudinary delivery URL for an authenticated asset.
+ * Generate a short-lived signed Cloudinary delivery URL for inline preview.
+ *
+ * Images and CSVs are delivered directly; PDFs are rendered as a first-page
+ * JPG because Cloudinary blocks inline delivery of original PDF files.
  *
  * Access control:
  *   - Session validation is performed by the route handler before this call.
  *   - Expense existence is re-verified here (defense in depth).
- *   - URL expires after SIGNED_URL_TTL_SECONDS (60 s); Cloudinary rejects
- *     any request made after that window even if the URL is discovered.
  *   - Permanent or public Cloudinary URLs are never returned.
  *
  * @param attachmentId   The attachment to serve.
@@ -342,15 +365,34 @@ export async function getSignedAttachmentUrlService(
     }
 
     const expiresAt = Math.floor(Date.now() / 1000) + SIGNED_URL_TTL_SECONDS;
-    const resourceType = cloudinaryResourceType(attachment.contentType);
+    const resourceType = cloudinaryResourceType(
+      attachment.contentType,
+      attachment.cloudinaryFormat,
+    );
+    const isPdf =
+      attachment.contentType?.toLowerCase() === "application/pdf" ||
+      attachment.cloudinaryFormat?.toLowerCase() === "pdf";
 
-    const signedUrl = cloudinary.url(attachment.cloudinaryPublicId, {
-      type: "authenticated",
-      resource_type: resourceType,
-      secure: true,
-      sign_url: true,
-      expires_at: expiresAt,
-    });
+    let signedUrl: string;
+    if (isPdf) {
+      // Cloudinary blocks inline delivery of original PDFs, so preview the
+      // first page rendered as a JPG image.
+      signedUrl = cloudinary.url(attachment.cloudinaryPublicId, {
+        type: "authenticated",
+        resource_type: "image",
+        format: "jpg",
+        page: 1,
+        secure: true,
+        sign_url: true,
+      });
+    } else {
+      signedUrl = cloudinary.url(attachment.cloudinaryPublicId, {
+        type: "authenticated",
+        resource_type: resourceType,
+        secure: true,
+        sign_url: true,
+      });
+    }
 
     // Emit a structured access log (high-volume event → stdout, not audit DB).
     logAttachmentAccess({
@@ -364,5 +406,98 @@ export async function getSignedAttachmentUrlService(
   } catch (e) {
     const message = e instanceof Error ? e.message : "Signed URL generation failed";
     return { ok: false, error: { code: "SIGNED_URL_FAILED", message } };
+  }
+}
+
+// ─── Download (server-side proxy source) ─────────────────────────────────────
+
+export type AttachmentDownloadSource = {
+  /** Server-fetchable Cloudinary URL for the original asset bytes. */
+  url: string;
+  /** Original (sanitized) filename to present to the user. */
+  fileName: string;
+  /** Best-known content type for the response. */
+  contentType: string;
+};
+
+/**
+ * Resolve the upstream Cloudinary URL to stream a receipt download from.
+ *
+ * We use Cloudinary's signed download API (`private_download_url`) rather than a
+ * res.cloudinary.com delivery URL because the download API serves the *original*
+ * asset for every type — including PDFs, whose inline delivery is blocked by
+ * Cloudinary's default media-type restriction (HTTP 401/404).
+ *
+ * The returned URL is fetched server-side by the route handler, which then
+ * streams the bytes to the client with the original filename. This keeps the
+ * Cloudinary URL off the client and lets us control the download filename
+ * (the download API itself only yields a generic "file.<ext>" name).
+ */
+export async function getAttachmentDownloadSourceService(
+  attachmentId: string,
+  actorUserId: string,
+): Promise<ServiceResult<AttachmentDownloadSource>> {
+  try {
+    const attachment = await attachmentRepository.findById(prisma, attachmentId);
+    if (!attachment) {
+      return { ok: false, error: { code: "NOT_FOUND", message: "Attachment not found" } };
+    }
+
+    const expense = await expenseRepository.findActiveById(
+      prisma,
+      attachment.expenseId,
+    );
+    if (!expense) {
+      return {
+        ok: false,
+        error: { code: "NOT_FOUND", message: "Related expense not found or deleted" },
+      };
+    }
+
+    if (attachment.provider !== "CLOUDINARY" || !attachment.cloudinaryPublicId) {
+      return {
+        ok: false,
+        error: {
+          code: "UNSUPPORTED_PROVIDER",
+          message: "Download is only supported for Cloudinary assets",
+        },
+      };
+    }
+
+    const expiresAt = Math.floor(Date.now() / 1000) + SIGNED_URL_TTL_SECONDS;
+    const resourceType = cloudinaryResourceType(
+      attachment.contentType,
+      attachment.cloudinaryFormat,
+    );
+
+    const url = cloudinary.utils.private_download_url(
+      attachment.cloudinaryPublicId,
+      cloudinaryFormatFor(attachment, resourceType),
+      {
+        resource_type: resourceType,
+        type: "authenticated",
+        expires_at: expiresAt,
+        attachment: true,
+      },
+    );
+
+    logAttachmentAccess({
+      attachmentId,
+      expenseId: attachment.expenseId,
+      userId: actorUserId,
+      expiresAt,
+    });
+
+    return {
+      ok: true,
+      data: {
+        url,
+        fileName: attachment.fileName,
+        contentType: attachment.contentType || "application/octet-stream",
+      },
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Download URL generation failed";
+    return { ok: false, error: { code: "DOWNLOAD_FAILED", message } };
   }
 }
