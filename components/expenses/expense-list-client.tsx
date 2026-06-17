@@ -45,6 +45,7 @@ import {
 } from "@/src/lib/labels";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkActionBar } from "@/components/expenses/bulk-action-bar";
+import { SectionSpendSummary } from "@/components/expenses/section-spend-summary";
 import type { AppUserRole } from "@/src/lib/app-user-role";
 
 type TagOption = { id: string; name: string; slug: string };
@@ -274,6 +275,8 @@ export function ExpenseListClient({
         tags={tags}
         hideSectionFilter={Boolean(section)}
       />
+
+      <SectionSpendSummary section={section ?? query.section} />
 
       {error ? (
         <Alert variant="destructive">

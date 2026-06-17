@@ -158,7 +158,8 @@ export async function updateExpenseService(
         input.tagIds !== undefined ? [...input.tagIds].sort() : before.tagIds,
     };
 
-    if (snapshotsEqual(before, after)) {
+    // Uploading new receipts is itself a change, even when no scalar field differs.
+    if (snapshotsEqual(before, after) && attachments.length === 0) {
       return {
         ok: false,
         error: { code: "NO_CHANGES", message: "No changes detected" },

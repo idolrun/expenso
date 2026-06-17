@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   DownloadIcon,
+  EyeIcon,
   FileIcon,
 } from "@phosphor-icons/react";
 
@@ -14,6 +15,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { CsvPreviewTable } from "@/components/expenses/csv-preview-table";
 import type { SafeAttachmentDto } from "@/features/expenses/domain/dto";
@@ -102,6 +109,7 @@ function AttachmentThumbnail({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,29 +163,59 @@ function AttachmentThumbnail({
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleDownload}
-      disabled={downloading}
-      className="group relative block h-32 w-full overflow-hidden rounded-lg border"
-      aria-label={`Download ${attachment.fileName}`}
-      title="Click to download"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={signedUrl}
-        alt={attachment.fileName}
-        className="h-full w-full object-contain transition-opacity group-hover:opacity-60"
-        onError={() => setError(true)}
-      />
-      <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-opacity group-hover:bg-black/30 group-hover:opacity-100">
-        {downloading ? (
-          <Spinner className="size-5 text-white" />
-        ) : (
-          <DownloadIcon className="size-5 text-white" weight="bold" />
-        )}
-      </span>
-    </button>
+    <>
+      <div className="group relative block h-32 w-full overflow-hidden rounded-lg border">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={signedUrl}
+          alt={attachment.fileName}
+          className="h-full w-full cursor-zoom-in object-contain transition-opacity group-hover:opacity-60"
+          onClick={() => setPreviewOpen(true)}
+          onError={() => setError(true)}
+        />
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-opacity group-hover:bg-black/30 group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="pointer-events-auto inline-flex size-9 items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
+            aria-label={`Preview ${attachment.fileName}`}
+            title="Click to preview"
+          >
+            <EyeIcon className="size-5" weight="bold" />
+          </button>
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={downloading}
+            className="pointer-events-auto inline-flex size-9 items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60 disabled:opacity-60"
+            aria-label={`Download ${attachment.fileName}`}
+            title="Click to download"
+          >
+            {downloading ? (
+              <Spinner className="size-5" />
+            ) : (
+              <DownloadIcon className="size-5" weight="bold" />
+            )}
+          </button>
+        </span>
+      </div>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="truncate pr-6">
+              {attachment.fileName}
+            </DialogTitle>
+          </DialogHeader>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={signedUrl}
+            alt={attachment.fileName}
+            className="max-h-[80vh] w-full rounded-md object-contain"
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
